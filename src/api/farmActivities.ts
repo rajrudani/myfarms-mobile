@@ -10,6 +10,7 @@ export interface FarmActivityFilters {
   date_to?: string;
   page?: number;
   per_page?: number | 'all';
+  search?: string;
 }
 
 export const farmActivitiesApi = {

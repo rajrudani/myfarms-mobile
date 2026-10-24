@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -16,6 +16,8 @@ import {
   FlatList,
   Image,
   Switch,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -393,6 +395,24 @@ export default function FarmHubScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'cycles' | 'activities' | 'expenses'>('cycles');
 
+  // Activities pagination & loading states
+  const [activitiesPage, setActivitiesPage] = useState(1);
+  const [hasMoreActivities, setHasMoreActivities] = useState(true);
+  const [loadingMoreActivities, setLoadingMoreActivities] = useState(false);
+  const [loadingActivities, setLoadingActivities] = useState(false);
+  const loadingMoreActivitiesRef = useRef(false);
+  const isInitialActivitiesSearchMount = useRef(true);
+
+  // Expenses pagination & loading states
+  const [expensesPage, setExpensesPage] = useState(1);
+  const [hasMoreExpenses, setHasMoreExpenses] = useState(true);
+  const [loadingMoreExpenses, setLoadingMoreExpenses] = useState(false);
+  const [loadingExpenses, setLoadingExpenses] = useState(false);
+  const loadingMoreExpensesRef = useRef(false);
+  const isInitialExpensesSearchMount = useRef(true);
+
+  const isFetchingHubDataRef = useRef(false);
+
   // Add Crop Cycle Modal State
   const [cycleModalVisible, setCycleModalVisible] = useState(false);
   const [cropType, setCropType] = useState('');
@@ -498,6 +518,8 @@ export default function FarmHubScreen() {
 
   const fetchHubData = async () => {
     if (!farmIdentifier) return;
+    if (isFetchingHubDataRef.current) return;
+    isFetchingHubDataRef.current = true;
     try {
       // 1. Fetch farm details first to get the correct numeric database ID
       const farmData = await farmsApi.getById(farmIdentifier);
@@ -505,60 +527,72 @@ export default function FarmHubScreen() {
 
       const dbId = farmData.id;
       if (dbId) {
-        // Fetch crop cycles (critical)
-        try {
-          const cyclesData = await cropCyclesApi.getAll({ farm_id: dbId });
-          setCycles(cyclesData);
-        } catch (err) {
-          console.error('Error fetching crop cycles:', err);
+        // Run all critical and secondary fetches in parallel for blazing fast loading
+        const [cyclesRes, expensesRes, activitiesRes, mastersRes, inputProductsRes] = await Promise.allSettled([
+          cropCyclesApi.getAll({ farm_id: dbId }),
+          expensesApi.getPaginated({
+            farm_id: dbId,
+            page: 1,
+            per_page: 15,
+            search: expensesSearchQuery.trim() || undefined,
+          }),
+          farmActivitiesApi.getPaginated({
+            farm_id: dbId,
+            page: 1,
+            per_page: 15,
+            search: activitiesSearchQuery.trim() || undefined,
+          }),
+          mastersApi.getActivities(),
+          mastersApi.getInputProducts(),
+        ]);
+
+        if (cyclesRes.status === 'fulfilled') {
+          setCycles(cyclesRes.value);
+        } else {
+          console.error('Error fetching crop cycles:', cyclesRes.reason);
         }
 
-        // Fetch expenses (critical)
-        try {
-          const expensesData = await expensesApi.getAll({ farm_id: dbId });
-          setExpenses(expensesData);
-        } catch (err) {
-          console.error('Error fetching expenses:', err);
+        if (expensesRes.status === 'fulfilled') {
+          const expData = expensesRes.value.data || [];
+          setExpenses(expData);
+          const curExpPage = expensesRes.value.meta?.current_page ?? 1;
+          const lastExpPage = expensesRes.value.meta?.last_page ?? (expData.length < 15 ? curExpPage : curExpPage + 1);
+          setExpensesPage(curExpPage);
+          setHasMoreExpenses(curExpPage < lastExpPage);
+        } else {
+          console.error('Error fetching expenses:', expensesRes.reason);
         }
 
-        // Fetch logged activity records
-        try {
-          const activitiesData = await farmActivitiesApi.getAll({ farm_id: dbId });
-          setActivities(activitiesData);
-        } catch (err) {
-          console.error('Error fetching farm activities:', err);
+        if (activitiesRes.status === 'fulfilled') {
+          const actData = activitiesRes.value.data || [];
+          setActivities(actData);
+          const curActPage = activitiesRes.value.meta?.current_page ?? 1;
+          const lastActPage = activitiesRes.value.meta?.last_page ?? (actData.length < 15 ? curActPage : curActPage + 1);
+          setActivitiesPage(curActPage);
+          setHasMoreActivities(curActPage < lastActPage);
+        } else {
+          console.error('Error fetching farm activities:', activitiesRes.reason);
         }
 
-        // Fetch activity templates (non-critical)
-        try {
-          const activitiesListData = await mastersApi.getActivities();
-          if (activitiesListData && activitiesListData.length > 0) {
-            // Deduplicate by name (case-insensitive)
-            const uniqueMap = new Map<string, FarmActivityMaster>();
-            activitiesListData.forEach(a => {
-              if (a.is_active) {
-                const key = a.name.trim().toLowerCase();
-                const existing = uniqueMap.get(key);
-                if (!existing || (a.farm_group_id !== null && existing.farm_group_id === null)) {
-                  uniqueMap.set(key, a);
-                }
+        if (mastersRes.status === 'fulfilled' && mastersRes.value && mastersRes.value.length > 0) {
+          // Deduplicate by name (case-insensitive)
+          const uniqueMap = new Map<string, FarmActivityMaster>();
+          mastersRes.value.forEach(a => {
+            if (a.is_active) {
+              const key = a.name.trim().toLowerCase();
+              const existing = uniqueMap.get(key);
+              if (!existing || (a.farm_group_id !== null && existing.farm_group_id === null)) {
+                uniqueMap.set(key, a);
               }
-            });
-            setActivityMastersList(Array.from(uniqueMap.values()));
-          } else {
-            setActivityMastersList(fallbackActivityMasters);
-          }
-        } catch (err) {
-          console.error('Error fetching activity templates:', err);
+            }
+          });
+          setActivityMastersList(Array.from(uniqueMap.values()));
+        } else {
           setActivityMastersList(fallbackActivityMasters);
         }
 
-        // Fetch input products (non-critical)
-        try {
-          const inputProductsListData = await mastersApi.getInputProducts();
-          setInputProductsList(inputProductsListData.filter(p => p.is_active));
-        } catch (err) {
-          console.error('Error fetching input products:', err);
+        if (inputProductsRes.status === 'fulfilled') {
+          setInputProductsList(inputProductsRes.value.filter(p => p.is_active));
         }
       } else {
         setCycles([]);
@@ -571,14 +605,151 @@ export default function FarmHubScreen() {
       console.error('Error fetching farm hub data:', error);
       Alert.alert('Error', extractErrorMessage(error));
     } finally {
+      isFetchingHubDataRef.current = false;
       setLoading(false);
       setRefreshing(false);
     }
   };
 
+  const loadMoreActivities = async () => {
+    if (loadingMoreActivitiesRef.current || !hasMoreActivities || loadingActivities) return;
+    const dbId = farm?.id || farmIdentifier;
+    if (!dbId) return;
+
+    loadingMoreActivitiesRef.current = true;
+    setLoadingMoreActivities(true);
+
+    try {
+      const nextPage = activitiesPage + 1;
+      const res = await farmActivitiesApi.getPaginated({
+        farm_id: dbId,
+        page: nextPage,
+        per_page: 15,
+        search: activitiesSearchQuery.trim() || undefined,
+      });
+
+      const newItems = res.data || [];
+      const curPage = res.meta?.current_page ?? nextPage;
+      const lastPage = res.meta?.last_page ?? (newItems.length < 15 ? curPage : curPage + 1);
+
+      setActivities(prev => {
+        const existingIds = new Set(prev.map(a => a.ulid || a.id));
+        const unique = newItems.filter(a => !existingIds.has(a.ulid || a.id));
+        return [...prev, ...unique];
+      });
+      setActivitiesPage(curPage);
+      setHasMoreActivities(curPage < lastPage);
+    } catch (err) {
+      console.error('Error loading more activities:', err);
+    } finally {
+      loadingMoreActivitiesRef.current = false;
+      setLoadingMoreActivities(false);
+    }
+  };
+
+  const loadMoreExpenses = async () => {
+    if (loadingMoreExpensesRef.current || !hasMoreExpenses || loadingExpenses) return;
+    const dbId = farm?.id || farmIdentifier;
+    if (!dbId) return;
+
+    loadingMoreExpensesRef.current = true;
+    setLoadingMoreExpenses(true);
+
+    try {
+      const nextPage = expensesPage + 1;
+      const res = await expensesApi.getPaginated({
+        farm_id: dbId,
+        page: nextPage,
+        per_page: 15,
+        search: expensesSearchQuery.trim() || undefined,
+      });
+
+      const newItems = res.data || [];
+      const curPage = res.meta?.current_page ?? nextPage;
+      const lastPage = res.meta?.last_page ?? (newItems.length < 15 ? curPage : curPage + 1);
+
+      setExpenses(prev => {
+        const existingIds = new Set(prev.map(e => e.ulid || e.id));
+        const unique = newItems.filter(e => !existingIds.has(e.ulid || e.id));
+        return [...prev, ...unique];
+      });
+      setExpensesPage(curPage);
+      setHasMoreExpenses(curPage < lastPage);
+    } catch (err) {
+      console.error('Error loading more expenses:', err);
+    } finally {
+      loadingMoreExpensesRef.current = false;
+      setLoadingMoreExpenses(false);
+    }
+  };
+
+  // Debounced server-side search for Activities
   useEffect(() => {
-    fetchHubData();
-  }, [farmIdentifier]);
+    if (isInitialActivitiesSearchMount.current) {
+      isInitialActivitiesSearchMount.current = false;
+      return;
+    }
+    const dbId = farm?.id || farmIdentifier;
+    if (!dbId) return;
+
+    const timer = setTimeout(async () => {
+      setLoadingActivities(true);
+      try {
+        const res = await farmActivitiesApi.getPaginated({
+          farm_id: dbId,
+          page: 1,
+          per_page: 15,
+          search: activitiesSearchQuery.trim() || undefined,
+        });
+        const items = res.data || [];
+        const cur = res.meta?.current_page ?? 1;
+        const last = res.meta?.last_page ?? (items.length < 15 ? cur : cur + 1);
+        setActivities(items);
+        setActivitiesPage(cur);
+        setHasMoreActivities(cur < last);
+      } catch (err) {
+        console.error('Error searching activities:', err);
+      } finally {
+        setLoadingActivities(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [activitiesSearchQuery]);
+
+  // Debounced server-side search for Expenses
+  useEffect(() => {
+    if (isInitialExpensesSearchMount.current) {
+      isInitialExpensesSearchMount.current = false;
+      return;
+    }
+    const dbId = farm?.id || farmIdentifier;
+    if (!dbId) return;
+
+    const timer = setTimeout(async () => {
+      setLoadingExpenses(true);
+      try {
+        const res = await expensesApi.getPaginated({
+          farm_id: dbId,
+          page: 1,
+          per_page: 15,
+          search: expensesSearchQuery.trim() || undefined,
+        });
+        const items = res.data || [];
+        const cur = res.meta?.current_page ?? 1;
+        const last = res.meta?.last_page ?? (items.length < 15 ? cur : cur + 1);
+        setExpenses(items);
+        setExpensesPage(cur);
+        setHasMoreExpenses(cur < last);
+      } catch (err) {
+        console.error('Error searching expenses:', err);
+      } finally {
+        setLoadingExpenses(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [expensesSearchQuery]);
 
   useFocusEffect(
     useCallback(() => {
@@ -587,6 +758,19 @@ export default function FarmHubScreen() {
       }
     }, [farmIdentifier])
   );
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const paddingToBottom = 150;
+    const isClose = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+    if (isClose) {
+      if (activeTab === 'activities') {
+        loadMoreActivities();
+      } else if (activeTab === 'expenses') {
+        loadMoreExpenses();
+      }
+    }
+  };
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -1165,6 +1349,8 @@ export default function FarmHubScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#16a34a']} />}
+        onScroll={handleScroll}
+        scrollEventThrottle={32}
       >
         {/* Stats Grid matching PWA */}
         <View style={styles.statsGrid}>
@@ -1398,7 +1584,12 @@ export default function FarmHubScreen() {
               )}
             </View>
 
-            {(() => {
+            {loadingActivities ? (
+              <View style={{ paddingVertical: 36, alignItems: 'center', justifyContent: 'center' }}>
+                <ActivityIndicator size="small" color="#16a34a" />
+                <Text style={{ marginTop: 8, fontSize: 13, color: '#64748b' }}>Searching activities...</Text>
+              </View>
+            ) : (() => {
               const filtered = (activities || []).filter(act => {
                 if (!activitiesSearchQuery) return true;
                 const query = activitiesSearchQuery.toLowerCase();
@@ -1534,7 +1725,21 @@ export default function FarmHubScreen() {
                                 const detailsLine = rows.map(r => `${r.label}: ${r.value}`).join('  •  ');
 
                                 return (
-                                  <View key={act.id || act.ulid} style={{ marginTop: actIdx > 0 ? 12 : 0, paddingTop: actIdx > 0 ? 12 : 0, borderTopWidth: actIdx > 0 ? 1 : 0, borderTopColor: '#e2e8f0' }}>
+                                  <TouchableOpacity 
+                                    key={act.id || act.ulid} 
+                                    activeOpacity={0.7}
+                                    onPress={() => {
+                                      router.push({
+                                        pathname: '/activity-view',
+                                        params: {
+                                          activity_id: act.id?.toString(),
+                                          activity_ulid: act.ulid,
+                                          farm_name: farm?.name,
+                                        },
+                                      });
+                                    }}
+                                    style={{ marginTop: actIdx > 0 ? 12 : 0, paddingTop: actIdx > 0 ? 12 : 0, borderTopWidth: actIdx > 0 ? 1 : 0, borderTopColor: '#e2e8f0' }}
+                                  >
                                     {/* Activity title and status row */}
                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                                       <Text style={{ fontSize: 14, fontWeight: '700', color: '#334155' }}>
@@ -1572,7 +1777,7 @@ export default function FarmHubScreen() {
                                         Notes: {act.notes}
                                       </Text>
                                     ) : null}
-                                  </View>
+                                  </TouchableOpacity>
                                 );
                               })}
                             </View>
@@ -1584,6 +1789,18 @@ export default function FarmHubScreen() {
                 );
               });
             })()}
+
+            {loadingMoreActivities && (
+              <View style={{ paddingVertical: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}>
+                <ActivityIndicator size="small" color="#16a34a" />
+                <Text style={{ marginLeft: 8, fontSize: 13, color: '#64748b', fontWeight: '500' }}>Loading more activities...</Text>
+              </View>
+            )}
+            {!loadingActivities && !loadingMoreActivities && !hasMoreActivities && activities.length > 0 && (
+              <View style={{ paddingVertical: 14, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>All activities loaded</Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -1618,7 +1835,12 @@ export default function FarmHubScreen() {
               )}
             </View>
 
-            {(() => {
+            {loadingExpenses ? (
+              <View style={{ paddingVertical: 36, alignItems: 'center', justifyContent: 'center' }}>
+                <ActivityIndicator size="small" color="#16a34a" />
+                <Text style={{ marginTop: 8, fontSize: 13, color: '#64748b' }}>Searching expenses...</Text>
+              </View>
+            ) : (() => {
               const filtered = (expenses || []).filter(item => {
                 if (!expensesSearchQuery) return true;
                 const query = expensesSearchQuery.toLowerCase();
@@ -1773,6 +1995,18 @@ export default function FarmHubScreen() {
                 );
               });
             })()}
+
+            {loadingMoreExpenses && (
+              <View style={{ paddingVertical: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}>
+                <ActivityIndicator size="small" color="#16a34a" />
+                <Text style={{ marginLeft: 8, fontSize: 13, color: '#64748b', fontWeight: '500' }}>Loading more expenses...</Text>
+              </View>
+            )}
+            {!loadingExpenses && !loadingMoreExpenses && !hasMoreExpenses && expenses.length > 0 && (
+              <View style={{ paddingVertical: 14, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>All expenses loaded</Text>
+              </View>
+            )}
           </View>
         )}
       </ScrollView>

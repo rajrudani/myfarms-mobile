@@ -13,6 +13,7 @@ export interface FarmExpenseFilters {
   date_to?: string;
   page?: number;
   per_page?: number | 'all';
+  search?: string;
 }
 
 export const expensesApi = {
