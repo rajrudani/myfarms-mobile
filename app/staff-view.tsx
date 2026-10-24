@@ -14,6 +14,7 @@ import {
   Platform,
   KeyboardAvoidingView,
   Linking,
+  Image,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,7 +24,7 @@ import { attendanceApi } from '../src/api/attendance';
 import { farmsApi } from '../src/api/farms';
 import { Farm, StaffMember, StaffPayment, StaffAttendance, StaffRoleValue } from '../src/types';
 import { useAuth } from '../src/hooks/useAuth';
-import { extractErrorMessage } from '../src/api/client';
+import { extractErrorMessage, getAbsoluteImageUrl } from '../src/api/client';
 
 export default function StaffViewScreen() {
   const { id } = useLocalSearchParams();
@@ -443,7 +444,16 @@ export default function StaffViewScreen() {
         <View style={styles.heroCard}>
           <View style={styles.heroHeader}>
             <View style={[styles.avatarCircle, { backgroundColor: roleColor + '20' }]}>
-              <Text style={[styles.avatarText, { color: roleColor }]}>{initials}</Text>
+              {staff.profile_photo_url || staff.profile_photo_path ? (
+                <Image
+                  source={{
+                    uri: staff.profile_photo_url || getAbsoluteImageUrl(staff.profile_photo_path),
+                  }}
+                  style={styles.avatarImg}
+                />
+              ) : (
+                <Text style={[styles.avatarText, { color: roleColor }]}>{initials}</Text>
+              )}
               <View style={[styles.statusDot, { backgroundColor: staff.is_active ? '#22c55e' : '#94a3b8' }]} />
             </View>
             <View style={styles.heroMeta}>
@@ -1517,6 +1527,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+  },
+  avatarImg: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
   },
   avatarText: {
     fontSize: 22,

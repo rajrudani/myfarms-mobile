@@ -126,6 +126,7 @@ export interface StaffMember {
   phone?: string;
   username?: string;
   email?: string;
+  profile_photo_path?: string | null;
   profile_photo_url?: string;
   is_active: boolean;
   roles: StaffRole[];
@@ -208,6 +209,7 @@ export interface StaffPayment {
     role_label?: string | null;
     email?: string | null;
     farm_name?: string | null;
+    profile_photo_path?: string | null;
     profile_photo_url?: string | null;
   } | null;
   created_at?: string;

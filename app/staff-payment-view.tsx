@@ -13,13 +13,14 @@ import {
   Platform,
   KeyboardAvoidingView,
   StatusBar,
+  Image,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { staffPaymentsApi, CreatePaymentData } from '../src/api/staffPayments';
 import { staffApi } from '../src/api/staff';
 import { StaffPayment, StaffMember } from '../src/types';
-import { extractErrorMessage } from '../src/api/client';
+import { extractErrorMessage, getAbsoluteImageUrl } from '../src/api/client';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
 import {
   BentoCard,
@@ -237,7 +238,18 @@ export default function StaffPaymentViewScreen() {
         >
           <BentoCard variant="elevated" style={styles.staffCard}>
             <View style={styles.staffAvatar}>
-              <Text style={styles.staffAvatarText}>{staffInitials}</Text>
+              {payment.staff?.profile_photo_url || payment.staff?.profile_photo_path ? (
+                <Image
+                  source={{
+                    uri:
+                      payment.staff.profile_photo_url ||
+                      getAbsoluteImageUrl(payment.staff.profile_photo_path),
+                  }}
+                  style={styles.staffAvatarImg}
+                />
+              ) : (
+                <Text style={styles.staffAvatarText}>{staffInitials}</Text>
+              )}
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.staffName}>{payment.staff?.name || 'Unknown Staff'}</Text>
@@ -584,6 +596,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    overflow: 'hidden',
+  },
+  staffAvatarImg: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.pill,
   },
   staffAvatarText: {
     fontSize: 16,

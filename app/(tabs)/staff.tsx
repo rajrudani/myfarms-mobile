@@ -15,6 +15,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   StatusBar,
+  Image,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -24,7 +25,7 @@ import { staffPaymentsApi, CreatePaymentData } from '../../src/api/staffPayments
 import { farmsApi } from '../../src/api/farms';
 import { Farm, StaffMember, StaffPayment, StaffRoleValue } from '../../src/types';
 import { useAuth } from '../../src/hooks/useAuth';
-import { extractErrorMessage } from '../../src/api/client';
+import { extractErrorMessage, getAbsoluteImageUrl } from '../../src/api/client';
 import { colors, radius, spacing, shadows } from '../../src/theme/tokens';
 import {
   BentoCard,
@@ -85,6 +86,7 @@ export default function StaffScreen() {
   const [attendanceRecords, setAttendanceRecords] = useState<
     { farm_staff_id: number; farm_id?: number | null; status: 'present' | 'absent' | 'half_day'; notes: string }[]
   >([]);
+  const [expandedStaffIds, setExpandedStaffIds] = useState<number[]>([]);
   const [savingAttendance, setSavingAttendance] = useState(false);
 
   // TAB 3: Payments - Filter & Search
@@ -326,6 +328,21 @@ export default function StaffScreen() {
     setAddPaymentModalVisible(true);
   };
 
+  const getRoleColor = (roleVal: string) => {
+    switch (roleVal) {
+      case 'Owner':
+        return '#2563eb';
+      case 'Manager':
+        return '#7e22ce';
+      case 'Worker':
+        return '#d97706';
+      case 'Consultant':
+        return '#16a34a';
+      default:
+        return '#64748b';
+    }
+  };
+
   const getRoleVariant = (roleVal: string) => {
     switch (roleVal) {
       case 'Owner':
@@ -341,11 +358,20 @@ export default function StaffScreen() {
     }
   };
 
+  const toggleExpandedStaff = (staffId: number) => {
+    setExpandedStaffIds((prev) =>
+      prev.includes(staffId) ? prev.filter((id) => id !== staffId) : [...prev, staffId]
+    );
+  };
+
   const renderStaffCard = ({ item }: { item: StaffMember }) => {
     const isCurrentUser = user && user.id === item.id;
-    const isWorkerOrConsultant = item.roles.some(
-      (r) => r.value === 'Worker' || r.value === 'Consultant'
+    const isOwnerOrManager = item.roles.some(
+      (r) => r.value === 'Owner' || r.value === 'Manager'
     );
+    const canAddPayment = !isOwnerOrManager;
+    const primaryRole = item.roles[0]?.value || 'Worker';
+    const roleColor = getRoleColor(primaryRole);
     const initials = item.name
       ? item.name
           .split(' ')
@@ -355,96 +381,147 @@ export default function StaffScreen() {
           .toUpperCase()
       : 'U';
 
+    const hasFarms = item.farms && item.farms.length > 0;
+    const farmsText = hasFarms ? item.farms.map((f) => f.name).join(', ') : '';
+
     return (
-      <BentoCard variant="elevated" style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={styles.avatarRow}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>{initials}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <View style={styles.nameRow}>
-                <Text style={styles.staffName} numberOfLines={1}>
-                  {item.name}
+      <View style={styles.pwaStaffCard}>
+        {/* Role badge top-right */}
+        <View style={styles.pwaRoleStack}>
+          {item.roles.map((r, i) => {
+            const rc = getRoleColor(r.value);
+            return (
+              <View
+                key={i}
+                style={[
+                  styles.pwaRoleBadge,
+                  { backgroundColor: rc + '18' },
+                ]}
+              >
+                <Text style={[styles.pwaRoleBadgeText, { color: rc }]}>
+                  {r.label}
                 </Text>
-                {isCurrentUser && <Text style={styles.youIndicator}>(You)</Text>}
               </View>
-              <View style={styles.roleBadgeContainer}>
-                {item.roles.map((r, i) => (
-                  <StatusBadge
-                    key={i}
-                    label={r.label}
-                    variant={getRoleVariant(r.value)}
-                    dot={false}
-                  />
-                ))}
-              </View>
-            </View>
-          </View>
-          <StatusBadge
-            label={item.is_active ? 'Active' : 'Inactive'}
-            variant={item.is_active ? 'success' : 'neutral'}
-            dot
-          />
+            );
+          })}
         </View>
 
-        <View style={styles.cardBody}>
-          <View style={styles.infoRow}>
-            <Ionicons name="map-outline" size={13} color={colors.slate500} style={styles.infoIcon} />
-            <Text style={styles.infoText} numberOfLines={1}>
-              {item.farms.length > 0
-                ? item.farms.map((f) => f.name).join(', ')
-                : 'No Farms Assigned'}
-            </Text>
-          </View>
-
-          {item.family_head && (
-            <View style={styles.infoRow}>
-              <Ionicons
-                name="people-outline"
-                size={13}
-                color={colors.slate500}
-                style={styles.infoIcon}
+        {/* Staff Main */}
+        <View style={styles.pwaStaffMain}>
+          {/* Avatar (52x52 rounded 14 with status dot) */}
+          <View style={[styles.pwaAvatar, { backgroundColor: roleColor + '20' }]}>
+            {item.profile_photo_url || item.profile_photo_path ? (
+              <Image
+                source={{
+                  uri: item.profile_photo_url || getAbsoluteImageUrl(item.profile_photo_path),
+                }}
+                style={styles.pwaAvatarImg}
               />
-              <Text style={styles.infoText}>Family Head: {item.family_head.name}</Text>
+            ) : (
+              <Text style={[styles.pwaAvatarText, { color: roleColor }]}>{initials}</Text>
+            )}
+            <View
+              style={[
+                styles.pwaStatusDot,
+                item.is_active ? styles.pwaStatusDotActive : styles.pwaStatusDotInactive,
+              ]}
+            />
+          </View>
+
+          {/* Info */}
+          <View style={styles.pwaStaffInfo}>
+            <View style={styles.pwaNameRow}>
+              <Text style={styles.pwaStaffName} numberOfLines={1}>
+                {item.name}
+              </Text>
+              {isCurrentUser ? <Text style={styles.pwaYouTag}>(You)</Text> : null}
             </View>
-          )}
+
+            {/* Farms row */}
+            {hasFarms ? (
+              <View style={styles.pwaMetaRow}>
+                <Ionicons name="location-outline" size={13} color="#64748b" />
+                <Text style={styles.pwaMetaText} numberOfLines={1}>
+                  {farmsText}
+                </Text>
+              </View>
+            ) : !item.roles.some((r) => r.value === 'Owner') ? (
+              <View style={styles.pwaMetaRow}>
+                <Ionicons name="warning-outline" size={13} color="#b45309" />
+                <Text style={styles.pwaWarningText} numberOfLines={1}>
+                  No farm assigned
+                </Text>
+              </View>
+            ) : null}
+
+            {/* Family head */}
+            {item.family_head ? (
+              <View style={styles.pwaMetaRow}>
+                <Ionicons name="person-outline" size={13} color="#64748b" />
+                <Text style={styles.pwaMetaText} numberOfLines={1}>
+                  Family Head: {item.family_head.name}
+                </Text>
+              </View>
+            ) : null}
+          </View>
         </View>
 
-        <View style={styles.cardFooterActions}>
-          <TouchableOpacity
-            style={styles.viewBtn}
-            onPress={() => router.push(`/staff-view?id=${item.ulid || item.id}`)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="eye-outline" size={15} color={colors.slate800} />
-            <Text style={styles.viewBtnText}>View Profile</Text>
-          </TouchableOpacity>
-
-          {isWorkerOrConsultant && (
+        {/* Staff Actions */}
+        <View style={styles.pwaStaffActions}>
+          {canAddPayment ? (
             <TouchableOpacity
-              style={styles.payBtn}
+              style={styles.pwaPaymentBtn}
               onPress={() => openPaymentModalForStaff(item.id)}
               activeOpacity={0.7}
             >
-              <Ionicons name="cash-outline" size={15} color={colors.white} />
-              <Text style={styles.payBtnText}>Pay Wages</Text>
+              <Ionicons name="card-outline" size={13} color="#334155" />
+              <Text style={styles.pwaPaymentBtnText}>Payment</Text>
             </TouchableOpacity>
-          )}
+          ) : null}
+
+          <TouchableOpacity
+            style={styles.pwaViewBtn}
+            onPress={() => router.push(`/staff-view?id=${item.ulid || item.id}`)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="eye-outline" size={14} color="#166534" />
+            <Text style={styles.pwaViewBtnText}>View</Text>
+          </TouchableOpacity>
         </View>
-      </BentoCard>
+      </View>
     );
   };
 
   const renderAttendanceCard = ({ item }: { item: StaffMember }) => {
     const recordIndex = attendanceRecords.findIndex((r) => r.farm_staff_id === item.id);
-    const status = recordIndex !== -1 ? attendanceRecords[recordIndex].status : 'present';
-    const notes = recordIndex !== -1 ? attendanceRecords[recordIndex].notes : '';
+    const record = recordIndex !== -1 ? attendanceRecords[recordIndex] : null;
+    const status = record?.status || 'present';
+    const isPresent = status === 'present' || status === 'half_day';
+    const isHalfDay = status === 'half_day';
+    const notes = record?.notes || '';
+    const workFarmId = record?.farm_id || (item.farms[0]?.id || null);
+    const isExpanded = expandedStaffIds.includes(item.id);
 
-    const setStatus = (newStatus: 'present' | 'absent' | 'half_day') => {
+    const togglePresent = () => {
       if (recordIndex !== -1) {
         const updated = [...attendanceRecords];
-        updated[recordIndex].status = newStatus;
+        updated[recordIndex].status = isPresent ? 'absent' : 'present';
+        setAttendanceRecords(updated);
+      }
+    };
+
+    const toggleHalfDay = () => {
+      if (recordIndex !== -1) {
+        const updated = [...attendanceRecords];
+        updated[recordIndex].status = isHalfDay ? 'present' : 'half_day';
+        setAttendanceRecords(updated);
+      }
+    };
+
+    const setFarmLocation = (farmId: number | null) => {
+      if (recordIndex !== -1) {
+        const updated = [...attendanceRecords];
+        updated[recordIndex].farm_id = farmId;
         setAttendanceRecords(updated);
       }
     };
@@ -464,6 +541,8 @@ export default function StaffScreen() {
       if (!matchesFarm) return null;
     }
 
+    const primaryRole = item.roles[0]?.value || 'Worker';
+    const roleColor = getRoleColor(primaryRole);
     const initials = item.name
       ? item.name
           .split(' ')
@@ -473,92 +552,122 @@ export default function StaffScreen() {
           .toUpperCase()
       : 'U';
 
+    const isUnassigned = !item.farms || item.farms.length === 0;
+
     return (
-      <BentoCard variant="elevated" style={styles.attendanceCard}>
-        <View style={styles.attendanceCardHeader}>
-          <View style={styles.avatarRow}>
-            <View style={styles.attendanceAvatarCircle}>
-              <Text style={styles.attendanceAvatarText}>{initials}</Text>
+      <View style={[styles.pwaAttendanceCard, isHalfDay && styles.pwaAttendanceCardHalf]}>
+        {/* Top row */}
+        <View style={styles.pwaAttTopRow}>
+          <View style={styles.pwaAttMain}>
+            <View style={[styles.pwaAvatarSmall, { backgroundColor: roleColor + '20' }]}>
+              {item.profile_photo_url || item.profile_photo_path ? (
+                <Image
+                  source={{
+                    uri: item.profile_photo_url || getAbsoluteImageUrl(item.profile_photo_path),
+                  }}
+                  style={styles.pwaAvatarImg}
+                />
+              ) : (
+                <Text style={[styles.pwaAvatarTextSmall, { color: roleColor }]}>{initials}</Text>
+              )}
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.attendanceStaffName} numberOfLines={1}>
+            <View style={styles.pwaAttNameWrap}>
+              <Text style={styles.pwaAttStaffName} numberOfLines={1}>
                 {item.name}
               </Text>
-              <Text style={styles.staffFarmSubtitle} numberOfLines={1}>
-                {item.farms.length > 0
-                  ? item.farms.map((f) => f.name).join(', ')
-                  : 'No farm assigned'}
-              </Text>
+              {isUnassigned ? (
+                <Ionicons name="warning-outline" size={13} color="#b45309" style={{ marginLeft: 4 }} />
+              ) : null}
             </View>
           </View>
-        </View>
 
-        {/* 3 Single-Tap Attendance Pills */}
-        <View style={styles.attendanceButtonsRow}>
+          {/* Present Switch Toggle */}
           <TouchableOpacity
-            style={[styles.attBtn, status === 'present' && styles.attBtnPresentActive]}
-            onPress={() => setStatus('present')}
-            activeOpacity={0.7}
+            style={[styles.pwaPresentSwitch, isPresent && styles.pwaPresentSwitchOn]}
+            onPress={togglePresent}
+            activeOpacity={0.8}
           >
-            <Ionicons
-              name={status === 'present' ? 'checkmark-circle' : 'checkmark-circle-outline'}
-              size={16}
-              color={status === 'present' ? colors.white : colors.primaryDark}
-            />
-            <Text style={[styles.attBtnText, status === 'present' && styles.attBtnTextActive]}>
-              Present
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.attBtn, status === 'half_day' && styles.attBtnHalfActive]}
-            onPress={() => setStatus('half_day')}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={status === 'half_day' ? 'time' : 'time-outline'}
-              size={16}
-              color={status === 'half_day' ? colors.white : colors.accentDark}
-            />
-            <Text style={[styles.attBtnText, status === 'half_day' && styles.attBtnTextActive]}>
-              Half Day
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.attBtn, status === 'absent' && styles.attBtnAbsentActive]}
-            onPress={() => setStatus('absent')}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={status === 'absent' ? 'close-circle' : 'close-circle-outline'}
-              size={16}
-              color={status === 'absent' ? colors.white : colors.dangerText}
-            />
-            <Text style={[styles.attBtnText, status === 'absent' && styles.attBtnTextActive]}>
-              Absent
+            <View style={[styles.pwaSwitchKnob, isPresent && styles.pwaSwitchKnobOn]}>
+              {isPresent ? (
+                <Ionicons name="checkmark" size={12} color="#166534" />
+              ) : null}
+            </View>
+            <Text style={[styles.pwaPresentSwitchLabel, isPresent && styles.pwaPresentSwitchLabelOn]}>
+              {isPresent ? 'Present' : 'Absent'}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Notes Line */}
-        <View style={styles.attendanceNotesContainer}>
-          <Ionicons name="document-text-outline" size={14} color={colors.slate400} />
-          <TextInput
-            style={styles.attendanceNotesInput}
-            placeholder="Work note (optional)..."
-            placeholderTextColor={colors.slate400}
-            value={notes}
-            onChangeText={setNotes}
-          />
-        </View>
-      </BentoCard>
+        {/* Row 2: Shown when Present */}
+        {isPresent ? (
+          <View style={styles.pwaAttDetailsRow}>
+            <TouchableOpacity
+              style={styles.pwaDetailsToggle}
+              onPress={() => toggleExpandedStaff(item.id)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.pwaDetailsToggleText}>
+                {isExpanded ? 'Less (-)' : 'More (+)'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.pwaHalfDayCheck, isHalfDay && styles.pwaHalfDayCheckActive]}
+              onPress={toggleHalfDay}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={isHalfDay ? 'checkbox' : 'square-outline'}
+                size={16}
+                color={isHalfDay ? '#d97706' : '#94a3b8'}
+              />
+              <Text style={[styles.pwaHalfDayText, isHalfDay && styles.pwaHalfDayTextActive]}>
+                HALF DAY
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {/* Row 3: Expanded details (Work location + notes) */}
+        {isPresent && isExpanded ? (
+          <View style={styles.pwaAttExpanded}>
+            <View style={styles.pwaWorkFarmRow}>
+              <Text style={styles.pwaWorkFarmLabel}>Work Location:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }}>
+                {activeFarms.map((f) => {
+                  const isSelected = workFarmId === f.id;
+                  return (
+                    <TouchableOpacity
+                      key={f.id}
+                      style={[styles.pwaWorkFarmChip, isSelected && styles.pwaWorkFarmChipActive]}
+                      onPress={() => setFarmLocation(f.id as number)}
+                    >
+                      <Text style={[styles.pwaWorkFarmChipText, isSelected && styles.pwaWorkFarmChipTextActive]}>
+                        {f.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            <View style={styles.pwaAttNotesBox}>
+              <TextInput
+                style={styles.pwaAttNotesInput}
+                placeholder="Work notes..."
+                placeholderTextColor="#94a3b8"
+                value={notes}
+                onChangeText={setNotes}
+              />
+            </View>
+          </View>
+        ) : null}
+      </View>
     );
   };
 
   const renderPaymentCard = ({ item }: { item: StaffPayment }) => {
     const staffName = item.staff?.name || 'Unknown Staff';
-    const firstFarm = item.staff?.farm_name || 'General';
     const givenBy = item.given_by?.name || 'Group Owner';
     const formattedDate = item.date ? item.date.split('T')[0] : 'N/A';
     const cleanMethodLabel = item.payment_method
@@ -569,47 +678,39 @@ export default function StaffScreen() {
       <TouchableOpacity
         onPress={() => router.push(`/staff-payment-view?id=${item.ulid || item.id}`)}
         activeOpacity={0.8}
+        style={styles.pwaPaymentCard}
       >
-        <BentoCard variant="elevated" style={styles.paymentCard}>
-          <View style={styles.paymentCardHeader}>
-            <View style={styles.paymentCardLeft}>
-              <Text style={styles.paymentStaffName} numberOfLines={1}>
+        <View style={styles.pwaPaymentCardContent}>
+          <View style={styles.pwaPaymentHeaderRow}>
+            <View style={styles.pwaPaymentStaffCol}>
+              <Text style={styles.pwaPaymentStaffName} numberOfLines={1}>
                 {staffName}
               </Text>
-              <View style={styles.farmLocationRow}>
-                <Ionicons name="business-outline" size={12} color={colors.slate500} />
-                <Text style={styles.paymentSubtext} numberOfLines={1}>
-                  {firstFarm}
-                </Text>
-              </View>
+              <Text style={styles.pwaPaymentDate}>{formattedDate}</Text>
             </View>
-            <View style={styles.paymentCardRight}>
-              <Text style={styles.paymentAmountText}>
-                ₹{Number(item.amount).toLocaleString('en-IN')}
-              </Text>
-              <StatusBadge label={cleanMethodLabel} variant="info" dot={false} />
-            </View>
+            <Text style={styles.pwaPaymentAmount}>
+              ₹{Number(item.amount).toLocaleString('en-IN')}
+            </Text>
           </View>
 
-          <View style={styles.paymentCardFooter}>
-            <View style={styles.paymentMetaRow}>
-              <Ionicons name="person-outline" size={12} color={colors.slate500} />
-              <Text style={styles.paymentMetaText}>By {givenBy}</Text>
-            </View>
-            <View style={styles.paymentMetaRow}>
-              <Ionicons name="calendar-outline" size={12} color={colors.slate500} />
-              <Text style={styles.paymentMetaText}>{formattedDate}</Text>
+          <View style={styles.pwaPaymentMetaRow}>
+            <Text style={styles.pwaPaymentGivenBy}>Given By: {givenBy}</Text>
+            <View style={styles.pwaPaymentMethodPill}>
+              <Text style={styles.pwaPaymentMethodText}>{cleanMethodLabel}</Text>
             </View>
           </View>
 
           {item.notes ? (
-            <View style={styles.paymentNotesBox}>
-              <Text style={styles.paymentNotesText} numberOfLines={1}>
-                Note: {item.notes}
+            <View style={styles.pwaPaymentNotesRow}>
+              <Text style={styles.pwaPaymentNotesText} numberOfLines={2}>
+                <Text style={{ fontWeight: '700' }}>Note: </Text>
+                {item.notes}
               </Text>
             </View>
           ) : null}
-        </BentoCard>
+        </View>
+
+        <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
       </TouchableOpacity>
     );
   };
@@ -626,30 +727,49 @@ export default function StaffScreen() {
   const halfDayCount = attendanceRecords.filter((r) => r.status === 'half_day').length;
   const absentCount = attendanceRecords.filter((r) => r.status === 'absent').length;
 
-  const MAIN_TAB_OPTIONS: ChipOption<'staff' | 'attendance' | 'payments'>[] = [
-    { label: 'Staff', value: 'staff', badge: staff.length },
-    { label: 'Attendance', value: 'attendance' },
-    { label: 'Payment', value: 'payments', badge: payments.length },
-  ];
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       {/* Header Sticky */}
       <View style={styles.header}>
-        <View>
+        <View style={styles.headerTitleWrap}>
           <Text style={styles.headerTitle}>Manage Staff</Text>
           <Text style={styles.headerSubtitle}>Manage staff, attendance, and payments with ease.</Text>
         </View>
 
-        {/* Tab switcher */}
-        <QuickChipGroup
-          options={MAIN_TAB_OPTIONS}
-          selectedValue={activeTab}
-          onSelect={(val) => setActiveTab(val)}
-          size="sm"
-        />
+        {/* PWA Segmented Tab Bar */}
+        <View style={styles.segmentedTabBar}>
+          <TouchableOpacity
+            style={[styles.segmentedTab, activeTab === 'staff' && styles.segmentedTabActive]}
+            onPress={() => setActiveTab('staff')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.segmentedTabText, activeTab === 'staff' && styles.segmentedTabTextActive]}>
+              Staff
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.segmentedTab, activeTab === 'attendance' && styles.segmentedTabActive]}
+            onPress={() => setActiveTab('attendance')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.segmentedTabText, activeTab === 'attendance' && styles.segmentedTabTextActive]}>
+              Attendance
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.segmentedTab, activeTab === 'payments' && styles.segmentedTabActive]}
+            onPress={() => setActiveTab('payments')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.segmentedTabText, activeTab === 'payments' && styles.segmentedTabTextActive]}>
+              Payment
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Main Content Area */}
@@ -1178,17 +1298,465 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.slate200,
     gap: spacing.sm,
   },
+  headerTitleWrap: {
+    gap: 2,
+  },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
     color: colors.slate900,
+    letterSpacing: -0.3,
   },
   headerSubtitle: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.slate500,
     marginTop: 2,
   },
+  segmentedTabBar: {
+    flexDirection: 'row',
+    gap: 4,
+    padding: 4,
+    backgroundColor: 'rgba(226, 232, 240, 0.72)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(203, 213, 225, 0.72)',
+    marginTop: 4,
+  },
+  segmentedTab: {
+    flex: 1,
+    minHeight: 38,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentedTabActive: {
+    backgroundColor: colors.white,
+    borderColor: 'rgba(34, 197, 94, 0.22)',
+    borderWidth: 1,
+    ...shadows.subtle,
+  },
+  segmentedTabText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  segmentedTabTextActive: {
+    color: '#14532d',
+    fontWeight: '800',
+  },
+
+  // PWA Staff Card Styles
+  pwaStaffCard: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(226, 232, 240, 0.9)',
+    padding: 14,
+    position: 'relative',
+    marginBottom: 12,
+    ...shadows.subtle,
+  },
+  pwaRoleStack: {
+    position: 'absolute',
+    top: 12,
+    right: 14,
+    zIndex: 2,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+    justifyContent: 'flex-end',
+    maxWidth: '45%',
+  },
+  pwaRoleBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  pwaRoleBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  pwaStaffMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    flex: 1,
+  },
+  pwaAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.8)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  pwaAvatarImg: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+  },
+  pwaAvatarText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  pwaStatusDot: {
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.white,
+  },
+  pwaStatusDotActive: {
+    backgroundColor: '#22c55e',
+  },
+  pwaStatusDotInactive: {
+    backgroundColor: '#94a3b8',
+  },
+  pwaStaffInfo: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
+  },
+  pwaNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  pwaStaffName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0f172a',
+    maxWidth: '65%',
+  },
+  pwaYouTag: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#94a3b8',
+    marginLeft: 4,
+  },
+  pwaMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 4,
+  },
+  pwaMetaText: {
+    fontSize: 12,
+    color: '#64748b',
+    flexShrink: 1,
+  },
+  pwaWarningText: {
+    fontSize: 12,
+    color: '#b45309',
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  pwaStaffActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(241, 245, 249, 0.8)',
+    justifyContent: 'flex-end',
+  },
+  pwaPaymentBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    minHeight: 32,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(226, 232, 240, 0.95)',
+    backgroundColor: '#f8fafc',
+  },
+  pwaPaymentBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  pwaViewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    minHeight: 32,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.22)',
+    backgroundColor: '#f0fdf4',
+  },
+  pwaViewBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#15803d',
+  },
+
+  // PWA Attendance Card Styles
+  pwaAttendanceCard: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(226, 232, 240, 0.9)',
+    padding: 14,
+    marginBottom: 12,
+    ...shadows.subtle,
+  },
+  pwaAttendanceCardHalf: {
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+    backgroundColor: 'rgba(254, 243, 199, 0.15)',
+  },
+  pwaAttTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pwaAttMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    marginRight: 8,
+  },
+  pwaAvatarSmall: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.8)',
+    overflow: 'hidden',
+  },
+  pwaAvatarTextSmall: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  pwaAttNameWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  pwaAttStaffName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0f172a',
+    flexShrink: 1,
+  },
+  pwaPresentSwitch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  pwaPresentSwitchOn: {
+    backgroundColor: '#dcfce7',
+    borderColor: 'rgba(34, 197, 94, 0.4)',
+  },
+  pwaSwitchKnob: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pwaSwitchKnobOn: {
+    backgroundColor: colors.white,
+  },
+  pwaPresentSwitchLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  pwaPresentSwitchLabelOn: {
+    color: '#15803d',
+  },
+  pwaAttDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(241, 245, 249, 0.8)',
+  },
+  pwaDetailsToggle: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: '#f8fafc',
+  },
+  pwaDetailsToggleText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  pwaHalfDayCheck: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: '#f8fafc',
+  },
+  pwaHalfDayCheckActive: {
+    backgroundColor: '#fef3c7',
+  },
+  pwaHalfDayText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  pwaHalfDayTextActive: {
+    color: '#b45309',
+  },
+  pwaAttExpanded: {
+    marginTop: 10,
+    gap: 8,
+  },
+  pwaWorkFarmRow: {
+    marginTop: 4,
+  },
+  pwaWorkFarmLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
+    marginBottom: 4,
+  },
+  pwaWorkFarmChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginRight: 6,
+  },
+  pwaWorkFarmChipActive: {
+    backgroundColor: '#dcfce7',
+    borderColor: '#86efac',
+  },
+  pwaWorkFarmChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  pwaWorkFarmChipTextActive: {
+    color: '#15803d',
+    fontWeight: '700',
+  },
+  pwaAttNotesBox: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  pwaAttNotesInput: {
+    fontSize: 12,
+    color: '#0f172a',
+    minHeight: 32,
+  },
+
+  // PWA Payment Card Styles
+  pwaPaymentCard: {
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.22)',
+    backgroundColor: colors.white,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    ...shadows.subtle,
+  },
+  pwaPaymentCardContent: {
+    flex: 1,
+    minWidth: 0,
+    gap: 10,
+    marginRight: 8,
+  },
+  pwaPaymentHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  pwaPaymentStaffCol: {
+    flex: 1,
+  },
+  pwaPaymentStaffName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  pwaPaymentDate: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  pwaPaymentAmount: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#334155',
+  },
+  pwaPaymentMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  pwaPaymentGivenBy: {
+    fontSize: 12,
+    color: '#475569',
+  },
+  pwaPaymentMethodPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: 'rgba(148, 163, 184, 0.2)',
+  },
+  pwaPaymentMethodText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  pwaPaymentNotesRow: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 6,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  pwaPaymentNotesText: {
+    fontSize: 11,
+    color: '#64748b',
+  },
+
   tabContent: {
     flex: 1,
   },
