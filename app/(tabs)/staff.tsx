@@ -83,7 +83,7 @@ export default function StaffScreen() {
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
   const [attendanceFarmFilter, setAttendanceFarmFilter] = useState<string>('all');
   const [attendanceRecords, setAttendanceRecords] = useState<
-    { farm_staff_id: number; status: 'present' | 'absent' | 'half_day'; notes: string }[]
+    { farm_staff_id: number; farm_id?: number | null; status: 'present' | 'absent' | 'half_day'; notes: string }[]
   >([]);
   const [savingAttendance, setSavingAttendance] = useState(false);
 
@@ -142,6 +142,7 @@ export default function StaffScreen() {
           const existing = attendanceData.find((a) => a.farm_staff_id === s.id);
           return {
             farm_staff_id: s.id,
+            farm_id: existing?.farm?.id || existing?.farm_id || (s.farms?.[0]?.id as number | undefined) || null,
             status: existing ? existing.status : ('present' as const),
             notes: existing?.notes || '',
           };
@@ -277,6 +278,7 @@ export default function StaffScreen() {
 
       const recordsToSave = attendanceRecords.map((r) => ({
         farm_staff_id: r.farm_staff_id,
+        farm_id: r.farm_id || null,
         status: r.status,
         notes: r.notes || null,
       }));
@@ -625,9 +627,9 @@ export default function StaffScreen() {
   const absentCount = attendanceRecords.filter((r) => r.status === 'absent').length;
 
   const MAIN_TAB_OPTIONS: ChipOption<'staff' | 'attendance' | 'payments'>[] = [
-    { label: 'Staff Roster', value: 'staff', badge: staff.length },
-    { label: 'Daily Attendance', value: 'attendance' },
-    { label: 'Wages & Payments', value: 'payments', badge: payments.length },
+    { label: 'Staff', value: 'staff', badge: staff.length },
+    { label: 'Attendance', value: 'attendance' },
+    { label: 'Payment', value: 'payments', badge: payments.length },
   ];
 
   return (
@@ -637,8 +639,8 @@ export default function StaffScreen() {
       {/* Header Sticky */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Staff & Muster</Text>
-          <Text style={styles.headerSubtitle}>Daily attendance, wages, and workforce</Text>
+          <Text style={styles.headerTitle}>Manage Staff</Text>
+          <Text style={styles.headerSubtitle}>Manage staff, attendance, and payments with ease.</Text>
         </View>
 
         {/* Tab switcher */}
@@ -657,7 +659,7 @@ export default function StaffScreen() {
             <SearchFilterBar
               query={searchQuery}
               onChangeQuery={setSearchQuery}
-              placeholder="Search staff by name..."
+              placeholder="Search by name, farm and role"
               hasFilter
               isFilterActive={showFilters}
               onToggleFilter={() => setShowFilters(!showFilters)}
@@ -734,6 +736,20 @@ export default function StaffScreen() {
                   </TouchableOpacity>
                 ))}
               </ScrollView>
+
+              <Text style={[styles.filterLabel, { marginTop: spacing.sm }]}>ROLE</Text>
+              <QuickChipGroup
+                options={[
+                  { label: 'All', value: 'all' },
+                  { label: 'Worker', value: 'Worker' },
+                  { label: 'Manager', value: 'Manager' },
+                  { label: 'Owner', value: 'Owner' },
+                  { label: 'Consultant', value: 'Consultant' },
+                ]}
+                selectedValue={roleFilter}
+                onSelect={(val) => setRoleFilter(val)}
+                size="sm"
+              />
             </View>
           )}
 
@@ -864,7 +880,7 @@ export default function StaffScreen() {
               ) : (
                 <>
                   <Ionicons name="save-outline" size={18} color={colors.white} />
-                  <Text style={styles.saveAttendanceBtnText}>Save Muster Attendance</Text>
+                  <Text style={styles.saveAttendanceBtnText}>Save Attendance</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -878,7 +894,7 @@ export default function StaffScreen() {
             <SearchFilterBar
               query={paymentSearch}
               onChangeQuery={setPaymentSearch}
-              placeholder="Search payments by worker name or notes..."
+              placeholder="Search by name, given by and type"
             />
           </View>
 

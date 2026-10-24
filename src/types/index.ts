@@ -121,6 +121,7 @@ export interface StaffMember {
   id: number;
   ulid: string;
   name: string;
+  phone?: string;
   username?: string;
   email?: string;
   profile_photo_url?: string;

@@ -23,6 +23,7 @@ export interface BulkMarkAttendanceData {
   farm_id?: number | null;
   records: {
     farm_staff_id: number;
+    farm_id?: number | null;
     status: 'present' | 'absent' | 'half_day';
     notes?: string | null;
   }[];

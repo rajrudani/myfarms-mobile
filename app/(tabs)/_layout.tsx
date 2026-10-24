@@ -32,7 +32,7 @@ export default function TabLayout() {
         name="farm"
         options={{
           title: 'Farm',
-          tabBarLabel: 'Farm Hub',
+          tabBarLabel: 'Farm',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'grid' : 'grid-outline'}
@@ -60,7 +60,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarLabel: 'Cockpit',
+          tabBarLabel: 'Home',
           tabBarIcon: ({ color, focused }) => (
             <View
               style={[
@@ -95,10 +95,10 @@ export default function TabLayout() {
         name="more"
         options={{
           title: 'More',
-          tabBarLabel: 'Registry',
+          tabBarLabel: 'More',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? 'apps' : 'apps-outline'}
+              name={focused ? 'ellipsis-horizontal' : 'ellipsis-horizontal-outline'}
               color={color}
               size={22}
             />

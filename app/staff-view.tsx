@@ -13,6 +13,7 @@ import {
   SafeAreaView,
   Platform,
   KeyboardAvoidingView,
+  Linking,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,6 +38,7 @@ export default function StaffViewScreen() {
   const [farms, setFarms] = useState<Farm[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [paymentPage, setPaymentPage] = useState(1);
 
   // Edit Staff Modal State
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -387,21 +389,34 @@ export default function StaffViewScreen() {
   const roleColor = getRoleColor(staff.roles[0]?.value || '');
   const activeFarmsList = farms.filter(f => f.is_active);
 
-  // Generate attendance circles for the current month
+  // Generate attendance days for the current month
   const getDaysInMonth = () => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   };
 
-  const getDayAttendanceStatus = (dayNum: number) => {
+  const getDayDetails = (dayNum: number) => {
     const now = new Date();
+    const date = new Date(now.getFullYear(), now.getMonth(), dayNum);
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
     const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-    const found = attendances.find(a => a.date === dateString);
-    return found ? found.status : 'none';
+    const found = attendances.find((a) => a.date === dateString);
+    const isToday = now.getDate() === dayNum;
+    return {
+      dayName,
+      dateString,
+      status: found ? found.status : 'none',
+      isToday,
+      record: found || null,
+    };
   };
 
   const daysCount = getDaysInMonth();
   const dayStrip = Array.from({ length: daysCount }, (_, i) => i + 1);
+
+  const paymentsPerPage = 5;
+  const totalPaymentPages = Math.max(1, Math.ceil(payments.length / paymentsPerPage));
+  const paginatedPayments = payments.slice((paymentPage - 1) * paymentsPerPage, paymentPage * paymentsPerPage);
 
   const selectedGivenByName = payGivenBy
     ? allStaff.find(s => s.id === payGivenBy)?.name || 'Select Owner/Manager'
@@ -414,9 +429,9 @@ export default function StaffViewScreen() {
         <TouchableOpacity style={styles.navBackBtn} onPress={() => router.back()} activeOpacity={0.7}>
           <Ionicons name="chevron-back" size={22} color="#475569" />
         </TouchableOpacity>
-        <Text style={styles.navbarTitle}>Staff Details</Text>
+        <Text style={styles.navbarTitle}>Staff Overview</Text>
         <TouchableOpacity style={styles.navEditBtn} onPress={() => setEditModalVisible(true)} activeOpacity={0.7}>
-          <Ionicons name="create-outline" size={22} color="#166534" />
+          <Ionicons name="create-outline" size={20} color="#166534" />
         </TouchableOpacity>
       </View>
 
@@ -461,15 +476,51 @@ export default function StaffViewScreen() {
 
         {/* 3. Quick Action Buttons */}
         <View style={styles.quickActionsRow}>
-          <TouchableOpacity style={styles.quickActionBtnOutline} onPress={() => setEditModalVisible(true)}>
-            <Ionicons name="create-outline" size={16} color="#166534" style={{ marginRight: 6 }} />
-            <Text style={styles.quickActionBtnTextOutline}>Edit Staff</Text>
+          {isWorkerOrConsultant && (
+            <TouchableOpacity
+              style={styles.quickActionBtnPayment}
+              onPress={() => setPaymentModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="card-outline" size={16} color="#d97706" style={{ marginRight: 6 }} />
+              <Text style={styles.quickActionBtnTextPayment}>Payment</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={styles.quickActionBtnAttendance}
+            onPress={() => {
+              const todayStr = new Date().toISOString().split('T')[0];
+              const todayAtt = attendances.find((a) => a.date === todayStr);
+              setSelectedAttendanceDate(todayStr);
+              setAttendanceStatus(todayAtt ? todayAtt.status : 'present');
+              setAttendanceFarmId(todayAtt ? todayAtt.farm?.id || todayAtt.farm_id || null : null);
+              setAttendanceNotes(todayAtt ? todayAtt.notes || '' : '');
+              setAttendanceModalVisible(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="calendar-outline" size={16} color="#2563eb" style={{ marginRight: 6 }} />
+            <Text style={styles.quickActionBtnTextAttendance}>Attendance</Text>
           </TouchableOpacity>
 
-          {isWorkerOrConsultant && (
-            <TouchableOpacity style={styles.quickActionBtnSolid} onPress={() => setPaymentModalVisible(true)}>
-              <Ionicons name="cash-outline" size={16} color="#ffffff" style={{ marginRight: 6 }} />
-              <Text style={styles.quickActionBtnTextSolid}>Record Payment</Text>
+          {staff.phone ? (
+            <TouchableOpacity
+              style={styles.quickActionBtnCall}
+              onPress={() => Linking.openURL(`tel:${staff.phone}`)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="call-outline" size={16} color="#166534" style={{ marginRight: 6 }} />
+              <Text style={styles.quickActionBtnTextCall}>Call</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.quickActionBtnOutline}
+              onPress={() => setEditModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="create-outline" size={16} color="#475569" style={{ marginRight: 6 }} />
+              <Text style={styles.quickActionBtnTextOutline}>Edit</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -542,39 +593,38 @@ export default function StaffViewScreen() {
           
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dayStripContainer}>
             {dayStrip.map((dayNum) => {
-              const attStatus = getDayAttendanceStatus(dayNum);
-              let circleBg = '#f1f5f9';
-              let circleText = '#475569';
-              if (attStatus === 'present') {
-                circleBg = '#dcfce7';
-                circleText = '#15803d';
-              } else if (attStatus === 'half_day') {
-                circleBg = '#fef3c7';
-                circleText = '#b45309';
-              } else if (attStatus === 'absent') {
-                circleBg = '#fee2e2';
-                circleText = '#b91c1c';
+              const details = getDayDetails(dayNum);
+              let capsuleBg = '#f1f5f9';
+              let capsuleText = '#64748b';
+              if (details.status === 'present') {
+                capsuleBg = '#dcfce7';
+                capsuleText = '#15803d';
+              } else if (details.status === 'half_day') {
+                capsuleBg = '#fef3c7';
+                capsuleText = '#b45309';
+              } else if (details.status === 'absent') {
+                capsuleBg = '#fee2e2';
+                capsuleText = '#b91c1c';
               }
               return (
                 <TouchableOpacity
                   key={dayNum}
-                  style={styles.dayStripCol}
+                  style={[
+                    styles.dayCapsule,
+                    { backgroundColor: capsuleBg },
+                    details.isToday && styles.dayCapsuleToday,
+                  ]}
                   onPress={() => {
-                    const now = new Date();
-                    const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-                    const dayAttendance = attendances.find(a => a.date === dateString);
-                    
-                    setSelectedAttendanceDate(dateString);
-                    setAttendanceStatus(dayAttendance ? dayAttendance.status : 'present');
-                    setAttendanceFarmId(dayAttendance ? dayAttendance.farm?.id || dayAttendance.farm_id || null : null);
-                    setAttendanceNotes(dayAttendance ? dayAttendance.notes || '' : '');
+                    setSelectedAttendanceDate(details.dateString);
+                    setAttendanceStatus(details.record ? details.record.status : 'present');
+                    setAttendanceFarmId(details.record ? details.record.farm?.id || details.record.farm_id || null : null);
+                    setAttendanceNotes(details.record ? details.record.notes || '' : '');
                     setAttendanceModalVisible(true);
                   }}
+                  activeOpacity={0.7}
                 >
-                  <View style={[styles.dayCircle, { backgroundColor: circleBg }]}>
-                    <Text style={[styles.dayCircleText, { color: circleText }]}>{dayNum}</Text>
-                  </View>
-                  <Text style={styles.daySubLabel}>d</Text>
+                  <Text style={[styles.dayCapsuleNum, { color: capsuleText }]}>{dayNum}</Text>
+                  <Text style={[styles.dayCapsuleName, { color: capsuleText }]}>{details.dayName}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -648,34 +698,74 @@ export default function StaffViewScreen() {
           </View>
         )}
 
-        {/* 8. Recent Payments Card */}
+        {/* 8. Payment History Card */}
         {isWorkerOrConsultant && (
           <View style={styles.card}>
             <View style={styles.cardSectionHeader}>
-              <Ionicons name="cash-outline" size={18} color="#0f172a" style={{ marginRight: 8 }} />
-              <Text style={styles.cardSectionTitle}>Recent Payments</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <Ionicons name="cash-outline" size={18} color="#0f172a" style={{ marginRight: 8 }} />
+                <Text style={styles.cardSectionTitle}>Payment History</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.addInlineBtn}
+                onPress={() => setPaymentModalVisible(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.addInlineBtnText}>+ Record Payment</Text>
+              </TouchableOpacity>
             </View>
 
             {payments.length === 0 ? (
               <Text style={styles.emptyCardText}>No payments logged.</Text>
             ) : (
-              payments.slice(0, 5).map((pay, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={[styles.paymentListRow, i > 0 && styles.listRowBorder]}
-                  onPress={() => router.push(`/staff-payment-view?id=${pay.ulid || pay.id}`)}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.paymentRowDate}>{pay.date ? pay.date.split('T')[0] : 'N/A'}</Text>
-                    <Text style={styles.paymentRowGivenBy}>Given by: {pay.given_by?.name || 'Owner'}</Text>
+              <>
+                {paginatedPayments.map((pay, i) => (
+                  <TouchableOpacity
+                    key={pay.ulid || pay.id || i}
+                    style={[styles.paymentListRow, i > 0 && styles.listRowBorder]}
+                    onPress={() => router.push(`/staff-payment-view?id=${pay.ulid || pay.id}`)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.paymentRowDate}>{pay.date ? pay.date.split('T')[0] : 'N/A'}</Text>
+                      <Text style={styles.paymentRowGivenBy}>Given by: {pay.given_by?.name || 'Owner'}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={styles.paymentRowAmount}>₹{Number(pay.amount).toLocaleString('en-IN')}</Text>
+                      <Text style={styles.paymentRowMethod}>{pay.payment_method.toUpperCase()}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color="#64748b" style={{ marginLeft: 8 }} />
+                  </TouchableOpacity>
+                ))}
+
+                {totalPaymentPages > 1 && (
+                  <View style={styles.paginationRow}>
+                    <TouchableOpacity
+                      style={[styles.pageBtn, paymentPage === 1 && styles.pageBtnDisabled]}
+                      onPress={() => setPaymentPage((p) => Math.max(1, p - 1))}
+                      disabled={paymentPage === 1}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="chevron-back" size={14} color={paymentPage === 1 ? '#cbd5e1' : '#334155'} />
+                      <Text style={[styles.pageBtnText, paymentPage === 1 && styles.pageBtnTextDisabled]}>Prev</Text>
+                    </TouchableOpacity>
+
+                    <Text style={styles.pageInfoText}>
+                      Page {paymentPage} of {totalPaymentPages}
+                    </Text>
+
+                    <TouchableOpacity
+                      style={[styles.pageBtn, paymentPage === totalPaymentPages && styles.pageBtnDisabled]}
+                      onPress={() => setPaymentPage((p) => Math.min(totalPaymentPages, p + 1))}
+                      disabled={paymentPage === totalPaymentPages}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.pageBtnText, paymentPage === totalPaymentPages && styles.pageBtnTextDisabled]}>Next</Text>
+                      <Ionicons name="chevron-forward" size={14} color={paymentPage === totalPaymentPages ? '#cbd5e1' : '#334155'} />
+                    </TouchableOpacity>
                   </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={styles.paymentRowAmount}>₹{Number(pay.amount).toLocaleString('en-IN')}</Text>
-                    <Text style={styles.paymentRowMethod}>{pay.payment_method.toUpperCase()}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color="#64748b" style={{ marginLeft: 8 }} />
-                </TouchableOpacity>
-              ))
+                )}
+              </>
             )}
           </View>
         )}
@@ -1487,36 +1577,89 @@ const styles = StyleSheet.create({
   },
   quickActionsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   quickActionBtnOutline: {
     flex: 1,
     flexDirection: 'row',
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#166534',
+    height: 42,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f8fafc',
+    gap: 6,
   },
   quickActionBtnTextOutline: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#166534',
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#334155',
+  },
+  quickActionBtnPayment: {
+    flex: 1,
+    flexDirection: 'row',
+    height: 42,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fffbeb',
+    gap: 6,
+  },
+  quickActionBtnTextPayment: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#b45309',
+  },
+  quickActionBtnAttendance: {
+    flex: 1,
+    flexDirection: 'row',
+    height: 42,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#eff6ff',
+    gap: 6,
+  },
+  quickActionBtnTextAttendance: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1d4ed8',
+  },
+  quickActionBtnCall: {
+    flex: 1,
+    flexDirection: 'row',
+    height: 42,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f0fdf4',
+    gap: 6,
+  },
+  quickActionBtnTextCall: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#15803d',
   },
   quickActionBtnSolid: {
     flex: 1,
     flexDirection: 'row',
-    height: 44,
-    borderRadius: 12,
+    height: 42,
+    borderRadius: 10,
     backgroundColor: '#166534',
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 6,
   },
   quickActionBtnTextSolid: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
     color: '#ffffff',
   },
   statsGrid: {
@@ -1608,21 +1751,67 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 8,
   },
-  dayCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
+  dayCapsule: {
+    width: 48,
+    height: 56,
+    minWidth: 48,
+    borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
-  dayCircleText: {
+  dayCapsuleToday: {
+    borderColor: 'rgba(22, 101, 52, 0.45)',
+    borderWidth: 1.5,
+  },
+  dayCapsuleNum: {
+    fontSize: 15,
+    fontWeight: '900',
+    lineHeight: 17,
+  },
+  dayCapsuleName: {
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  paginationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 14,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  pageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  pageBtnDisabled: {
+    opacity: 0.4,
+  },
+  pageBtnText: {
     fontSize: 12,
     fontWeight: '700',
+    color: '#334155',
   },
-  daySubLabel: {
-    fontSize: 9,
+  pageBtnTextDisabled: {
     color: '#94a3b8',
-    marginTop: 2,
+  },
+  pageInfoText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
   },
   legendRow: {
     flexDirection: 'row',

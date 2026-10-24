@@ -115,13 +115,13 @@ export default function MoreScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTitleCol}>
-          <Text style={styles.headerKicker}>REGISTRIES & SYSTEM</Text>
-          <Text style={styles.headerTitle}>Account & Operations</Text>
+          <Text style={styles.headerKicker}>REGISTRY & SYSTEM</Text>
+          <Text style={styles.headerTitle}>More Options</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} bounces={false} showsVerticalScrollIndicator={false}>
-        {/* Profile Bento Card */}
+        {/* Profile Card */}
         <BentoCard variant="elevated" style={styles.profileCard} onPress={openProfileModal}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
@@ -147,31 +147,61 @@ export default function MoreScreen() {
           </View>
         </BentoCard>
 
+        {/* Masters Section (matching PWA) */}
+        <Text style={styles.sectionHeader}>MASTERS</Text>
+        <BentoCard variant="elevated" style={styles.stackCard}>
+          <TouchableOpacity
+            style={styles.stackItem}
+            onPress={() => router.push('/crops')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.stackIcon, { backgroundColor: colors.primarySurface }]}>
+              <Ionicons name="grid-outline" size={17} color={colors.primary} />
+            </View>
+            <Text style={styles.stackText}>Crops</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.stackItem}
+            onPress={() => router.push('/agro-input-products')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.stackIcon, { backgroundColor: colors.infoSurface }]}>
+              <Ionicons name="beaker-outline" size={17} color={colors.infoText} />
+            </View>
+            <Text style={styles.stackText}>Agro Input Products</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.stackItem}
+            onPress={() => router.push('/activities')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.stackIcon, { backgroundColor: colors.accentSurface }]}>
+              <Ionicons name="clipboard-outline" size={17} color={colors.accentDark} />
+            </View>
+            <Text style={styles.stackText}>Activities</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.stackItem, { borderBottomWidth: 0 }]}
+            onPress={() => router.push('/buyers')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.stackIcon, { backgroundColor: colors.purpleSurface }]}>
+              <Ionicons name="business-outline" size={17} color={colors.purpleText} />
+            </View>
+            <Text style={styles.stackText}>Buyers</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
+          </TouchableOpacity>
+        </BentoCard>
+
         {/* Operations Section */}
-        <Text style={styles.sectionHeader}>Farm Operations & Tools</Text>
+        <Text style={styles.sectionHeader}>OPERATIONS & TOOLS</Text>
         <View style={styles.gridContainer}>
-          <TouchableOpacity
-            style={styles.gridItem}
-            onPress={() => router.push('/consultant-visits')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.gridIcon, { backgroundColor: colors.infoSurface }]}>
-              <Ionicons name="people-outline" size={20} color={colors.infoText} />
-            </View>
-            <Text style={styles.gridText}>Visits</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.gridItem}
-            onPress={() => router.push('/sales')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.gridIcon, { backgroundColor: colors.successSurface }]}>
-              <Ionicons name="trending-up-outline" size={20} color={colors.successText} />
-            </View>
-            <Text style={styles.gridText}>Sales</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity
             style={styles.gridItem}
             onPress={() => router.push('/agro-shop')}
@@ -180,7 +210,29 @@ export default function MoreScreen() {
             <View style={[styles.gridIcon, { backgroundColor: colors.accentSurface }]}>
               <Ionicons name="cart-outline" size={20} color={colors.accentDark} />
             </View>
-            <Text style={styles.gridText}>Agro Shop</Text>
+            <Text style={styles.gridText}>Shop</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.gridItem}
+            onPress={() => router.push('/sales')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.gridIcon, { backgroundColor: colors.successSurface }]}>
+              <Ionicons name="pricetag-outline" size={20} color={colors.successText} />
+            </View>
+            <Text style={styles.gridText}>Sale</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.gridItem}
+            onPress={() => router.push('/consultant-visits')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.gridIcon, { backgroundColor: colors.infoSurface }]}>
+              <Ionicons name="briefcase-outline" size={20} color={colors.infoText} />
+            </View>
+            <Text style={styles.gridText}>Consultant</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -200,68 +252,25 @@ export default function MoreScreen() {
             activeOpacity={0.8}
           >
             <View style={[styles.gridIcon, { backgroundColor: '#fdf2f8' }]}>
-              <Ionicons name="pricetags-outline" size={20} color="#db2777" />
+              <Ionicons name="trending-up-outline" size={20} color="#db2777" />
             </View>
             <Text style={styles.gridText}>Mandi Ticker</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Masters Section */}
-        <Text style={styles.sectionHeader}>Master Registries</Text>
-        <BentoCard variant="elevated" style={styles.stackCard}>
-          <TouchableOpacity
-            style={styles.stackItem}
-            onPress={() => router.push('/crops')}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.stackIcon, { backgroundColor: colors.primarySurface }]}>
-              <Ionicons name="grid-outline" size={17} color={colors.primary} />
-            </View>
-            <Text style={styles.stackText}>Crops Catalog</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.stackItem}
-            onPress={() => router.push('/agro-input-products')}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.stackIcon, { backgroundColor: colors.infoSurface }]}>
-              <Ionicons name="cube-outline" size={17} color={colors.infoText} />
-            </View>
-            <Text style={styles.stackText}>Agro Input Products</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.stackItem}
-            onPress={() => router.push('/activities')}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.stackIcon, { backgroundColor: colors.accentSurface }]}>
-              <Ionicons name="document-text-outline" size={17} color={colors.accentDark} />
-            </View>
-            <Text style={styles.stackText}>Activity Masters</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.stackItem, { borderBottomWidth: 0 }]}
-            onPress={() => router.push('/buyers')}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.stackIcon, { backgroundColor: colors.purpleSurface }]}>
-              <Ionicons name="briefcase-outline" size={17} color={colors.purpleText} />
-            </View>
-            <Text style={styles.stackText}>Commercial Buyers</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
-          </TouchableOpacity>
-        </BentoCard>
-
         {/* Sign Out Button */}
-        <TouchableOpacity style={styles.logoutButton} onPress={logout} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={() => {
+            Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Sign Out', style: 'destructive', onPress: logout },
+            ]);
+          }}
+          activeOpacity={0.8}
+        >
           <Ionicons name="log-out-outline" size={18} color={colors.danger} style={{ marginRight: 8 }} />
-          <Text style={styles.logoutButtonText}>Sign Out from Agri-OS</Text>
+          <Text style={styles.logoutButtonText}>Sign Out</Text>
         </TouchableOpacity>
       </ScrollView>
 
