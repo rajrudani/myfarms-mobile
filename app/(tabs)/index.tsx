@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -15,6 +15,8 @@ import {
   SafeAreaView,
   Platform,
   StatusBar,
+  useWindowDimensions,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -22,7 +24,7 @@ import { useAuth } from '../../src/hooks/useAuth';
 import { farmsApi } from '../../src/api/farms';
 import { dashboardApi } from '../../src/api/dashboard';
 import { Farm, DashboardSummary } from '../../src/types';
-import { colors, radius, spacing, shadows } from '../../src/theme/tokens';
+import { colors, radius, spacing, shadows, typography } from '../../src/theme/tokens';
 import {
   BentoCard,
   MetricTile,
@@ -40,9 +42,21 @@ const AREA_UNIT_OPTIONS: ChipOption<string>[] = [
 
 export default function DashboardScreen() {
   const { user, logout } = useAuth();
+  const { width } = useWindowDimensions();
+
+  // Responsive Breakpoints
+  const isTablet = width >= 768;
+  const isWideTablet = width >= 1024;
+
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null);
+
+  // Profile / Account Modal
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
+
+  // Quick Setup Banner Dismissal
+  const [quickSetupDismissed, setQuickSetupDismissed] = useState(false);
 
   // Farms Management Modal States
   const [farmsModalVisible, setFarmsModalVisible] = useState(false);
@@ -77,11 +91,14 @@ export default function DashboardScreen() {
       setDashboardSummary(summary);
     } catch (error) {
       console.error('Error fetching dashboard summary:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchDashboardSummary();
+    fetchFarms();
   }, []);
 
   useEffect(() => {
@@ -133,10 +150,10 @@ export default function DashboardScreen() {
     setSavingFarm(true);
     try {
       const newFarm: Farm = {
-        name: farmName,
+        name: farmName.trim(),
         area: parseFloat(farmArea),
         area_unit: farmAreaUnit,
-        location: farmLocation || undefined,
+        location: farmLocation.trim() || undefined,
         is_active: true,
       };
       const createdFarm = await farmsApi.create(newFarm);
@@ -147,8 +164,9 @@ export default function DashboardScreen() {
       setAddFarmModalVisible(false);
       setFarmsModalVisible(false);
       fetchFarms();
+      fetchDashboardSummary();
 
-      // Redirect to the newly created farm view page
+      // Redirect to newly created farm view page
       router.push({
         pathname: '/farm-view',
         params: {
@@ -165,6 +183,31 @@ export default function DashboardScreen() {
     }
   };
 
+  const handleLogoutPrompt = () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out of your account?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            setProfileModalVisible(false);
+            await logout();
+          },
+        },
+      ]
+    );
+  };
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+
   const todayDateFormatted = () => {
     const options: Intl.DateTimeFormatOptions = {
       weekday: 'short',
@@ -175,14 +218,48 @@ export default function DashboardScreen() {
     return new Date().toLocaleDateString('en-US', options);
   };
 
+  const getUserInitials = (name?: string) => {
+    if (!name) return 'OP';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
   const remindersCount = dashboardSummary?.today_reminders?.length || 0;
   const activitiesCount = dashboardSummary?.today_activities?.length || 0;
+  const activeFarmsCount = dashboardSummary?.counts?.farms_count ?? farms.filter((f) => f.is_active).length;
+  const activeStaffCount = dashboardSummary?.counts?.active_staff_count ?? 0;
+
+  const showQuickSetup =
+    !quickSetupDismissed &&
+    (dashboardSummary?.needs_farm_reminder || dashboardSummary?.needs_staff_reminder);
+
+  // Dynamic layout measurements
+  const containerMaxWidth = isWideTablet ? 1080 : isTablet ? 900 : '100%';
+  const horizontalPadding = isTablet ? spacing.xxl : spacing.lg;
+
+  // Secondary grid item width calculation
+  const gridItemWidth = useMemo(() => {
+    const effectiveWidth = Math.min(width, 1080);
+    if (isTablet) {
+      // 4 cards in 1 row: total width minus padding & 3 gaps
+      const totalGaps = 3 * 12;
+      const totalPadding = horizontalPadding * 2;
+      return (effectiveWidth - totalPadding - totalGaps) / 4;
+    }
+    // 2 cards in 1 row
+    const totalGaps = 12;
+    const totalPadding = horizontalPadding * 2;
+    return (effectiveWidth - totalPadding - totalGaps) / 2;
+  }, [width, isTablet, horizontalPadding]);
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.slate50} />
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 60 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -193,329 +270,559 @@ export default function DashboardScreen() {
           />
         }
       >
-        {/* Futuristic Top Bar */}
-        <View style={styles.topBar}>
-          <Image
-            source={require('../../assets/images/full-logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <View style={styles.topActions}>
-            <TouchableOpacity
-              style={styles.actionIconButton}
-              onPress={() => router.push('/mandi-prices')}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="trending-up" size={20} color={colors.slate700} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.avatarButton}
-              onPress={logout}
-              activeOpacity={0.7}
-            >
-              <View style={styles.avatarGlow}>
-                <Ionicons name="log-out-outline" size={18} color={colors.slate900} />
+        <View style={[styles.mainWrapper, { maxWidth: containerMaxWidth, alignSelf: 'center', width: '100%' }]}>
+          {/* Top Bar Header */}
+          <View style={[styles.topBar, { paddingHorizontal: horizontalPadding }]}>
+            <View style={styles.brandRow}>
+              <Image
+                source={require('../../assets/images/full-logo.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+              <View style={styles.tenantPill}>
+                <Ionicons name="shield-checkmark" size={11} color={colors.primaryDark} />
+                <Text style={styles.tenantPillText} numberOfLines={1}>
+                  {user?.farm_group_name || 'MyFarms OS'}
+                </Text>
               </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Ambient Greeting Header */}
-        <View style={styles.greetingSection}>
-          <View>
-            <Text style={styles.greetingSub}>WELCOME BACK</Text>
-            <Text style={styles.greetingName}>
-              {user?.name || 'Farm Operator'} <Text style={styles.greetingHand}>🌱</Text>
-            </Text>
-          </View>
-          <View style={styles.livePulseContainer}>
-            <View style={styles.livePulseDot} />
-            <Text style={styles.livePulseText}>LIVE COCKPIT</Text>
-          </View>
-        </View>
-
-        {/* Glanceable Bento Metrics */}
-        <View style={styles.metricsRow}>
-          <MetricTile
-            label="Today's Reminders"
-            value={remindersCount}
-            subtext={remindersCount === 0 ? 'All caught up' : 'Needs attention'}
-            iconName="bell-ring-outline"
-            iconColor={colors.warning}
-            iconBg={colors.warningSurface}
-            badgeText={remindersCount > 0 ? `${remindersCount} pending` : undefined}
-            badgeColor={colors.warning}
-            onPress={() => router.push('/notes')}
-          />
-          <MetricTile
-            label="Scheduled Activities"
-            value={activitiesCount}
-            subtext={activitiesCount === 0 ? 'No tasks logged' : 'Assigned tasks'}
-            iconName="calendar-check-outline"
-            iconColor={colors.primary}
-            iconBg={colors.primarySurface}
-            badgeText={activitiesCount > 0 ? 'Today' : undefined}
-            badgeColor={colors.primary}
-            onPress={() => router.push('/activities')}
-          />
-        </View>
-
-        {/* Today Action Queue Cockpit */}
-        <BentoCard variant="elevated" style={styles.cockpitCard}>
-          <View style={styles.cockpitHeader}>
-            <View>
-              <Text style={styles.cockpitTitle}>Today's Schedule</Text>
-              <Text style={styles.cockpitDate}>{todayDateFormatted()}</Text>
             </View>
-            <TouchableOpacity
-              style={styles.quickAddPill}
-              onPress={() => router.push('/activities')}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="add" size={16} color={colors.primary} />
-              <Text style={styles.quickAddPillText}>Activity</Text>
-            </TouchableOpacity>
-          </View>
 
-          {/* Sub-section: Reminders */}
-          <View style={styles.queueBlock}>
-            <View style={styles.queueHeader}>
-              <View style={styles.queueTitleWrap}>
-                <View style={[styles.queueIconBox, { backgroundColor: colors.warningSurface }]}>
-                  <Ionicons name="notifications-outline" size={14} color={colors.warning} />
+            <View style={styles.topActions}>
+              <TouchableOpacity
+                style={styles.actionIconButton}
+                onPress={() => router.push('/mandi-prices')}
+                activeOpacity={0.7}
+                accessibilityLabel="Mandi APMC Prices"
+              >
+                <Ionicons name="trending-up" size={18} color={colors.primaryDark} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.avatarButton}
+                onPress={() => setProfileModalVisible(true)}
+                activeOpacity={0.8}
+                accessibilityLabel="User Account"
+              >
+                <View style={styles.avatarBadge}>
+                  <Text style={styles.avatarInitials}>{getUserInitials(user?.name)}</Text>
                 </View>
-                <Text style={styles.queueTitle}>Reminders</Text>
-                {remindersCount > 0 && (
-                  <View style={styles.miniBadge}>
-                    <Text style={styles.miniBadgeText}>{remindersCount}</Text>
-                  </View>
-                )}
-              </View>
-              <TouchableOpacity onPress={() => router.push('/notes')}>
-                <Text style={styles.viewAllLink}>View All ›</Text>
               </TouchableOpacity>
             </View>
+          </View>
 
-            {dashboardSummary && dashboardSummary.today_reminders.length > 0 ? (
-              <View style={styles.queueList}>
-                {dashboardSummary.today_reminders.map((reminder) => (
+          {/* Greeting Hero Section */}
+          <View style={[styles.greetingSection, { paddingHorizontal: horizontalPadding }]}>
+            <View style={styles.greetingTextContainer}>
+              <Text style={styles.greetingSub}>{getGreeting().toUpperCase()}</Text>
+              <Text style={styles.greetingName} numberOfLines={1}>
+                {user?.name || 'Farm Operator'} <Text style={styles.greetingHand}>🌱</Text>
+              </Text>
+            </View>
+
+            <View style={styles.liveBadge}>
+              <View style={styles.livePulseDot} />
+              <Text style={styles.liveBadgeText}>LIVE COCKPIT</Text>
+            </View>
+          </View>
+
+          {/* Quick Setup Coach Banner */}
+          {showQuickSetup && (
+            <View style={[styles.coachBannerWrap, { paddingHorizontal: horizontalPadding }]}>
+              <View style={styles.coachBanner}>
+                <View style={styles.coachBannerLeft}>
+                  <View style={styles.coachIconBox}>
+                    <Ionicons name="sparkles" size={18} color={colors.primary} />
+                  </View>
+                  <View style={styles.coachTextWrap}>
+                    <Text style={styles.coachTitle}>Ready to begin your setup?</Text>
+                    <Text style={styles.coachSub}>
+                      {dashboardSummary?.needs_farm_reminder
+                        ? 'Add your first farm plot to begin tracking cycles and work.'
+                        : 'Register farm workers to log muster and manage payroll.'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.coachActions}>
+                  {dashboardSummary?.needs_farm_reminder ? (
+                    <TouchableOpacity
+                      style={styles.coachPrimaryBtn}
+                      onPress={() => setAddFarmModalVisible(true)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="add" size={15} color={colors.white} />
+                      <Text style={styles.coachPrimaryBtnText}>Add Farm</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.coachPrimaryBtn}
+                      onPress={() => router.push('/staff')}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="people" size={15} color={colors.white} />
+                      <Text style={styles.coachPrimaryBtnText}>Add Staff</Text>
+                    </TouchableOpacity>
+                  )}
+
                   <TouchableOpacity
-                    key={reminder.ulid || reminder.id}
-                    style={styles.queueItem}
-                    onPress={() => router.push('/notes')}
+                    style={styles.coachDismissBtn}
+                    onPress={() => setQuickSetupDismissed(true)}
                     activeOpacity={0.7}
                   >
-                    <View style={styles.queueItemLeft}>
-                      <Text style={styles.queueItemTitle} numberOfLines={1}>
-                        {reminder.title}
-                      </Text>
-                      {reminder.is_overdue && (
-                        <StatusBadge label="Overdue" variant="danger" dot={false} />
+                    <Ionicons name="close" size={18} color={colors.slate400} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Metric Tiles Overview */}
+          <View
+            style={[
+              styles.metricsRow,
+              { paddingHorizontal: horizontalPadding },
+              isTablet && styles.metricsRowTablet,
+            ]}
+          >
+            <MetricTile
+              label="Today's Reminders"
+              value={remindersCount}
+              subtext={remindersCount === 0 ? 'All caught up' : `${remindersCount} action item(s)`}
+              iconName="bell-ring-outline"
+              iconColor={colors.warning}
+              iconBg={colors.warningSurface}
+              badgeText={remindersCount > 0 ? `${remindersCount} due` : undefined}
+              badgeColor={colors.warning}
+              onPress={() => router.push('/notes')}
+            />
+            <MetricTile
+              label="Today's Activities"
+              value={activitiesCount}
+              subtext={activitiesCount === 0 ? 'No tasks logged' : 'Scheduled operations'}
+              iconName="calendar-check-outline"
+              iconColor={colors.primary}
+              iconBg={colors.primarySurface}
+              badgeText={activitiesCount > 0 ? 'Today' : undefined}
+              badgeColor={colors.primary}
+              onPress={() => router.push('/activities')}
+            />
+
+            {/* Extra metrics surfaced on tablet for rich dashboard view */}
+            {isTablet && (
+              <>
+                <MetricTile
+                  label="Registered Farms"
+                  value={activeFarmsCount}
+                  subtext="Active farm plots"
+                  iconName="sprout-outline"
+                  iconColor={colors.info}
+                  iconBg={colors.infoSurface}
+                  badgeText="Parcels"
+                  badgeColor={colors.info}
+                  onPress={() => setFarmsModalVisible(true)}
+                />
+                <MetricTile
+                  label="Field Workforce"
+                  value={activeStaffCount}
+                  subtext="Operational staff"
+                  iconName="account-group-outline"
+                  iconColor={colors.purple}
+                  iconBg={colors.purpleSurface}
+                  badgeText="Roster"
+                  badgeColor={colors.purple}
+                  onPress={() => router.push('/staff')}
+                />
+              </>
+            )}
+          </View>
+
+          {/* Today's Schedule Cockpit */}
+          <View style={{ paddingHorizontal: horizontalPadding }}>
+            <BentoCard variant="elevated" style={styles.cockpitCard}>
+              <View style={styles.cockpitHeader}>
+                <View style={styles.cockpitHeaderLeft}>
+                  <View style={styles.cockpitCalendarIcon}>
+                    <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+                  </View>
+                  <View>
+                    <Text style={styles.cockpitTitle}>Today's Schedule</Text>
+                    <Text style={styles.cockpitDate}>{todayDateFormatted()}</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.quickAddPill}
+                  onPress={() => router.push('/activities')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="add" size={15} color={colors.primaryDark} />
+                  <Text style={styles.quickAddPillText}>Log Activity</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Schedule Columns: Responsive 2-column on tablet, stacked on mobile */}
+              <View style={[styles.scheduleContentWrap, isTablet && styles.scheduleContentWrapTablet]}>
+                {/* Reminders Column */}
+                <View style={[styles.queueBlock, isTablet && { flex: 1 }]}>
+                  <View style={styles.queueHeader}>
+                    <View style={styles.queueTitleWrap}>
+                      <View style={[styles.queueIconBox, { backgroundColor: colors.warningSurface }]}>
+                        <Ionicons name="notifications-outline" size={14} color={colors.warning} />
+                      </View>
+                      <Text style={styles.queueTitle}>Reminders</Text>
+                      {remindersCount > 0 && (
+                        <View style={styles.miniBadge}>
+                          <Text style={styles.miniBadgeText}>{remindersCount}</Text>
+                        </View>
                       )}
                     </View>
-                    <View style={styles.queueItemRight}>
-                      <Text style={styles.queueItemMeta}>{reminder.time}</Text>
-                      <Ionicons name="chevron-forward" size={14} color={colors.slate400} />
+                    <TouchableOpacity onPress={() => router.push('/notes')}>
+                      <Text style={styles.viewAllLink}>View All ›</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {dashboardSummary && dashboardSummary.today_reminders.length > 0 ? (
+                    <View style={styles.queueList}>
+                      {dashboardSummary.today_reminders.map((reminder) => (
+                        <TouchableOpacity
+                          key={reminder.ulid || reminder.id}
+                          style={styles.queueItem}
+                          onPress={() => router.push('/notes')}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.queueItemLeft}>
+                            <Ionicons
+                              name={reminder.is_overdue ? 'alert-circle' : 'time-outline'}
+                              size={16}
+                              color={reminder.is_overdue ? colors.danger : colors.slate500}
+                            />
+                            <Text style={styles.queueItemTitle} numberOfLines={1}>
+                              {reminder.title}
+                            </Text>
+                            {reminder.is_overdue && (
+                              <StatusBadge label="Overdue" variant="danger" dot={false} />
+                            )}
+                          </View>
+                          <View style={styles.queueItemRight}>
+                            <Text style={styles.queueItemMeta}>{reminder.time}</Text>
+                            <Ionicons name="chevron-forward" size={14} color={colors.slate400} />
+                          </View>
+                        </TouchableOpacity>
+                      ))}
                     </View>
-                  </TouchableOpacity>
-                ))}
+                  ) : (
+                    <View style={styles.emptyQueue}>
+                      <Ionicons name="checkmark-done-circle" size={22} color={colors.primary} />
+                      <Text style={styles.emptyQueueText}>All caught up! No reminders today</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Scheduled Activities Column */}
+                <View style={[styles.queueBlock, isTablet && { flex: 1 }, !isTablet && { marginTop: spacing.md }]}>
+                  <View style={styles.queueHeader}>
+                    <View style={styles.queueTitleWrap}>
+                      <View style={[styles.queueIconBox, { backgroundColor: colors.primarySurface }]}>
+                        <Ionicons name="leaf-outline" size={14} color={colors.primary} />
+                      </View>
+                      <Text style={styles.queueTitle}>Activities</Text>
+                      {activitiesCount > 0 && (
+                        <View style={[styles.miniBadge, { backgroundColor: colors.primarySurface }]}>
+                          <Text style={[styles.miniBadgeText, { color: colors.primary }]}>{activitiesCount}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <TouchableOpacity onPress={() => router.push('/activities')}>
+                      <Text style={styles.viewAllLink}>View All ›</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {dashboardSummary && dashboardSummary.today_activities.length > 0 ? (
+                    <View style={styles.queueList}>
+                      {dashboardSummary.today_activities.map((act) => (
+                        <TouchableOpacity
+                          key={act.ulid || act.id}
+                          style={styles.queueItem}
+                          onPress={() => router.push('/activities')}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.queueItemLeft}>
+                            <View style={styles.activityDot} />
+                            <Text style={styles.queueItemTitle} numberOfLines={1}>
+                              {act.name}
+                              {act.crop_name ? ` • ${act.crop_name}` : ''}
+                            </Text>
+                          </View>
+                          <View style={styles.queueItemRight}>
+                            <Text style={styles.queueItemMeta}>{act.farm_name}</Text>
+                            <Ionicons name="chevron-forward" size={14} color={colors.slate400} />
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  ) : (
+                    <View style={styles.emptyQueue}>
+                      <Ionicons name="calendar-outline" size={22} color={colors.slate400} />
+                      <Text style={styles.emptyQueueText}>No operations scheduled for today</Text>
+                    </View>
+                  )}
+                </View>
               </View>
-            ) : (
-              <View style={styles.emptyQueue}>
-                <Ionicons name="checkmark-done-circle-outline" size={20} color={colors.primary} />
-                <Text style={styles.emptyQueueText}>No pending reminders for today</Text>
-              </View>
-            )}
+            </BentoCard>
           </View>
 
-          {/* Sub-section: Scheduled Activities */}
-          <View style={[styles.queueBlock, { marginTop: spacing.md }]}>
-            <View style={styles.queueHeader}>
-              <View style={styles.queueTitleWrap}>
-                <View style={[styles.queueIconBox, { backgroundColor: colors.primarySurface }]}>
-                  <Ionicons name="leaf-outline" size={14} color={colors.primary} />
-                </View>
-                <Text style={styles.queueTitle}>Activities</Text>
-                {activitiesCount > 0 && (
-                  <View style={[styles.miniBadge, { backgroundColor: colors.primarySurface }]}>
-                    <Text style={[styles.miniBadgeText, { color: colors.primary }]}>{activitiesCount}</Text>
-                  </View>
-                )}
+          {/* Section: Daily Workforce Operations */}
+          <View style={[styles.sectionHeadingWrap, { paddingHorizontal: horizontalPadding }]}>
+            <Text style={styles.sectionHeading}>DAILY WORKFORCE</Text>
+            <Text style={styles.sectionHeadingSub}>Staff attendance & wage settlements</Text>
+          </View>
+
+          <View
+            style={[
+              styles.primaryModules,
+              { paddingHorizontal: horizontalPadding },
+              isTablet && styles.primaryModulesTablet,
+            ]}
+          >
+            <TouchableOpacity
+              style={[styles.primaryModuleCard, isTablet && { flex: 1 }]}
+              onPress={() => router.push({ pathname: '/staff', params: { tab: 'attendance' } })}
+              activeOpacity={0.75}
+            >
+              <View style={[styles.moduleIconBox, { backgroundColor: colors.primarySurface }]}>
+                <Ionicons name="clipboard-outline" size={24} color={colors.primary} />
               </View>
-              <TouchableOpacity onPress={() => router.push('/activities')}>
-                <Text style={styles.viewAllLink}>View All ›</Text>
+              <View style={styles.primaryModuleBody}>
+                <View style={styles.primaryModuleTop}>
+                  <Text style={styles.primaryModuleTitle}>Staff Attendance</Text>
+                  <View style={styles.pillTag}>
+                    <Text style={styles.pillTagText}>Daily Muster</Text>
+                  </View>
+                </View>
+                <Text style={styles.primaryModuleSub}>Mark daily presence, half-days & worker shifts</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.slate400} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.primaryModuleCard, isTablet && { flex: 1 }]}
+              onPress={() => router.push({ pathname: '/staff', params: { tab: 'payments' } })}
+              activeOpacity={0.75}
+            >
+              <View style={[styles.moduleIconBox, { backgroundColor: colors.accentSurface }]}>
+                <MaterialCommunityIcons name="account-cash-outline" size={24} color={colors.accentDark} />
+              </View>
+              <View style={styles.primaryModuleBody}>
+                <View style={styles.primaryModuleTop}>
+                  <Text style={styles.primaryModuleTitle}>Staff Payments</Text>
+                  <View style={[styles.pillTag, { backgroundColor: colors.accentSurface }]}>
+                    <Text style={[styles.pillTagText, { color: colors.accentDark }]}>Wages</Text>
+                  </View>
+                </View>
+                <Text style={styles.primaryModuleSub}>Track advances, daily payouts & balances</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.slate400} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Section: Core Farm Operations Dock */}
+          <View style={[styles.sectionHeadingWrap, { paddingHorizontal: horizontalPadding, marginTop: spacing.md }]}>
+            <Text style={styles.sectionHeading}>FARM OPERATIONS</Text>
+            <Text style={styles.sectionHeadingSub}>Tactile access to inputs, sales & advisory</Text>
+          </View>
+
+          {/* Bento Grid: 2x2 on Mobile, 4 in row on Tablet */}
+          <View
+            style={[
+              styles.operationsGrid,
+              { paddingHorizontal: horizontalPadding },
+              isTablet && styles.operationsGridTablet,
+            ]}
+          >
+            <TouchableOpacity
+              style={[styles.bentoTile, { width: isTablet ? undefined : gridItemWidth, flex: isTablet ? 1 : undefined }]}
+              onPress={() => router.push('/agro-shop')}
+              activeOpacity={0.75}
+            >
+              <View style={[styles.bentoTileIcon, { backgroundColor: colors.accentSurface }]}>
+                <Ionicons name="cart-outline" size={22} color={colors.accentDark} />
+              </View>
+              <Text style={styles.bentoTileTitle}>Agro Purchases</Text>
+              <Text style={styles.bentoTileSub}>Seeds, fertilizers & shop bills</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.bentoTile, { width: isTablet ? undefined : gridItemWidth, flex: isTablet ? 1 : undefined }]}
+              onPress={() => router.push('/sales')}
+              activeOpacity={0.75}
+            >
+              <View style={[styles.bentoTileIcon, { backgroundColor: colors.primarySurface }]}>
+                <Ionicons name="cash-outline" size={22} color={colors.primary} />
+              </View>
+              <Text style={styles.bentoTileTitle}>Crop Sales</Text>
+              <Text style={styles.bentoTileSub}>Harvest produce & buyer orders</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.bentoTile, { width: isTablet ? undefined : gridItemWidth, flex: isTablet ? 1 : undefined }]}
+              onPress={() => setFarmsModalVisible(true)}
+              activeOpacity={0.75}
+            >
+              <View style={[styles.bentoTileIcon, { backgroundColor: colors.infoSurface }]}>
+                <Ionicons name="grid-outline" size={22} color={colors.info} />
+              </View>
+              <Text style={styles.bentoTileTitle}>Manage Farms</Text>
+              <Text style={styles.bentoTileSub}>Parcels, area & boundaries</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.bentoTile, { width: isTablet ? undefined : gridItemWidth, flex: isTablet ? 1 : undefined }]}
+              onPress={() => router.push('/consultant-visits')}
+              activeOpacity={0.75}
+            >
+              <View style={[styles.bentoTileIcon, { backgroundColor: colors.purpleSurface }]}>
+                <Ionicons name="briefcase-outline" size={22} color={colors.purple} />
+              </View>
+              <Text style={styles.bentoTileTitle}>Advisory Visits</Text>
+              <Text style={styles.bentoTileSub}>Agronomist & soil checks</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Section: Intelligence & Market Benchmarks */}
+          <View style={[styles.sectionHeadingWrap, { paddingHorizontal: horizontalPadding, marginTop: spacing.md }]}>
+            <Text style={styles.sectionHeading}>INTELLIGENCE & BENCHMARKS</Text>
+            <Text style={styles.sectionHeadingSub}>Analytics, exports & APMC wholesale rates</Text>
+          </View>
+
+          <View
+            style={[
+              styles.utilitySection,
+              { paddingHorizontal: horizontalPadding },
+              isTablet && styles.utilitySectionTablet,
+            ]}
+          >
+            <TouchableOpacity
+              style={[styles.utilityCard, isTablet && { flex: 1 }]}
+              onPress={() => router.push('/reports')}
+              activeOpacity={0.75}
+            >
+              <View style={[styles.utilityIcon, { backgroundColor: colors.infoSurface }]}>
+                <Ionicons name="bar-chart-outline" size={22} color={colors.info} />
+              </View>
+              <View style={styles.utilityInfo}>
+                <Text style={styles.utilityTitle}>Analytics & Reports</Text>
+                <Text style={styles.utilitySub}>Export balance sheets, muster & harvest summaries</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.utilityCard, isTablet && { flex: 1, marginTop: 0 }]}
+              onPress={() => router.push('/mandi-prices')}
+              activeOpacity={0.75}
+            >
+              <View style={[styles.utilityIcon, { backgroundColor: colors.primarySurface }]}>
+                <Ionicons name="trending-up" size={22} color={colors.primary} />
+              </View>
+              <View style={styles.utilityInfo}>
+                <Text style={styles.utilityTitle}>Mandi Market Rates</Text>
+                <Text style={styles.utilitySub}>Live APMC wholesale benchmarks across India</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Clean App Footer */}
+          <View style={styles.footerWrap}>
+            <Text style={styles.footerBrand}>MYFARMS AGRI-OS • {new Date().getFullYear()}</Text>
+            <Text style={styles.footerVersion}>Version 2.0 Native Edition</Text>
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* Profile / Account Action Modal */}
+      <Modal
+        animationType="fade"
+        transparent
+        visible={profileModalVisible}
+        onRequestClose={() => setProfileModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setProfileModalVisible(false)}
+        >
+          <View style={[styles.profileSheetCard, { maxWidth: isTablet ? 480 : '90%' }]}>
+            <View style={styles.profileSheetHeader}>
+              <View style={styles.profileSheetAvatar}>
+                <Text style={styles.profileSheetAvatarText}>{getUserInitials(user?.name)}</Text>
+              </View>
+              <View style={styles.profileSheetInfo}>
+                <Text style={styles.profileSheetName}>{user?.name || 'Farm Operator'}</Text>
+                <Text style={styles.profileSheetEmail}>{user?.email || 'Authenticated User'}</Text>
+                <View style={styles.roleTag}>
+                  <Text style={styles.roleTagText}>{user?.user_type?.toUpperCase() || 'FARM OPERATOR'}</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => setProfileModalVisible(false)}
+                style={styles.profileCloseBtn}
+              >
+                <Ionicons name="close" size={20} color={colors.slate500} />
               </TouchableOpacity>
             </View>
 
-            {dashboardSummary && dashboardSummary.today_activities.length > 0 ? (
-              <View style={styles.queueList}>
-                {dashboardSummary.today_activities.map((act) => (
-                  <TouchableOpacity
-                    key={act.ulid || act.id}
-                    style={styles.queueItem}
-                    onPress={() => router.push('/activities')}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.queueItemLeft}>
-                      <Text style={styles.queueItemTitle} numberOfLines={1}>
-                        {act.name}
-                        {act.crop_name ? ` (${act.crop_name})` : ''}
-                      </Text>
-                    </View>
-                    <View style={styles.queueItemRight}>
-                      <Text style={styles.queueItemMeta}>{act.farm_name}</Text>
-                      <Ionicons name="chevron-forward" size={14} color={colors.slate400} />
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.emptyQueue}>
-                <Ionicons name="calendar-outline" size={20} color={colors.slate400} />
-                <Text style={styles.emptyQueueText}>No farm activities scheduled for today</Text>
-              </View>
-            )}
+            <View style={styles.profileDivider} />
+
+            <View style={styles.profileActionList}>
+              <TouchableOpacity
+                style={styles.profileActionItem}
+                onPress={() => {
+                  setProfileModalVisible(false);
+                  setFarmsModalVisible(true);
+                }}
+              >
+                <View style={[styles.profileActionIcon, { backgroundColor: colors.infoSurface }]}>
+                  <Ionicons name="grid-outline" size={18} color={colors.info} />
+                </View>
+                <View style={styles.profileActionTextWrap}>
+                  <Text style={styles.profileActionTitle}>Manage Farms</Text>
+                  <Text style={styles.profileActionSub}>{activeFarmsCount} registered parcels</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.profileActionItem}
+                onPress={() => {
+                  setProfileModalVisible(false);
+                  router.push('/more');
+                }}
+              >
+                <View style={[styles.profileActionIcon, { backgroundColor: colors.slate100 }]}>
+                  <Ionicons name="apps-outline" size={18} color={colors.slate700} />
+                </View>
+                <View style={styles.profileActionTextWrap}>
+                  <Text style={styles.profileActionTitle}>System Registry</Text>
+                  <Text style={styles.profileActionSub}>Crops, buyers & activity masters</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.profileDivider} />
+
+            <TouchableOpacity
+              style={styles.logoutBtn}
+              onPress={handleLogoutPrompt}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="log-out-outline" size={18} color={colors.danger} />
+              <Text style={styles.logoutBtnText}>Sign Out of MyFarms</Text>
+            </TouchableOpacity>
           </View>
-        </BentoCard>
-
-        {/* Section Header: Fast Operations */}
-        <View style={styles.sectionHeadingWrap}>
-          <Text style={styles.sectionHeading}>OPERATIONS DOCK</Text>
-          <Text style={styles.sectionHeadingSub}>Tactile single-tap access</Text>
-        </View>
-
-        {/* Primary Operations: Staff Attendance & Payments Banner Cards */}
-        <View style={styles.primaryModules}>
-          <TouchableOpacity
-            style={styles.primaryModuleCard}
-            onPress={() => router.push({ pathname: '/staff', params: { tab: 'attendance' } })}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.moduleIconBox, { backgroundColor: colors.primarySurface }]}>
-              <Ionicons name="checkbox-outline" size={22} color={colors.primary} />
-            </View>
-            <View style={styles.primaryModuleBody}>
-              <View style={styles.primaryModuleTop}>
-                <Text style={styles.primaryModuleTitle}>Staff Attendance</Text>
-                <View style={styles.pillTag}>
-                  <Text style={styles.pillTagText}>Daily</Text>
-                </View>
-              </View>
-              <Text style={styles.primaryModuleSub}>Mark daily muster & worker shifts</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.slate400} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.primaryModuleCard}
-            onPress={() => router.push({ pathname: '/staff', params: { tab: 'payments' } })}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.moduleIconBox, { backgroundColor: colors.accentSurface }]}>
-              <MaterialCommunityIcons name="account-cash-outline" size={22} color={colors.accentDark} />
-            </View>
-            <View style={styles.primaryModuleBody}>
-              <View style={styles.primaryModuleTop}>
-                <Text style={styles.primaryModuleTitle}>Staff Payments</Text>
-                <View style={[styles.pillTag, { backgroundColor: colors.accentSurface }]}>
-                  <Text style={[styles.pillTagText, { color: colors.accentDark }]}>Wages</Text>
-                </View>
-              </View>
-              <Text style={styles.primaryModuleSub}>Track advances, daily & monthly payouts</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.slate400} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Bento Grid: 4 Secondary Modules */}
-        <View style={styles.grid2x2}>
-          <TouchableOpacity
-            style={styles.bentoTile}
-            onPress={() => router.push('/agro-shop')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.bentoTileIcon, { backgroundColor: colors.accentSurface }]}>
-              <Ionicons name="cart-outline" size={22} color={colors.accentDark} />
-            </View>
-            <Text style={styles.bentoTileTitle}>Agro Purchases</Text>
-            <Text style={styles.bentoTileSub}>Seeds, fertilizers & supplies</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.bentoTile}
-            onPress={() => router.push('/sales')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.bentoTileIcon, { backgroundColor: colors.primarySurface }]}>
-              <Ionicons name="cash-outline" size={22} color={colors.primary} />
-            </View>
-            <Text style={styles.bentoTileTitle}>Crop Sales</Text>
-            <Text style={styles.bentoTileSub}>Produce orders & revenue</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.bentoTile}
-            onPress={() => setFarmsModalVisible(true)}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.bentoTileIcon, { backgroundColor: colors.infoSurface }]}>
-              <Ionicons name="grid-outline" size={22} color={colors.info} />
-            </View>
-            <Text style={styles.bentoTileTitle}>Manage Farms</Text>
-            <Text style={styles.bentoTileSub}>Plot boundaries & area</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.bentoTile}
-            onPress={() => router.push('/consultant-visits')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.bentoTileIcon, { backgroundColor: colors.purpleSurface }]}>
-              <Ionicons name="calendar-outline" size={22} color={colors.purple} />
-            </View>
-            <Text style={styles.bentoTileTitle}>Advisory Visits</Text>
-            <Text style={styles.bentoTileSub}>Agronomist & soil checks</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Analytics & Mandi Utilities Bar */}
-        <View style={styles.utilitySection}>
-          <TouchableOpacity
-            style={styles.utilityCard}
-            onPress={() => router.push('/reports')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.utilityIcon, { backgroundColor: colors.infoSurface }]}>
-              <Ionicons name="document-text-outline" size={20} color={colors.info} />
-            </View>
-            <View style={styles.utilityInfo}>
-              <Text style={styles.utilityTitle}>Analytics & Reports</Text>
-              <Text style={styles.utilitySub}>Export balance sheets & crop harvest stats</Text>
-            </View>
-            <Ionicons name="arrow-forward" size={16} color={colors.slate400} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.utilityCard, { marginTop: spacing.sm }]}
-            onPress={() => router.push('/mandi-prices')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.utilityIcon, { backgroundColor: colors.primarySurface }]}>
-              <Ionicons name="trending-up" size={20} color={colors.primary} />
-            </View>
-            <View style={styles.utilityInfo}>
-              <Text style={styles.utilityTitle}>Mandi Market Prices</Text>
-              <Text style={styles.utilitySub}>Live APMC wholesale agricultural benchmarks</Text>
-            </View>
-            <Ionicons name="arrow-forward" size={16} color={colors.slate400} />
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.footerBrand}>
-          POWERED BY AGRI-OS • {new Date().getFullYear()}
-        </Text>
-      </ScrollView>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Farms List Modal Sheet */}
       <Modal
@@ -539,89 +846,94 @@ export default function DashboardScreen() {
                 setAddFarmModalVisible(true);
               }}
               style={styles.modalAddBtn}
+              activeOpacity={0.8}
             >
-              <Ionicons name="add" size={18} color={colors.white} />
+              <Ionicons name="add" size={16} color={colors.white} />
               <Text style={styles.modalAddText}>Add Farm</Text>
             </TouchableOpacity>
           </View>
 
-          {farmsLoading ? (
-            <View style={styles.loadingCenter}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.loadingText}>Loading farm plots...</Text>
-            </View>
-          ) : (
-            <FlatList
-              data={farms}
-              keyExtractor={(item, index) => item.ulid || item.id?.toString() || index.toString()}
-              contentContainerStyle={styles.farmListContent}
-              renderItem={({ item }) => (
-                <BentoCard variant="elevated" style={styles.farmItemCard}>
-                  <View style={styles.farmItemTop}>
-                    <View style={styles.farmItemMain}>
-                      <View style={styles.farmIconBadge}>
-                        <MaterialCommunityIcons name="sprout" size={20} color={colors.primary} />
+          <View style={[styles.modalBodyContainer, { maxWidth: isTablet ? 760 : '100%', alignSelf: 'center', width: '100%' }]}>
+            {farmsLoading ? (
+              <View style={styles.loadingCenter}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={styles.loadingText}>Loading farm parcels...</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={farms}
+                keyExtractor={(item, index) => item.ulid || item.id?.toString() || index.toString()}
+                contentContainerStyle={styles.farmListContent}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item }) => (
+                  <BentoCard variant="elevated" style={styles.farmItemCard}>
+                    <View style={styles.farmItemTop}>
+                      <View style={styles.farmItemMain}>
+                        <View style={styles.farmIconBadge}>
+                          <MaterialCommunityIcons name="sprout" size={20} color={colors.primary} />
+                        </View>
+                        <View>
+                          <Text style={styles.farmNameText}>{item.name}</Text>
+                          {item.location ? (
+                            <View style={styles.farmLocRow}>
+                              <Ionicons name="location-outline" size={12} color={colors.slate500} />
+                              <Text style={styles.farmLocText}>{item.location}</Text>
+                            </View>
+                          ) : null}
+                        </View>
                       </View>
+
+                      <TouchableOpacity
+                        onPress={() => handleToggleFarmStatus(item)}
+                        activeOpacity={0.7}
+                      >
+                        <StatusBadge
+                          label={item.is_active ? 'Active' : 'Inactive'}
+                          variant={item.is_active ? 'success' : 'neutral'}
+                          dot
+                        />
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.farmItemDivider} />
+
+                    <View style={styles.farmItemBottom}>
                       <View>
-                        <Text style={styles.farmNameText}>{item.name}</Text>
-                        {item.location ? (
-                          <View style={styles.farmLocRow}>
-                            <Ionicons name="location-outline" size={12} color={colors.slate500} />
-                            <Text style={styles.farmLocText}>{item.location}</Text>
-                          </View>
-                        ) : null}
+                        <Text style={styles.farmAreaLabel}>Total Area</Text>
+                        <Text style={styles.farmAreaValue}>
+                          {item.area} <Text style={styles.farmAreaUnit}>{item.area_unit.toLowerCase()}(s)</Text>
+                        </Text>
                       </View>
+
+                      <TouchableOpacity
+                        style={styles.farmInspectBtn}
+                        onPress={() => {
+                          setFarmsModalVisible(false);
+                          router.push({
+                            pathname: '/farm-view',
+                            params: {
+                              farm_id: item.id,
+                              farm_ulid: item.ulid || '',
+                            },
+                          });
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.farmInspectText}>Open Farm View ›</Text>
+                      </TouchableOpacity>
                     </View>
-
-                    <TouchableOpacity
-                      onPress={() => handleToggleFarmStatus(item)}
-                      activeOpacity={0.7}
-                    >
-                      <StatusBadge
-                        label={item.is_active ? 'Active' : 'Inactive'}
-                        variant={item.is_active ? 'success' : 'neutral'}
-                        dot
-                      />
-                    </TouchableOpacity>
+                  </BentoCard>
+                )}
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <Ionicons name="leaf-outline" size={48} color={colors.slate300} />
+                    <Text style={styles.emptyTitle}>No farms registered</Text>
+                    <Text style={styles.emptySubtitle}>Tap "+ Add Farm" to record your first farm parcel.</Text>
                   </View>
-
-                  <View style={styles.farmItemDivider} />
-
-                  <View style={styles.farmItemBottom}>
-                    <View>
-                      <Text style={styles.farmAreaLabel}>Total Area</Text>
-                      <Text style={styles.farmAreaValue}>
-                        {item.area} <Text style={styles.farmAreaUnit}>{item.area_unit.toLowerCase()}(s)</Text>
-                      </Text>
-                    </View>
-
-                    <TouchableOpacity
-                      style={styles.farmInspectBtn}
-                      onPress={() => {
-                        setFarmsModalVisible(false);
-                        router.push({
-                          pathname: '/farm-view',
-                          params: {
-                            farm_id: item.id,
-                            farm_ulid: item.ulid || '',
-                          },
-                        });
-                      }}
-                    >
-                      <Text style={styles.farmInspectText}>Open Farm View ›</Text>
-                    </TouchableOpacity>
-                  </View>
-                </BentoCard>
-              )}
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="leaf-outline" size={48} color={colors.slate300} />
-                  <Text style={styles.emptyTitle}>No farms registered</Text>
-                  <Text style={styles.emptySubtitle}>Tap "+ Add Farm" to record your first farm plot.</Text>
-                </View>
-              }
-            />
-          )}
+                }
+              />
+            )}
+          </View>
         </SafeAreaView>
 
         {/* Add Farm Form Modal Overlay */}
@@ -631,12 +943,20 @@ export default function DashboardScreen() {
           visible={addFarmModalVisible}
           onRequestClose={() => setAddFarmModalVisible(false)}
         >
-          <View style={styles.overlayBg}>
-            <View style={styles.modalFormCard}>
+          <KeyboardAvoidingView
+            style={styles.overlayBg}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <View style={[styles.modalFormCard, { maxWidth: isTablet ? 540 : '100%', alignSelf: 'center', width: '100%' }]}>
               <View style={styles.modalFormHeader}>
-                <Text style={styles.modalFormTitle}>Add New Farm Plot</Text>
-                <TouchableOpacity onPress={() => setAddFarmModalVisible(false)}>
-                  <Ionicons name="close" size={22} color={colors.slate500} />
+                <View style={styles.modalFormTitleRow}>
+                  <View style={[styles.iconBoxMini, { backgroundColor: colors.primarySurface }]}>
+                    <Ionicons name="leaf" size={16} color={colors.primary} />
+                  </View>
+                  <Text style={styles.modalFormTitle}>Add New Farm Plot</Text>
+                </View>
+                <TouchableOpacity onPress={() => setAddFarmModalVisible(false)} style={styles.modalCloseCircle}>
+                  <Ionicons name="close" size={20} color={colors.slate500} />
                 </TouchableOpacity>
               </View>
 
@@ -693,6 +1013,7 @@ export default function DashboardScreen() {
                   style={[styles.modalBtn, styles.modalBtnCancel]}
                   onPress={() => setAddFarmModalVisible(false)}
                   disabled={savingFarm}
+                  activeOpacity={0.7}
                 >
                   <Text style={styles.modalBtnCancelText}>Cancel</Text>
                 </TouchableOpacity>
@@ -701,6 +1022,7 @@ export default function DashboardScreen() {
                   style={[styles.modalBtn, styles.modalBtnSave]}
                   onPress={handleCreateFarm}
                   disabled={savingFarm}
+                  activeOpacity={0.8}
                 >
                   {savingFarm ? (
                     <ActivityIndicator color={colors.white} />
@@ -710,7 +1032,7 @@ export default function DashboardScreen() {
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
       </Modal>
     </SafeAreaView>
@@ -723,28 +1045,54 @@ const styles = StyleSheet.create({
     backgroundColor: colors.slate50,
   },
   scrollContent: {
-    paddingBottom: 36,
+    flexGrow: 1,
   },
+  mainWrapper: {
+    paddingBottom: 24,
+  },
+
+  // Top Bar
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 12 : 12,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 10 : 12,
     paddingBottom: spacing.sm,
   },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   logo: {
-    width: 140,
-    height: 38,
+    width: 132,
+    height: 36,
+  },
+  tenantPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySurface,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder,
+    maxWidth: 140,
+  },
+  tenantPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.primaryDark,
   },
   topActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   actionIconButton: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: radius.md,
     backgroundColor: colors.white,
     borderWidth: 1,
@@ -756,24 +1104,34 @@ const styles = StyleSheet.create({
   avatarButton: {
     borderRadius: radius.pill,
   },
-  avatarGlow: {
-    width: 40,
-    height: 40,
+  avatarBadge: {
+    width: 38,
+    height: 38,
     borderRadius: radius.pill,
-    backgroundColor: colors.accentLight,
+    backgroundColor: colors.accent,
     borderWidth: 2,
     borderColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.subtle,
   },
+  avatarInitials: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.slate900,
+  },
+
+  // Greeting Hero
   greetingSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
     marginBottom: spacing.md,
+  },
+  greetingTextContainer: {
+    flex: 1,
+    marginRight: 10,
   },
   greetingSub: {
     fontSize: 11,
@@ -786,11 +1144,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.slate900,
     marginTop: 2,
+    letterSpacing: -0.3,
   },
   greetingHand: {
     fontSize: 20,
   },
-  livePulseContainer: {
+  liveBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -805,22 +1164,95 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.primary,
   },
-  livePulseText: {
+  liveBadgeText: {
     fontSize: 10,
     fontWeight: '800',
     color: colors.primaryDark,
     letterSpacing: 0.8,
   },
+
+  // Coach Setup Banner
+  coachBannerWrap: {
+    marginBottom: spacing.md,
+  },
+  coachBanner: {
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    ...shadows.subtle,
+  },
+  coachBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    marginRight: 12,
+  },
+  coachIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.md,
+    backgroundColor: colors.primarySurface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  coachTextWrap: {
+    flex: 1,
+  },
+  coachTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.slate900,
+  },
+  coachSub: {
+    fontSize: 11,
+    color: colors.slate500,
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  coachActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  coachPrimaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+  },
+  coachPrimaryBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.white,
+  },
+  coachDismissBtn: {
+    padding: 4,
+  },
+
+  // Metrics Grid
   metricsRow: {
     flexDirection: 'row',
     gap: spacing.md,
-    paddingHorizontal: spacing.lg,
     marginBottom: spacing.md,
   },
+  metricsRowTablet: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+
+  // Cockpit Card
   cockpitCard: {
-    marginHorizontal: spacing.lg,
     marginBottom: spacing.lg,
     borderRadius: radius.xl,
     padding: spacing.lg,
@@ -834,6 +1266,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.slate100,
   },
+  cockpitHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  cockpitCalendarIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.sm,
+    backgroundColor: colors.primarySurface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   cockpitTitle: {
     fontSize: 16,
     fontWeight: '800',
@@ -843,7 +1288,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.slate500,
-    marginTop: 2,
+    marginTop: 1,
   },
   quickAddPill: {
     flexDirection: 'row',
@@ -859,7 +1304,14 @@ const styles = StyleSheet.create({
   quickAddPillText: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.primary,
+    color: colors.primaryDark,
+  },
+  scheduleContentWrap: {
+    flexDirection: 'column',
+  },
+  scheduleContentWrapTablet: {
+    flexDirection: 'row',
+    gap: spacing.lg,
   },
   queueBlock: {
     backgroundColor: colors.slate50,
@@ -930,6 +1382,12 @@ const styles = StyleSheet.create({
     gap: 8,
     marginRight: 10,
   },
+  activityDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.primary,
+  },
   queueItemTitle: {
     fontSize: 13,
     fontWeight: '700',
@@ -950,17 +1408,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingVertical: 8,
+    paddingVertical: 12,
     justifyContent: 'center',
   },
   emptyQueueText: {
     fontSize: 12,
     color: colors.slate500,
-    fontWeight: '500',
+    fontWeight: '600',
   },
+
+  // Section Headers
   sectionHeadingWrap: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   sectionHeading: {
     fontSize: 11,
@@ -974,10 +1433,15 @@ const styles = StyleSheet.create({
     color: colors.slate700,
     marginTop: 2,
   },
+
+  // Primary Modules (Staff)
   primaryModules: {
-    paddingHorizontal: spacing.lg,
     gap: spacing.sm,
     marginBottom: spacing.md,
+  },
+  primaryModulesTablet: {
+    flexDirection: 'row',
+    gap: spacing.md,
   },
   primaryModuleCard: {
     flexDirection: 'row',
@@ -1012,13 +1476,13 @@ const styles = StyleSheet.create({
   },
   pillTag: {
     backgroundColor: colors.primarySurface,
-    paddingHorizontal: 6,
+    paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: radius.pill,
   },
   pillTagText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.primaryDark,
   },
   primaryModuleSub: {
@@ -1026,15 +1490,19 @@ const styles = StyleSheet.create({
     color: colors.slate500,
     marginTop: 2,
   },
-  grid2x2: {
+
+  // Operations Bento Grid
+  operationsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: spacing.lg - 4,
-    gap: 8,
+    gap: 12,
     marginBottom: spacing.md,
   },
+  operationsGridTablet: {
+    flexWrap: 'nowrap',
+    gap: 12,
+  },
   bentoTile: {
-    width: '48.5%',
     backgroundColor: colors.white,
     borderRadius: radius.lg,
     padding: spacing.md,
@@ -1043,8 +1511,8 @@ const styles = StyleSheet.create({
     ...shadows.subtle,
   },
   bentoTileIcon: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1059,10 +1527,17 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.slate500,
     marginTop: 3,
+    lineHeight: 15,
   },
+
+  // Utility Section
   utilitySection: {
-    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
     marginBottom: spacing.lg,
+  },
+  utilitySectionTablet: {
+    flexDirection: 'row',
+    gap: spacing.md,
   },
   utilityCard: {
     flexDirection: 'row',
@@ -1094,16 +1569,138 @@ const styles = StyleSheet.create({
     color: colors.slate500,
     marginTop: 2,
   },
+
+  // Footer
+  footerWrap: {
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+    gap: 4,
+  },
   footerBrand: {
-    textAlign: 'center',
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 2,
+    letterSpacing: 1.5,
     color: colors.slate400,
-    marginTop: spacing.lg,
+  },
+  footerVersion: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.slate400,
   },
 
-  // Farms Modal
+  // User Profile Sheet Modal
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  profileSheetCard: {
+    width: '100%',
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    ...shadows.medium,
+  },
+  profileSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  profileSheetAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileSheetAvatarText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.white,
+  },
+  profileSheetInfo: {
+    flex: 1,
+  },
+  profileSheetName: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.slate900,
+  },
+  profileSheetEmail: {
+    fontSize: 12,
+    color: colors.slate500,
+    marginTop: 1,
+  },
+  roleTag: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primarySurface,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    marginTop: 4,
+  },
+  roleTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.primaryDark,
+  },
+  profileCloseBtn: {
+    padding: 6,
+  },
+  profileDivider: {
+    height: 1,
+    backgroundColor: colors.slate100,
+    marginVertical: spacing.md,
+  },
+  profileActionList: {
+    gap: 10,
+  },
+  profileActionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 6,
+  },
+  profileActionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileActionTextWrap: {
+    flex: 1,
+  },
+  profileActionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.slate900,
+  },
+  profileActionSub: {
+    fontSize: 11,
+    color: colors.slate500,
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.dangerSurface,
+    borderWidth: 1,
+    borderColor: colors.dangerBorder,
+  },
+  logoutBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.danger,
+  },
+
+  // Farms Management Modal
   modalSafeArea: {
     flex: 1,
     backgroundColor: colors.slate50,
@@ -1146,6 +1743,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: colors.white,
+  },
+  modalBodyContainer: {
+    flex: 1,
   },
   farmListContent: {
     padding: spacing.lg,
@@ -1271,10 +1871,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.md,
   },
+  modalFormTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  iconBoxMini: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   modalFormTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: colors.slate900,
+  },
+  modalCloseCircle: {
+    padding: 4,
   },
   inputLabel: {
     fontSize: 13,
