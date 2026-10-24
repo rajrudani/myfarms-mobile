@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "myfarmsapp",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.horizoncode.myfarmsapp",
@@ -54,7 +53,8 @@
           "photosPermission": "The app accesses your photos to attach invoices, receipts, and farm photos.",
           "cameraPermission": "The app accesses your camera to capture receipts and field observations."
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
