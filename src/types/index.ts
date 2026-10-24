@@ -31,6 +31,8 @@ export interface User {
   roles?: string[];
   farm_group_id?: string | number;
   farm_group_name?: string | null;
+  profile_photo_path?: string | null;
+  profile_photo_url?: string | null;
   created_at?: string;
   updated_at?: string;
 }

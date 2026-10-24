@@ -9,6 +9,8 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { OfflineBanner } from '../src/components/OfflineBanner';
 
+import { PWABottomNav } from '../src/components/PWABottomNav';
+
 export {
   // Catch any errors thrown by the Layout component.
   ErrorBoundary,
@@ -75,13 +77,16 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
         <OfflineBanner />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-        </Stack>
+        <View style={{ flex: 1 }}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+          </Stack>
+        </View>
+        <PWABottomNav />
       </View>
     </ThemeProvider>
   );

@@ -141,11 +141,16 @@ export const extractErrorMessage = (error: any, fallback = 'An unexpected error 
     }
   }
 
-  if (typeof data?.message === 'string' && data.message.trim().length > 0) {
-    return data.message;
-  }
-
   return error.message || fallback;
+};
+
+export const getAbsoluteImageUrl = (urlPath?: string | null): string | undefined => {
+  if (!urlPath) return undefined;
+  if (urlPath.startsWith('http://') || urlPath.startsWith('https://')) {
+    return urlPath;
+  }
+  const apiBase = getBaseUrl().replace('/api', '');
+  return `${apiBase}${urlPath.startsWith('/') ? '' : '/'}${urlPath}`;
 };
 
 export default apiClient;
