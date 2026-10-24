@@ -443,6 +443,7 @@ export interface Crop {
   unit: string;
   is_perennial: boolean;
   is_active: boolean;
+  image_url?: string | null;
 }
 
 export interface Buyer {

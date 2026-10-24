@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -17,7 +17,7 @@ import {
   Image,
   Switch,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { farmsApi } from '../src/api/farms';
 import { cropCyclesApi } from '../src/api/cropCycles';
@@ -580,6 +580,14 @@ export default function FarmHubScreen() {
     fetchHubData();
   }, [farmIdentifier]);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (farmIdentifier) {
+        fetchHubData();
+      }
+    }, [farmIdentifier])
+  );
+
   const handleRefresh = () => {
     setRefreshing(true);
     fetchHubData();
@@ -1024,20 +1032,14 @@ export default function FarmHubScreen() {
   };
 
   const handleOpenCycleView = (cycle: CropCycle) => {
-    setSelectedCycle(cycle);
-    setEditCropType(cycle.crop_type || '');
-    setEditAllocatedArea(cycle.allocated_area?.toString() || '');
-    setEditAllocatedAreaUnit(cycle.allocated_area_unit || 'ACRE');
-    setEditSeasonName(cycle.season_name || '');
-    setEditStartedOn(cycle.started_on ? cycle.started_on.split('T')[0] : '');
-    setEditExpectedHarvestOn(cycle.expected_harvest_on ? cycle.expected_harvest_on.split('T')[0] : '');
-    setEditActualHarvestOn(cycle.actual_harvest_on ? cycle.actual_harvest_on.split('T')[0] : '');
-    setEditCycleStatus(cycle.status || 'active');
-    setEditHarvestAmount(cycle.harvest_amount?.toString() || '');
-    setEditHarvestUnit(cycle.harvest_unit || '');
-    setEditCycleNotes(cycle.notes || '');
-    setIsEditingCycle(false);
-    setCycleDetailVisible(true);
+    router.push({
+      pathname: '/crop-cycle-view',
+      params: {
+        cycle_id: cycle.id ? cycle.id.toString() : undefined,
+        ulid: cycle.ulid,
+        farm_name: farm?.name,
+      },
+    });
   };
 
   const handleOpenCycleEdit = (cycle: CropCycle) => {
@@ -1250,7 +1252,12 @@ export default function FarmHubScreen() {
                 const isActive = item.status?.toLowerCase() === 'active';
                 const isCompleted = item.status?.toLowerCase() === 'harvested';
                 return (
-                  <View key={item.ulid || item.id} style={[styles.plotCard, !isActive && styles.plotCardInactive]}>
+                  <TouchableOpacity
+                    key={item.ulid || item.id}
+                    style={[styles.plotCard, !isActive && styles.plotCardInactive]}
+                    activeOpacity={0.9}
+                    onPress={() => handleOpenCycleView(item)}
+                  >
                     <View style={styles.plotHeader}>
                       {item.crop_details?.image_url ? (
                         <Image 
@@ -1347,7 +1354,7 @@ export default function FarmHubScreen() {
                         <Ionicons name="eye-outline" size={18} color="#64748b" />
                       </TouchableOpacity>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })
             )}

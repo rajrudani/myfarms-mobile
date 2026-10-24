@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { router, useFocusEffect } from 'expo-router';
 import {
   StyleSheet,
   Text,
@@ -113,6 +114,14 @@ export default function CropCyclesScreen() {
       fetchData();
     }
   }, [isAuthenticated]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isAuthenticated) {
+        fetchData();
+      }
+    }, [isAuthenticated])
+  );
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -230,22 +239,22 @@ export default function CropCyclesScreen() {
     );
   };
 
+  const getFarmName = (farmId?: any, farmObj?: Farm) => {
+    if (farmObj?.name) return farmObj.name;
+    const found = farms.find((f) => f.ulid === farmId || f.id === farmId);
+    return found?.name || 'Unknown Farm';
+  };
+
   const handleOpenView = (cycle: CropCycle) => {
-    setSelectedCycle(cycle);
-    setEditFarmId(cycle.farm_id?.toString() || '');
-    setEditCropType(cycle.crop_type || '');
-    setEditAllocatedArea(cycle.allocated_area?.toString() || '');
-    setEditAllocatedAreaUnit(cycle.allocated_area_unit || 'ACRE');
-    setEditSeasonName(cycle.season_name || '');
-    setEditStartedOn(cycle.started_on ? cycle.started_on.split('T')[0] : '');
-    setEditExpectedHarvestOn(cycle.expected_harvest_on ? cycle.expected_harvest_on.split('T')[0] : '');
-    setEditActualHarvestOn(cycle.actual_harvest_on ? cycle.actual_harvest_on.split('T')[0] : '');
-    setEditStatus(cycle.status || 'ACTIVE');
-    setEditHarvestAmount(cycle.harvest_amount?.toString() || '');
-    setEditHarvestUnit(cycle.harvest_unit || '');
-    setEditNotes(cycle.notes || '');
-    setIsEditing(false);
-    setDetailModalVisible(true);
+    const farmName = getFarmName(cycle.farm_id, cycle.farm);
+    router.push({
+      pathname: '/crop-cycle-view',
+      params: {
+        cycle_id: cycle.id ? cycle.id.toString() : undefined,
+        ulid: cycle.ulid,
+        farm_name: farmName !== 'Unknown Farm' ? farmName : undefined,
+      },
+    });
   };
 
   const handleOpenManage = (cycle: CropCycle) => {
@@ -313,16 +322,14 @@ export default function CropCyclesScreen() {
   };
 
   const renderCycleItem = ({ item }: { item: CropCycle }) => {
-    const farmName =
-      item.farm?.name ||
-      farms.find((f) => f.ulid === item.farm_id || f.id === item.farm_id)?.name ||
-      'Unknown Farm';
+    const farmName = getFarmName(item.farm_id, item.farm);
     const isInactive = item.status !== 'ACTIVE';
 
     return (
       <BentoCard
         variant="elevated"
         style={[styles.cycleCard, isInactive && styles.cycleCardInactive]}
+        onPress={() => handleOpenView(item)}
       >
         <View style={styles.cardHeader}>
           <View style={styles.cropHeaderMain}>

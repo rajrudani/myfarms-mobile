@@ -15,7 +15,7 @@ import {
   KeyboardAvoidingView,
   StatusBar,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { farmsApi } from '../../src/api/farms';
 import { Farm } from '../../src/types';
@@ -23,9 +23,7 @@ import { useAuth } from '../../src/hooks/useAuth';
 import { extractErrorMessage } from '../../src/api/client';
 import { colors, radius, spacing, shadows } from '../../src/theme/tokens';
 import {
-  BentoCard,
   StatusBadge,
-  SearchFilterBar,
   QuickChipGroup,
   ChipOption,
 } from '../../src/components/ui';
@@ -46,6 +44,7 @@ export default function FarmsScreen() {
   // Search & Filter state
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
 
   // Create Farm Modal State
   const [createModalVisible, setCreateModalVisible] = useState(false);
@@ -256,73 +255,76 @@ export default function FarmsScreen() {
   const activeCount = farms.filter((f) => f.is_active).length;
   const inactiveCount = farms.filter((f) => !f.is_active).length;
 
-  const STATUS_FILTER_OPTIONS: ChipOption<'active' | 'inactive' | 'all'>[] = [
-    { label: 'Active', value: 'active', badge: activeCount },
-    { label: 'Inactive', value: 'inactive', badge: inactiveCount },
-    { label: 'All', value: 'all', badge: farms.length },
-  ];
+  const formatAreaDisplay = (areaVal: number | string, unit?: string) => {
+    const num = parseFloat(String(areaVal));
+    const formatted = isNaN(num) ? '0.00' : num.toFixed(2);
+    const rawUnit = unit || 'Acre';
+    const capitalizedUnit = rawUnit.charAt(0).toUpperCase() + rawUnit.slice(1).toLowerCase();
+    return `${formatted} ${capitalizedUnit}`;
+  };
 
   const renderFarmItem = ({ item }: { item: Farm }) => (
-    <BentoCard
-      variant="elevated"
-      style={[styles.farmCard, !item.is_active && styles.farmCardInactive]}
-    >
+    <View style={[styles.farmCard, !item.is_active && styles.farmCardInactive]}>
+      {/* Top Row: Farm Name + Status Dot */}
       <View style={styles.farmCardTop}>
-        <View style={styles.farmHeaderInfo}>
-          <View style={styles.farmIconWrap}>
-            <MaterialCommunityIcons name="sprout" size={20} color={colors.primary} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.farmName} numberOfLines={1}>
-              {item.name}
-            </Text>
-            <View style={styles.farmLocationRow}>
-              <Ionicons name="location-outline" size={12} color={colors.slate500} />
-              <Text style={styles.farmLocation} numberOfLines={1}>
-                {item.location || 'Location not specified'}
-              </Text>
-            </View>
-          </View>
-        </View>
+        <Text style={styles.farmName} numberOfLines={1}>
+          {item.name}
+        </Text>
 
-        <TouchableOpacity onPress={() => handleToggleFarmStatus(item)} activeOpacity={0.7}>
-          <StatusBadge
-            label={item.is_active ? 'Active' : 'Inactive'}
-            variant={item.is_active ? 'success' : 'neutral'}
-            dot
-          />
+        <TouchableOpacity
+          onPress={() => handleToggleFarmStatus(item)}
+          activeOpacity={0.7}
+          style={styles.statusDotTouchArea}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel={item.is_active ? 'Active farm' : 'Inactive farm'}
+        >
+          <View style={[styles.statusDotHalo, !item.is_active && styles.statusDotHaloInactive]}>
+            <View style={[styles.statusDot, !item.is_active && styles.statusDotInactive]} />
+          </View>
         </TouchableOpacity>
+      </View>
+
+      {/* Location Row */}
+      <View style={styles.farmLocationRow}>
+        <Ionicons name="location-sharp" size={14} color={colors.slate500} />
+        <Text style={styles.farmLocation} numberOfLines={1}>
+          {item.location || 'Location not set'}
+        </Text>
       </View>
 
       {/* 3 Glanceable Metric Pills */}
       <View style={styles.pillsRow}>
         <View style={styles.pill}>
-          <Ionicons name="map-outline" size={14} color={colors.primary} style={styles.pillIcon} />
-          <Text style={styles.pillValue}>
-            {parseFloat(item.area as string).toFixed(1)} {item.area_unit.toLowerCase()}(s)
+          <Ionicons name="map-outline" size={14} color="#15803d" style={styles.pillIcon} />
+          <Text style={styles.pillValue} numberOfLines={1}>
+            {formatAreaDisplay(item.area, item.area_unit)}
           </Text>
         </View>
 
         <View style={styles.pill}>
-          <Ionicons name="people-outline" size={14} color={colors.accent} style={styles.pillIcon} />
-          <Text style={styles.pillValue}>{item.assigned_staff_count ?? 0} staff</Text>
+          <Ionicons name="people-outline" size={14} color="#15803d" style={styles.pillIcon} />
+          <Text style={styles.pillValue} numberOfLines={1}>
+            {item.assigned_staff_count ?? 0} workers
+          </Text>
         </View>
 
         <View style={styles.pill}>
-          <Ionicons name="leaf-outline" size={14} color={colors.info} style={styles.pillIcon} />
-          <Text style={styles.pillValue}>{item.active_cycles_count ?? 0} crops</Text>
+          <Ionicons name="sparkles-outline" size={14} color="#15803d" style={styles.pillIcon} />
+          <Text style={styles.pillValue} numberOfLines={1}>
+            {item.active_cycles_count ?? 0} crops
+          </Text>
         </View>
       </View>
 
-      {/* Action Buttons */}
+      {/* Action Buttons: View & Manage */}
       <View style={styles.actionsRow}>
         <TouchableOpacity
           style={styles.actionBtnView}
           onPress={() => handleOpenView(item)}
           activeOpacity={0.7}
         >
-          <Ionicons name="eye-outline" size={16} color={colors.slate800} />
-          <Text style={styles.actionBtnTextView}>Overview</Text>
+          <Ionicons name="eye-outline" size={18} color="#1b4332" />
+          <Text style={styles.actionBtnTextView}>View</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -330,17 +332,17 @@ export default function FarmsScreen() {
           onPress={() => handleOpenManage(item)}
           activeOpacity={0.7}
         >
-          <Ionicons name="options-outline" size={15} color={colors.white} />
-          <Text style={styles.actionBtnTextManage}>Manage Farm Hub</Text>
+          <Ionicons name="settings-sharp" size={16} color={colors.white} />
+          <Text style={styles.actionBtnTextManage}>Manage</Text>
         </TouchableOpacity>
       </View>
-    </BentoCard>
+    </View>
   );
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color="#16a34a" />
         <Text style={styles.loadingText}>Loading farms...</Text>
       </View>
     );
@@ -348,36 +350,71 @@ export default function FarmsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
+      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
 
       {/* Sticky Header Panel */}
       <View style={styles.stickyHeader}>
         <View style={styles.headerTitleRow}>
           <View>
-            <Text style={styles.headerTitle}>Farms & Plots</Text>
-            <Text style={styles.headerSubtitle}>Manage plots, crops, and operations</Text>
+            <Text style={styles.headerTitle}>Farm List</Text>
+            <Text style={styles.headerSubtitle}>Manage farms, activities, and expenses.</Text>
           </View>
           <View style={styles.headerBadge}>
             <Text style={styles.headerBadgeText}>{filteredFarms.length}</Text>
           </View>
         </View>
 
-        {/* Search Bar */}
-        <SearchFilterBar
-          query={search}
-          onChangeQuery={setSearch}
-          placeholder="Search by farm name or location..."
-        />
+        {/* Search & Filter Row */}
+        <View style={styles.searchFilterRow}>
+          <View style={styles.searchBox}>
+            <Ionicons name="search-outline" size={18} color="#64748b" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search by name or location"
+              placeholderTextColor="#94a3b8"
+              autoCorrect={false}
+              autoCapitalize="none"
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch('')} style={styles.clearBtn}>
+                <Ionicons name="close-circle" size={18} color="#94a3b8" />
+              </TouchableOpacity>
+            )}
+          </View>
 
-        {/* Status Filter Chips */}
-        <View style={styles.chipsFilterRow}>
-          <QuickChipGroup
-            options={STATUS_FILTER_OPTIONS}
-            selectedValue={statusFilter}
-            onSelect={(val) => setStatusFilter(val)}
-            size="sm"
-          />
+          <TouchableOpacity
+            style={[styles.filterBtn, statusFilter !== 'active' && styles.filterBtnActive]}
+            onPress={() => setFilterModalVisible(true)}
+            activeOpacity={0.7}
+            accessibilityLabel="Filter farms"
+          >
+            <Ionicons
+              name="funnel-outline"
+              size={19}
+              color={statusFilter !== 'active' ? '#ffffff' : '#64748b'}
+            />
+          </TouchableOpacity>
         </View>
+
+        {/* Active Filter Indicator Tag */}
+        {statusFilter !== 'active' && (
+          <View style={styles.activeFilterRow}>
+            <View style={styles.activeFilterChip}>
+              <Text style={styles.activeFilterChipText}>
+                Status: {statusFilter === 'inactive' ? 'Inactive' : 'All'}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setStatusFilter('active')}
+                style={styles.activeFilterChipClear}
+                accessibilityLabel="Reset filter"
+              >
+                <Ionicons name="close" size={13} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
 
       <FlatList
@@ -390,8 +427,8 @@ export default function FarmsScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+            colors={['#16a34a']}
+            tintColor="#16a34a"
           />
         }
         ListEmptyComponent={
@@ -401,13 +438,13 @@ export default function FarmsScreen() {
             </View>
             <Text style={styles.emptyText}>No farms found</Text>
             <Text style={styles.emptySubtext}>
-              Try adjusting your search query or tap "+" to record a new farm plot.
+              Try adjusting your search query or tap "+" to record a new farm.
             </Text>
           </View>
         }
       />
 
-      {/* Glowing Floating Action Button */}
+      {/* Floating Action Button */}
       <TouchableOpacity
         style={styles.floatingActionBtn}
         onPress={() => {
@@ -416,9 +453,147 @@ export default function FarmsScreen() {
           setCreateModalVisible(true);
         }}
         activeOpacity={0.8}
+        accessibilityLabel="Add farm"
       >
-        <Ionicons name="add" size={28} color={colors.white} />
+        <Ionicons name="add" size={30} color={colors.white} />
       </TouchableOpacity>
+
+      {/* Filter Bottom Sheet Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={filterModalVisible}
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.filterModalOverlay}
+          activeOpacity={1}
+          onPress={() => setFilterModalVisible(false)}
+        >
+          <View style={styles.filterModalContent} onStartShouldSetResponder={() => true}>
+            <View style={styles.filterModalHandle} />
+
+            <View style={styles.filterModalHeader}>
+              <Text style={styles.filterModalTitle}>Filter by Status</Text>
+              {statusFilter !== 'active' && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setStatusFilter('active');
+                    setFilterModalVisible(false);
+                  }}
+                >
+                  <Text style={styles.filterResetBtn}>RESET</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.filterOptionItem,
+                statusFilter === 'active' && styles.filterOptionItemActive,
+              ]}
+              onPress={() => {
+                setStatusFilter('active');
+                setFilterModalVisible(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={styles.filterOptionLeft}>
+                <View
+                  style={[
+                    styles.filterOptionDot,
+                    { backgroundColor: '#22c55e' },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.filterOptionText,
+                    statusFilter === 'active' && styles.filterOptionTextActive,
+                  ]}
+                >
+                  Active Farms
+                </Text>
+              </View>
+              <View style={styles.filterOptionRight}>
+                <Text style={styles.filterOptionBadge}>{activeCount}</Text>
+                {statusFilter === 'active' && (
+                  <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                )}
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.filterOptionItem,
+                statusFilter === 'inactive' && styles.filterOptionItemActive,
+              ]}
+              onPress={() => {
+                setStatusFilter('inactive');
+                setFilterModalVisible(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={styles.filterOptionLeft}>
+                <View
+                  style={[
+                    styles.filterOptionDot,
+                    { backgroundColor: '#ef4444' },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.filterOptionText,
+                    statusFilter === 'inactive' && styles.filterOptionTextActive,
+                  ]}
+                >
+                  Inactive Farms
+                </Text>
+              </View>
+              <View style={styles.filterOptionRight}>
+                <Text style={styles.filterOptionBadge}>{inactiveCount}</Text>
+                {statusFilter === 'inactive' && (
+                  <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                )}
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.filterOptionItem,
+                statusFilter === 'all' && styles.filterOptionItemActive,
+              ]}
+              onPress={() => {
+                setStatusFilter('all');
+                setFilterModalVisible(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={styles.filterOptionLeft}>
+                <View
+                  style={[
+                    styles.filterOptionDot,
+                    { backgroundColor: '#64748b' },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.filterOptionText,
+                    statusFilter === 'all' && styles.filterOptionTextActive,
+                  ]}
+                >
+                  All Farms
+                </Text>
+              </View>
+              <View style={styles.filterOptionRight}>
+                <Text style={styles.filterOptionBadge}>{farms.length}</Text>
+                {statusFilter === 'all' && (
+                  <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                )}
+              </View>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Create Farm Modal */}
       <Modal
@@ -678,13 +853,13 @@ export default function FarmsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.slate50,
+    backgroundColor: '#f8fafc',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.slate50,
+    backgroundColor: '#f8fafc',
   },
   loadingText: {
     marginTop: 10,
@@ -693,13 +868,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   stickyHeader: {
-    backgroundColor: colors.white,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 12 : 12,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.slate200,
-    gap: spacing.sm,
+    backgroundColor: '#f8fafc',
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 14 : 14,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    gap: 14,
   },
   headerTitleRow: {
     flexDirection: 'row',
@@ -707,126 +880,215 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '800',
-    color: colors.slate900,
+    color: '#0f172a',
+    letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
-    color: colors.slate500,
-    marginTop: 2,
+    color: '#64748b',
+    marginTop: 3,
   },
   headerBadge: {
     minWidth: 32,
-    height: 26,
-    paddingHorizontal: 8,
+    height: 28,
+    paddingHorizontal: 10,
     borderRadius: radius.pill,
-    backgroundColor: colors.primarySurface,
-    borderWidth: 1,
-    borderColor: colors.primaryBorder,
+    backgroundColor: '#16a34a',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerBadgeText: {
-    color: colors.primaryDark,
-    fontSize: 12,
+    color: '#ffffff',
+    fontSize: 13,
     fontWeight: '800',
   },
-  chipsFilterRow: {
+  searchFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  searchBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    height: 48,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#0f172a',
+    height: '100%',
+    padding: 0,
+  },
+  clearBtn: {
+    padding: 4,
+  },
+  filterBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBtnActive: {
+    backgroundColor: '#16a34a',
+    borderColor: '#16a34a',
+  },
+  activeFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 2,
   },
+  activeFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#16a34a',
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: radius.pill,
+  },
+  activeFilterChipText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  activeFilterChipClear: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderRadius: radius.pill,
+    width: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   listContainer: {
-    padding: spacing.lg,
-    paddingBottom: 90,
-    gap: spacing.md,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 100,
+    gap: 20,
   },
   farmCard: {
-    padding: spacing.md,
-    borderRadius: radius.lg,
+    backgroundColor: '#ffffff',
+    borderRadius: 26,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 2,
   },
   farmCardInactive: {
-    opacity: 0.75,
+    borderStyle: 'dashed',
+    borderColor: '#cbd5e1',
+    opacity: 0.88,
   },
   farmCardTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  farmHeaderInfo: {
-    flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+  },
+  farmName: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0f172a',
+    lineHeight: 22,
     marginRight: 10,
   },
-  farmIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.md,
-    backgroundColor: colors.primarySurface,
+  statusDotTouchArea: {
+    padding: 2,
+  },
+  statusDotHalo: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(34, 197, 94, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  farmName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.slate900,
+  statusDotHaloInactive: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#22c55e',
+  },
+  statusDotInactive: {
+    backgroundColor: '#ef4444',
   },
   farmLocationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 3,
+    gap: 5,
+    marginTop: 6,
   },
   farmLocation: {
-    fontSize: 12,
-    color: colors.slate500,
+    fontSize: 13,
+    color: '#64748b',
     fontWeight: '500',
   },
   pillsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: spacing.md,
+    gap: 10,
+    marginTop: 16,
   },
   pill: {
     flex: 1,
+    height: 42,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.slate50,
-    borderWidth: 1,
-    borderColor: colors.slate100,
-    borderRadius: radius.sm,
-    paddingVertical: 6,
+    backgroundColor: '#f3f6ee',
+    borderRadius: 12,
     paddingHorizontal: 4,
+    gap: 5,
   },
   pillIcon: {
-    marginRight: 4,
+    marginRight: 0,
   },
   pillValue: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
-    color: colors.slate800,
+    color: '#1e293b',
   },
   actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.md,
     gap: 10,
+    marginTop: 18,
   },
   actionBtnView: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 40,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.slate200,
-    backgroundColor: colors.slate100,
+    height: 44,
+    borderRadius: radius.pill,
+    backgroundColor: '#eaf1e6',
     gap: 6,
   },
   actionBtnManage: {
@@ -834,20 +1096,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 40,
-    borderRadius: radius.md,
-    backgroundColor: colors.primary,
+    height: 44,
+    borderRadius: radius.pill,
+    backgroundColor: '#15803d',
     gap: 6,
+    shadowColor: '#15803d',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    elevation: 3,
   },
   actionBtnTextView: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.slate800,
+    color: '#1b4332',
   },
   actionBtnTextManage: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.white,
+    letterSpacing: 0.2,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -879,13 +1147,107 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 24,
     right: 20,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: colors.primary,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#16a34a',
     justifyContent: 'center',
     alignItems: 'center',
-    ...shadows.glowPrimary,
+    shadowColor: '#16a34a',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 6,
+  },
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  filterModalContent: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 38 : 24,
+    ...shadows.medium,
+  },
+  filterModalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.slate300,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  filterModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  filterModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  filterResetBtn: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#16a34a',
+    letterSpacing: 0.5,
+  },
+  filterOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginBottom: 10,
+  },
+  filterOptionItemActive: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#86efac',
+  },
+  filterOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  filterOptionDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  filterOptionText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  filterOptionTextActive: {
+    color: '#15803d',
+    fontWeight: '700',
+  },
+  filterOptionRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  filterOptionBadge: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748b',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   modalOverlay: {
     flex: 1,
@@ -972,7 +1334,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   saveBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#16a34a',
   },
   saveBtnText: {
     color: colors.white,
