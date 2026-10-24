@@ -270,88 +270,85 @@ export default function ReportsScreen() {
     if (!activeReport) {
       return (
         <ScrollView contentContainerStyle={styles.menuContainer} showsVerticalScrollIndicator={false}>
-          <View style={styles.menuHeroCard}>
-            <View style={styles.menuHeroKickerRow}>
-              <Ionicons name="stats-chart" size={14} color={colors.primary} />
-              <Text style={styles.menuHeroKicker}>FARM INTELLIGENCE DOCK</Text>
-            </View>
-            <Text style={styles.menuHeroTitle}>Operational Reports & Insights</Text>
-            <Text style={styles.menuHeroSubtitle}>
-              Export muster rolls, labor wages, farm activity timeline, and cost breakdown
-            </Text>
+          {/* Staff Reports */}
+          <View style={styles.reportsSection}>
+            <Text style={styles.sectionTitle}>Staff Reports</Text>
+
+            <TouchableOpacity
+              style={[styles.reportCard, styles.isAttendance]}
+              onPress={() => selectReport('attendance')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.reportIconBox, { backgroundColor: '#ecfdf5' }]}>
+                <Ionicons name="clipboard-outline" size={24} color="#059669" />
+              </View>
+              <View style={styles.reportContent}>
+                <Text style={styles.reportTitle}>Attendance Report</Text>
+                <Text style={styles.reportDesc}>Track daily staff presence, work hours, and availability.</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.reportCard, styles.isPayment]}
+              onPress={() => selectReport('payment')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.reportIconBox, { backgroundColor: '#eff6ff' }]}>
+                <Ionicons name="card-outline" size={24} color="#2563eb" />
+              </View>
+              <View style={styles.reportContent}>
+                <Text style={styles.reportTitle}>Payment Report</Text>
+                <Text style={styles.reportDesc}>View staff salary disbursements, advances, and settlements.</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+            </TouchableOpacity>
           </View>
 
-          <Text style={styles.sectionHeader}>Staff & Workforce</Text>
+          <View style={styles.reportsSeparator} />
 
-          <BentoCard
-            variant="elevated"
-            style={styles.reportMenuItem}
-            onPress={() => selectReport('attendance')}
-          >
-            <View style={[styles.iconBox, { backgroundColor: colors.successSurface }]}>
-              <Ionicons name="clipboard-outline" size={24} color={colors.successText} />
-            </View>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>Staff Attendance Report</Text>
-              <Text style={styles.cardDesc}>
-                Track daily muster presence, half-day rates, and staff availability by farm & month.
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.slate400} />
-          </BentoCard>
+          {/* Farm Reports */}
+          <View style={styles.reportsSection}>
+            <Text style={styles.sectionTitle}>Farm Reports</Text>
 
-          <BentoCard
-            variant="elevated"
-            style={styles.reportMenuItem}
-            onPress={() => selectReport('payment')}
-          >
-            <View style={[styles.iconBox, { backgroundColor: colors.infoSurface }]}>
-              <Ionicons name="cash-outline" size={24} color={colors.infoText} />
-            </View>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>Wages & Payment Report</Text>
-              <Text style={styles.cardDesc}>
-                View salary disbursements, advance payments, settlements, and payment channels.
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.slate400} />
-          </BentoCard>
+            <TouchableOpacity
+              style={[styles.reportCard, styles.isActivity]}
+              onPress={() => selectReport('activity')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.reportIconBox, { backgroundColor: '#fff7ed' }]}>
+                <Ionicons name="clipboard-outline" size={24} color="#ea580c" />
+              </View>
+              <View style={styles.reportContent}>
+                <Text style={styles.reportTitle}>Activities Report</Text>
+                <Text style={styles.reportDesc}>Review farm work logs by farm, cycle, and date range.</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+            </TouchableOpacity>
 
-          <Text style={styles.sectionHeader}>Farm Production & Costs</Text>
+            <TouchableOpacity
+              style={[styles.reportCard, styles.isExpense]}
+              onPress={() => selectReport('expense')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.reportIconBox, { backgroundColor: '#fef2f2' }]}>
+                <Ionicons name="cash-outline" size={24} color="#dc2626" />
+              </View>
+              <View style={styles.reportContent}>
+                <Text style={styles.reportTitle}>Expenses Report</Text>
+                <Text style={styles.reportDesc}>Track expense entries and spending by farm, cycle, and date range.</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+            </TouchableOpacity>
+          </View>
 
-          <BentoCard
-            variant="elevated"
-            style={styles.reportMenuItem}
-            onPress={() => selectReport('activity')}
-          >
-            <View style={[styles.iconBox, { backgroundColor: colors.accentSurface }]}>
-              <Ionicons name="construct-outline" size={24} color={colors.accentDark} />
-            </View>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>Farm Activities Report</Text>
-              <Text style={styles.cardDesc}>
-                Audit agronomy work logs, crop cycle tasks, irrigation, and pesticide sprays.
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.slate400} />
-          </BentoCard>
-
-          <BentoCard
-            variant="elevated"
-            style={styles.reportMenuItem}
-            onPress={() => selectReport('expense')}
-          >
-            <View style={[styles.iconBox, { backgroundColor: colors.purpleSurface }]}>
-              <Ionicons name="receipt-outline" size={24} color={colors.purpleText} />
-            </View>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>Farm Expenses Report</Text>
-              <Text style={styles.cardDesc}>
-                Itemized spend breakdown by category, vendor, crop cycle, and date window.
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.slate400} />
-          </BentoCard>
+          {/* Coming Soon Card */}
+          <View style={styles.soonCard}>
+            <Text style={styles.soonTitle}>More Reports Coming Soon</Text>
+            <Text style={styles.soonCopy}>
+              We are adding more useful reports soon to help you track your farm operations better.
+            </Text>
+          </View>
         </ScrollView>
       );
     }
@@ -1126,17 +1123,16 @@ export default function ReportsScreen() {
               router.back();
             }
           }}
+          accessibilityLabel="Back"
         >
-          <Ionicons name="arrow-back-outline" size={22} color={colors.slate800} />
+          <Ionicons name="arrow-back" size={20} color="#475569" />
         </TouchableOpacity>
-        <View style={styles.headerTitleCol}>
-          <Text style={styles.headerKicker}>ANALYTICS & EXPORTS</Text>
-          <Text style={styles.headerTitle}>
-            {activeReport
-              ? `${activeReport.charAt(0).toUpperCase() + activeReport.slice(1)} Report`
-              : 'Farm Reports & Intelligence'}
-          </Text>
-        </View>
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {activeReport
+            ? `${activeReport.charAt(0).toUpperCase() + activeReport.slice(1)} Report`
+            : 'Reports'}
+        </Text>
+        <View style={styles.headerSpacer} />
       </View>
 
       {renderContent()}
@@ -1162,100 +1158,120 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 8 : 12,
-    paddingBottom: spacing.md,
-    backgroundColor: colors.white,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 12 : 16,
+    paddingBottom: 14,
+    backgroundColor: '#f8fafc',
     borderBottomWidth: 1,
-    borderBottomColor: colors.slate200,
-    gap: spacing.md,
+    borderBottomColor: '#e2e8f0',
   },
   backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.md,
-    backgroundColor: colors.slate100,
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: '#e2e8f0',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  headerTitleCol: {
-    flex: 1,
-  },
-  headerKicker: {
-    ...typography.caption,
-    color: colors.primary,
-    fontWeight: '800',
   },
   headerTitle: {
-    ...typography.title2,
-    color: colors.slate900,
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#166534',
+    textAlign: 'center',
+    flex: 1,
+  },
+  headerSpacer: {
+    width: 38,
   },
   menuContainer: {
-    padding: spacing.lg,
+    padding: 16,
     paddingBottom: 60,
+    gap: 16,
   },
-  menuHeroCard: {
-    backgroundColor: colors.white,
-    borderRadius: radius.xl,
-    padding: spacing.lg,
+  reportsSection: {
+    gap: 12,
+  },
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    color: '#166534',
+    paddingHorizontal: 2,
+  },
+  reportsSeparator: {
+    height: 1,
+    backgroundColor: '#cbd5e1',
+    marginVertical: 4,
+  },
+  reportCard: {
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: colors.primaryBorder,
-    marginBottom: spacing.md,
-    ...shadows.subtle,
-  },
-  menuHeroKickerRow: {
+    borderColor: '#e5e7eb',
+    borderRadius: 16,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginBottom: 4,
+    gap: 14,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  menuHeroKicker: {
-    ...typography.caption,
-    color: colors.primary,
-    fontWeight: '800',
-  },
-  menuHeroTitle: {
-    ...typography.title1,
-    color: colors.slate900,
-  },
-  menuHeroSubtitle: {
-    ...typography.bodySmall,
-    color: colors.slate500,
-    marginTop: 4,
-  },
-  sectionHeader: {
-    ...typography.caption,
-    color: colors.slate700,
-    fontWeight: '800',
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-    letterSpacing: 0.8,
-  },
-  reportMenuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-    gap: spacing.md,
-  },
-  iconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.md,
+  isAttendance: {},
+  isPayment: {},
+  isActivity: {},
+  isExpense: {},
+  reportIconBox: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cardContent: {
+  reportContent: {
     flex: 1,
   },
-  cardTitle: {
-    ...typography.title3,
-    color: colors.slate900,
+  reportTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#111827',
   },
-  cardDesc: {
-    ...typography.bodySmall,
-    color: colors.slate500,
-    marginTop: 2,
+  reportDesc: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 3,
+    fontWeight: '500',
     lineHeight: 16,
+  },
+  soonCard: {
+    marginTop: 6,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+  },
+  soonTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0f172a',
+    textAlign: 'center',
+  },
+  soonCopy: {
+    marginTop: 4,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '500',
+    color: '#64748b',
+    textAlign: 'center',
   },
   reportContainer: {
     flex: 1,

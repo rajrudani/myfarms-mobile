@@ -647,3 +647,27 @@ export interface UploadResponse {
   message: string;
 }
 
+// Global Dashboard Search Types
+export interface DashboardSearchResultItem {
+  id: number | string;
+  ulid: string;
+  title: string;
+  meta: string;
+  type: 'farm' | 'sale' | 'purchase' | 'payment' | 'staff' | 'note' | 'visit' | 'shop';
+  status_label?: string;
+  status_color?: 'success' | 'danger' | 'warning' | 'info';
+  shop_ulid?: string;
+}
+
+export interface DashboardSearchCategory {
+  label: string;
+  type: string;
+  icon: string;
+  items: DashboardSearchResultItem[];
+}
+
+export interface DashboardSearchResponse {
+  query: string;
+  results: DashboardSearchCategory[];
+}
+

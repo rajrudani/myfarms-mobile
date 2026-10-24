@@ -13,6 +13,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
+  Linking,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -139,19 +142,25 @@ export default function BuyersScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back-outline" size={24} color="#0f172a" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Buyers Master</Text>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={20} color="#334155" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleCol}>
+            <Text style={styles.headerTitle}>Buyers</Text>
+            <Text style={styles.headerSubtitle}>Manage buyers for your farm group.</Text>
+          </View>
+        </View>
       </View>
 
       {/* Search */}
       <View style={styles.searchSection}>
         <View style={styles.searchContainer}>
-          <Ionicons name="search-outline" size={20} color="#64748b" style={styles.searchIcon} />
+          <Ionicons name="search-outline" size={18} color="#94a3b8" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search buyers..."
+            placeholder="Search for buyers..."
+            placeholderTextColor="#94a3b8"
             value={search}
             onChangeText={setSearch}
           />
@@ -180,55 +189,94 @@ export default function BuyersScreen() {
               <Text style={styles.emptyText}>No buyers found.</Text>
             </View>
           }
-          renderItem={({ item }) => (
-            <View style={styles.buyCard}>
-              <View style={styles.cardHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.buyNameText}>{item.name}</Text>
-                  {item.company_name ? (
-                    <Text style={styles.companyText}>Company: {item.company_name}</Text>
-                  ) : null}
+          renderItem={({ item }) => {
+            const initials = item.name
+              ? item.name
+                  .split(' ')
+                  .map((p) => p[0])
+                  .join('')
+                  .substring(0, 2)
+                  .toUpperCase()
+              : 'B';
+            const salesCount = (item as any).sales_count ?? 0;
+
+            return (
+              <View style={styles.buyCard}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.buyerAvatar}>
+                    <Text style={styles.buyerAvatarText}>{initials}</Text>
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.buyNameText}>{item.name}</Text>
+                    {item.company_name ? (
+                      <Text style={styles.companyText}>{item.company_name}</Text>
+                    ) : null}
+                  </View>
+                  
+                  <View style={[styles.statusPill, item.is_active ? styles.statusPillActive : styles.statusPillInactive]}>
+                    <View style={[styles.pillDot, { backgroundColor: item.is_active ? '#14815f' : '#64748b' }]} />
+                    <Text style={[styles.statusPillText, { color: item.is_active ? '#14815f' : '#64748b' }]}>
+                      {item.is_active ? 'Active' : 'Inactive'}
+                    </Text>
+                  </View>
                 </View>
-                
-                {item.phone ? (
-                  <View style={styles.phoneBadge}>
-                    <Ionicons name="call-outline" size={12} color="#1d4ed8" style={{ marginRight: 4 }} />
-                    <Text style={styles.phoneBadgeText}>{item.phone}</Text>
+
+                {/* Pill row */}
+                {(salesCount > 0 || item.phone || item.address) ? (
+                  <View style={styles.pillsRow}>
+                    {salesCount > 0 ? (
+                      <View style={[styles.infoPill, styles.salesPill]}>
+                        <Ionicons name="bag-handle-outline" size={12} color="#4338ca" />
+                        <Text style={[styles.infoPillText, { color: '#4338ca' }]}>
+                          {salesCount} {salesCount === 1 ? 'Sale' : 'Sales'}
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    {item.phone ? (
+                      <TouchableOpacity
+                        style={[styles.infoPill, styles.phonePill]}
+                        onPress={() => Linking.openURL(`tel:${item.phone}`)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="call-outline" size={12} color="#1d4ed8" />
+                        <Text style={[styles.infoPillText, { color: '#1d4ed8' }]}>{item.phone}</Text>
+                      </TouchableOpacity>
+                    ) : null}
+
+                    {item.address ? (
+                      <View style={[styles.infoPill, styles.addressPill]}>
+                        <Ionicons name="location-outline" size={12} color="#475569" />
+                        <Text style={styles.infoPillText} numberOfLines={1}>{item.address}</Text>
+                      </View>
+                    ) : null}
                   </View>
                 ) : null}
-              </View>
 
-              {(item.address || item.notes) ? (
-                <View style={styles.cardBody}>
-                  {item.address ? (
-                    <Text style={styles.addressText}>📍 Address: {item.address}</Text>
-                  ) : null}
-                  {item.notes ? (
-                    <Text style={styles.notesText}>💡 Notes: {item.notes}</Text>
-                  ) : null}
-                </View>
-              ) : null}
+                {item.notes ? (
+                  <Text style={styles.notesText}>{item.notes}</Text>
+                ) : null}
 
-              <View style={styles.cardFooter}>
-                <View style={styles.statusToggleRow}>
-                  <Text style={styles.statusLabel}>Active</Text>
-                  <Switch
-                    value={item.is_active}
-                    onValueChange={() => handleToggleStatus(item)}
-                    trackColor={{ false: '#cbd5e1', true: '#86efac' }}
-                    thumbColor={item.is_active ? '#166534' : '#f1f5f9'}
-                  />
-                </View>
+                <View style={styles.cardFooter}>
+                  <View style={styles.statusToggleRow}>
+                    <Text style={styles.statusLabel}>Active</Text>
+                    <Switch
+                      value={item.is_active}
+                      onValueChange={() => handleToggleStatus(item)}
+                      trackColor={{ false: '#cbd5e1', true: '#86efac' }}
+                      thumbColor={item.is_active ? '#166534' : '#f1f5f9'}
+                    />
+                  </View>
 
-                <View style={styles.actionsRow}>
-                  <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(item)}>
-                    <Ionicons name="pencil-outline" size={16} color="#475569" />
+                  <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(item)} activeOpacity={0.7}>
+                    <Ionicons name="pencil-outline" size={15} color="#475569" />
                     <Text style={styles.editBtnText}>Edit</Text>
                   </TouchableOpacity>
                 </View>
               </View>
-            </View>
-          )}
+            );
+          }}
         />
       )}
 
@@ -326,35 +374,56 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  backBtn: {
-    marginRight: 12,
-    padding: 2,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  searchSection: {
-    backgroundColor: '#ffffff',
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 8 : 12,
+    paddingBottom: 8,
+    backgroundColor: '#f8fafc',
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
-    paddingVertical: 12,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: '#e2e8f0',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitleCol: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0f172a',
+    letterSpacing: -0.02,
+    lineHeight: 26,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+    marginTop: 2,
+  },
+  searchSection: {
+    backgroundColor: '#f8fafc',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 12,
-    marginHorizontal: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
     paddingHorizontal: 12,
     height: 40,
   },
@@ -387,20 +456,35 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.15)',
+    borderColor: 'rgba(148, 163, 184, 0.25)',
     shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
     elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    gap: 12,
+  },
+  buyerAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#eff6ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#dbeafe',
+  },
+  buyerAvatarText: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#2563eb',
   },
   buyNameText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
     color: '#0f172a',
   },
@@ -408,45 +492,75 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748b',
     fontWeight: '600',
-    marginTop: 4,
+    marginTop: 2,
   },
-  phoneBadge: {
+  statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: 999,
+    gap: 6,
+  },
+  statusPillActive: {
+    backgroundColor: '#e7faf1',
+  },
+  statusPillInactive: {
+    backgroundColor: '#f1f5f9',
+  },
+  pillDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  pillsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  infoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+    gap: 4,
+    maxWidth: '100%',
+  },
+  infoPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  salesPill: {
+    backgroundColor: '#e0e7ff',
+  },
+  phonePill: {
     backgroundColor: '#eff6ff',
   },
-  phoneBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#1d4ed8',
-  },
-  cardBody: {
-    marginTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
-    paddingTop: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-    paddingBottom: 10,
-  },
-  addressText: {
-    fontSize: 12,
-    color: '#475569',
-    fontWeight: '600',
+  addressPill: {
+    backgroundColor: '#f1f5f9',
   },
   notesText: {
     fontSize: 12,
     color: '#64748b',
-    marginTop: 6,
+    marginTop: 8,
+    lineHeight: 18,
   },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+    paddingTop: 12,
+    marginTop: 12,
   },
   statusToggleRow: {
     flexDirection: 'row',
@@ -457,9 +571,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#475569',
     marginRight: 8,
-  },
-  actionsRow: {
-    flexDirection: 'row',
   },
   editBtn: {
     flexDirection: 'row',
@@ -482,14 +593,14 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#166534',
+    backgroundColor: '#22c55e',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#166534',
+    shadowColor: '#22c55e',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 5,
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 6,
   },
   modalOverlay: {
     flex: 1,

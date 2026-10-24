@@ -144,15 +144,14 @@ export default function ActivitiesScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
-          <Ionicons name="arrow-back" size={22} color={colors.slate800} />
-        </TouchableOpacity>
-        <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={styles.headerTitle}>Activity Templates</Text>
-          <Text style={styles.headerSubtitle}>Masters & field protocols</Text>
-        </View>
-        <View style={styles.countBadge}>
-          <Text style={styles.countBadgeText}>{filteredActivities.length}</Text>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={20} color="#334155" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleCol}>
+            <Text style={styles.headerTitle}>Activity Master</Text>
+            <Text style={styles.headerSubtitle}>Manage agricultural tasks and operational activities.</Text>
+          </View>
         </View>
       </View>
 
@@ -161,7 +160,7 @@ export default function ActivitiesScreen() {
         <SearchFilterBar
           query={search}
           onChangeQuery={setSearch}
-          placeholder="Search activity templates..."
+          placeholder="Search activities..."
         />
       </View>
 
@@ -359,51 +358,50 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   header: {
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 8 : 12,
+    paddingBottom: 8,
+    backgroundColor: '#f8fafc',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.slate200,
+    gap: 12,
   },
   backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.md,
-    backgroundColor: colors.slate100,
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: '#e2e8f0',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerTitleCol: {
+    flex: 1,
   },
   headerTitle: {
-    fontSize: 17,
+    fontSize: 22,
     fontWeight: '800',
-    color: colors.slate900,
+    color: '#0f172a',
+    letterSpacing: -0.02,
+    lineHeight: 26,
   },
   headerSubtitle: {
-    fontSize: 11,
-    color: colors.slate500,
-  },
-  countBadge: {
-    minWidth: 28,
-    height: 24,
-    paddingHorizontal: 8,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primarySurface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  countBadgeText: {
     fontSize: 12,
-    fontWeight: '800',
-    color: colors.primaryDark,
+    fontWeight: '600',
+    color: '#64748b',
+    marginTop: 2,
   },
   searchSection: {
-    backgroundColor: colors.white,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: colors.slate200,
+    borderBottomColor: '#e2e8f0',
   },
   listContent: {
     padding: spacing.lg,

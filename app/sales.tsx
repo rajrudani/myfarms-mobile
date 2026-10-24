@@ -283,12 +283,14 @@ export default function SalesScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back-outline" size={22} color={colors.slate800} />
-        </TouchableOpacity>
-        <View style={styles.headerTitleCol}>
-          <Text style={styles.headerKicker}>HARVEST & REVENUE</Text>
-          <Text style={styles.headerTitle}>Produce Sales Log</Text>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={20} color={colors.slate700} />
+          </TouchableOpacity>
+          <View style={styles.headerTitleCol}>
+            <Text style={styles.headerTitle}>Sales</Text>
+            <Text style={styles.headerSubtitle}>Manage sales and track revenue with ease.</Text>
+          </View>
         </View>
       </View>
 
@@ -297,7 +299,7 @@ export default function SalesScreen() {
         <SearchFilterBar
           query={search}
           onChangeQuery={setSearch}
-          placeholder="Search buyer, crop, or invoice #..."
+          placeholder="Search sales..."
         />
 
         <View style={styles.farmPillWrapper}>
@@ -380,7 +382,16 @@ export default function SalesScreen() {
             });
 
             return (
-              <BentoCard variant="elevated" style={styles.saleCard}>
+              <BentoCard
+                variant="elevated"
+                style={styles.saleCard}
+                onPress={() =>
+                  router.push({
+                    pathname: '/sale-view',
+                    params: { sale_ulid: item.ulid, sale_id: item.id },
+                  })
+                }
+              >
                 {/* Header */}
                 <View style={styles.cardHeader}>
                   <View style={{ flex: 1 }}>
@@ -391,7 +402,7 @@ export default function SalesScreen() {
                     </View>
                   </View>
                   <View style={styles.saleIdBadge}>
-                    <Text style={styles.saleIdText}>#S-{item.id}</Text>
+                    <Text style={styles.saleIdText}>#SALE-{item.id}</Text>
                   </View>
                 </View>
 
@@ -460,41 +471,32 @@ export default function SalesScreen() {
                   </View>
                 ) : null}
 
-                {/* Footer amounts & actions */}
+                {/* Footer amounts & View action */}
                 <View style={styles.cardFooter}>
                   <View style={styles.amountsRow}>
                     <View style={styles.amountBlock}>
                       <Text style={styles.amountLabel}>GROSS</Text>
                       <Text style={styles.amountVal}>₹{item.gross_total}</Text>
                     </View>
-                    {item.charges_total > 0 ? (
-                      <View style={styles.amountBlock}>
-                        <Text style={styles.amountLabel}>DEDUCTIONS</Text>
-                        <Text style={[styles.amountVal, { color: colors.danger }]}>
-                          -₹{item.charges_total}
-                        </Text>
-                      </View>
-                    ) : null}
                     <View style={styles.finalAmountBlock}>
-                      <Text style={styles.amountLabel}>NET REALIZED</Text>
+                      <Text style={styles.amountLabel}>FINAL</Text>
                       <Text style={styles.finalVal}>₹{item.final_amount}</Text>
                     </View>
                   </View>
 
                   <View style={styles.actionsGroup}>
                     <TouchableOpacity
-                      style={styles.editBtn}
-                      onPress={() => openEditModal(item)}
+                      style={styles.salesCardViewBtn}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/sale-view',
+                          params: { sale_ulid: item.ulid, sale_id: item.id },
+                        })
+                      }
                       activeOpacity={0.7}
                     >
-                      <Ionicons name="pencil-outline" size={15} color={colors.slate700} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.deleteBtn}
-                      onPress={() => handleDeleteSale(item)}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="trash-outline" size={15} color={colors.danger} />
+                      <Text style={styles.salesCardViewText}>VIEW</Text>
+                      <Ionicons name="chevron-forward" size={14} color="#64748b" />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -824,35 +826,43 @@ const styles = StyleSheet.create({
     color: colors.slate500,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 8 : 12,
-    paddingBottom: spacing.md,
-    backgroundColor: colors.white,
+    paddingBottom: spacing.sm,
+    backgroundColor: '#f8fafc',
     borderBottomWidth: 1,
     borderBottomColor: colors.slate200,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.md,
   },
   backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.md,
-    backgroundColor: colors.slate100,
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: '#e2e8f0',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitleCol: {
     flex: 1,
   },
-  headerKicker: {
-    ...typography.caption,
-    color: colors.primary,
-    fontWeight: '800',
-  },
   headerTitle: {
-    ...typography.title2,
-    color: colors.slate900,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0f172a',
+    letterSpacing: -0.02,
+    lineHeight: 26,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+    marginTop: 2,
   },
   filterSection: {
     backgroundColor: colors.white,
@@ -1066,6 +1076,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+  },
+  salesCardViewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  salesCardViewText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748b',
+    letterSpacing: 0.5,
   },
   editBtn: {
     width: 32,

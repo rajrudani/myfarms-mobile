@@ -378,12 +378,14 @@ export default function ConsultantVisitsScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back-outline" size={22} color={colors.slate800} />
-        </TouchableOpacity>
-        <View style={styles.headerTitleCol}>
-          <Text style={styles.headerKicker}>AGRONOMY & FIELD ADVICE</Text>
-          <Text style={styles.headerTitle}>Consultant Visits</Text>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={20} color={colors.slate700} />
+          </TouchableOpacity>
+          <View style={styles.headerTitleCol}>
+            <Text style={styles.headerTitle}>Consultant Visits</Text>
+            <Text style={styles.headerSubtitle}>Track consultant activities and recommendations.</Text>
+          </View>
         </View>
       </View>
 
@@ -392,7 +394,7 @@ export default function ConsultantVisitsScreen() {
         <SearchFilterBar
           query={searchQuery}
           onChangeQuery={setSearchQuery}
-          placeholder="Search agronomist, farm, notes..."
+          placeholder="Search visits..."
           hasFilter
           isFilterActive={showFilters}
           onToggleFilter={() => setShowFilters(!showFilters)}
@@ -701,35 +703,43 @@ const styles = StyleSheet.create({
     color: colors.slate500,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 8 : 12,
-    paddingBottom: spacing.md,
-    backgroundColor: colors.white,
+    paddingBottom: spacing.sm,
+    backgroundColor: '#f8fafc',
     borderBottomWidth: 1,
     borderBottomColor: colors.slate200,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.md,
   },
   backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.md,
-    backgroundColor: colors.slate100,
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: '#e2e8f0',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitleCol: {
     flex: 1,
   },
-  headerKicker: {
-    ...typography.caption,
-    color: colors.primary,
-    fontWeight: '800',
-  },
   headerTitle: {
-    ...typography.title2,
-    color: colors.slate900,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0f172a',
+    letterSpacing: -0.02,
+    lineHeight: 26,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+    marginTop: 2,
   },
   searchSection: {
     backgroundColor: colors.white,
