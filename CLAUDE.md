@@ -43,6 +43,19 @@ The **MyFarms** agricultural management platform consists of two closely interre
   - **Atomic Transactions**: Multi-record mutations (purchases, payments, sales) must run inside `DB::transaction`.
 - Once an API is added or updated in `myfarmsapp`, mirror the contract in `src/types/index.ts` and add API calls in `src/api/*`.
 
+### Rule 3: Git Workflow — Do NOT Commit Directly (User Commits)
+- **Never run `git commit` or `git push` directly in this repository.**
+- All code modifications, new screens, asset additions, and configuration changes must be left in the working directory.
+- The user will review, test, stage, and commit all changes.
+
+### Rule 4: Responsive UI for All Screen Types (Mobile & Tablets)
+- **The UI must ALWAYS support all screen types seamlessly — from compact smartphones to large tablets (iPads and Android tablets).**
+- **Fluid & Adaptive Layouts**:
+  - Never use rigid, hardcoded pixel widths (`width: 380`, etc.) that cause clipping on small devices or awkward stretched layouts on tablets.
+  - Utilize flexbox layouts, percentage widths, `useWindowDimensions()`, or breakpoint helpers to ensure adaptive presentations.
+  - On tablets, leverage expanded screen width gracefully (e.g., adaptive multi-column grids, optimized card sizes, or modal sheets) rather than excessively stretching phone-sized rows.
+- **Orientation & Form Factors**: Ensure all screens, cards, modals, forms, and bottom sheets render cleanly in both portrait and landscape modes across all device scales.
+
 ---
 
 ## 3. Functional Parity Matrix (Mobile Screen ➔ PWA Reference ➔ API)
@@ -189,6 +202,10 @@ npx tsc --noEmit
   - Accent / Warnings: Amber (`#d97706`, `#f59e0b`, `#fbbf24`)
   - Background & Cards: Slate neutrals (`#f8fafc`, `#ffffff`, `#0f172a`, `#334155`)
 - **Safe Area**: Wrap top-level screens in `SafeAreaView` from `react-native-safe-area-context` to safely accommodate Dynamic Island and notches.
+- **Responsive Screen Adaptation (Mobile & Tablets)**:
+  - Design every component, form, card, and list to automatically adjust across phones (compact to plus/max) and tablets.
+  - Employ flexible containers (`flex: 1`, `flexWrap: 'wrap'`), percentage-based widths, and `useWindowDimensions()` where multi-column tablet layouts provide a superior experience over single-column mobile views.
+  - Prevent clipped text, overflowing buttons, or disproportionately stretched elements on tablet displays.
 - **Keyboard Handling**: Use `KeyboardAvoidingView` with `behavior={Platform.OS === 'ios' ? 'padding' : 'height'}` on all modals and form screens.
 - **Mandatory Screen States**:
   1. **Loading**: Render skeleton loaders or centered `ActivityIndicator` spinners.
