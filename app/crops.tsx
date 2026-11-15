@@ -22,6 +22,7 @@ import { router } from 'expo-router';
 import { mastersApi } from '../src/api/masters';
 import { Crop } from '../src/types';
 import { extractErrorMessage, getBaseUrl } from '../src/api/client';
+import { takePhoto, pickImage, uploadMedia } from '../src/utils/media';
 
 const getAbsoluteImageUrl = (urlPath?: string | null) => {
   if (!urlPath) return undefined;
@@ -47,7 +48,11 @@ export default function CropsScreen() {
   const [nameGu, setNameGu] = useState('');
   const [nameHi, setNameHi] = useState('');
   const [category, setCategory] = useState('FIELD_CROPS');
-  const [unit, setUnit] = useState('BAG');
+  const [unit, setUnit] = useState('kg');
+  const [defaultDurationDays, setDefaultDurationDays] = useState('');
+  const [imagePath, setImagePath] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [isPerennial, setIsPerennial] = useState(false);
   const [isActive, setIsActive] = useState(true);
 
@@ -84,13 +89,48 @@ export default function CropsScreen() {
     }
   };
 
+  const handlePickImage = async () => {
+    try {
+      const asset = await pickImage();
+      if (!asset) return;
+      setUploadingImage(true);
+      const res = await uploadMedia(asset.uri, 'crop-images', asset.fileName, asset.mimeType);
+      setImagePath(res.path);
+      setImageUrl(res.url);
+    } catch (err: any) {
+      console.error('Failed to upload crop image:', err);
+      Alert.alert('Upload Error', extractErrorMessage(err, 'Failed to upload crop photo.'));
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    try {
+      const asset = await takePhoto();
+      if (!asset) return;
+      setUploadingImage(true);
+      const res = await uploadMedia(asset.uri, 'crop-images', asset.fileName, asset.mimeType);
+      setImagePath(res.path);
+      setImageUrl(res.url);
+    } catch (err: any) {
+      console.error('Failed to capture crop photo:', err);
+      Alert.alert('Upload Error', extractErrorMessage(err, 'Failed to capture crop photo.'));
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const openAddModal = () => {
     setEditingCrop(null);
     setName('');
     setNameGu('');
     setNameHi('');
     setCategory('FIELD_CROPS');
-    setUnit('BAG');
+    setUnit('kg');
+    setDefaultDurationDays('');
+    setImagePath('');
+    setImageUrl('');
     setIsPerennial(false);
     setIsActive(true);
     setModalVisible(true);
@@ -102,7 +142,10 @@ export default function CropsScreen() {
     setNameGu(crop.name_gu || '');
     setNameHi(crop.name_hi || '');
     setCategory(crop.category);
-    setUnit(crop.unit);
+    setUnit(crop.unit || 'kg');
+    setDefaultDurationDays(crop.default_duration_days ? crop.default_duration_days.toString() : '');
+    setImagePath(crop.image_path || '');
+    setImageUrl(crop.image_url || '');
     setIsPerennial(crop.is_perennial);
     setIsActive(crop.is_active);
     setModalVisible(true);
@@ -114,12 +157,14 @@ export default function CropsScreen() {
       return;
     }
 
-    const payload = {
-      name,
-      name_gu: nameGu || null,
-      name_hi: nameHi || null,
+    const payload: Partial<Crop> = {
+      name: name.trim(),
+      name_gu: nameGu.trim() || null,
+      name_hi: nameHi.trim() || null,
       category,
       unit,
+      default_duration_days: defaultDurationDays ? parseInt(defaultDurationDays, 10) : null,
+      image_path: imagePath || null,
       is_perennial: isPerennial,
       is_active: isActive,
     };
@@ -254,6 +299,15 @@ export default function CropsScreen() {
                   <View style={styles.unitPill}>
                     <Text style={styles.unitPillText}>Unit: {item.unit}</Text>
                   </View>
+
+                  {item.default_duration_days ? (
+                    <View style={[styles.statusPill, { backgroundColor: '#f1f5f9' }]}>
+                      <Ionicons name="time-outline" size={12} color="#475569" style={{ marginRight: 4 }} />
+                      <Text style={[styles.statusPillText, { color: '#475569' }]}>
+                        {item.default_duration_days}d
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
 
                 {/* Card footer */}
@@ -301,6 +355,52 @@ export default function CropsScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.modalScroll}>
+              <Text style={styles.inputLabel}>Crop Image</Text>
+              <View style={styles.imagePickerCard}>
+                {uploadingImage ? (
+                  <View style={styles.imageLoadingBox}>
+                    <ActivityIndicator color="#166534" />
+                    <Text style={styles.imageLoadingText}>Uploading photo...</Text>
+                  </View>
+                ) : imageUrl || imagePath ? (
+                  <View style={styles.imagePreviewWrap}>
+                    <Image source={{ uri: getAbsoluteImageUrl(imageUrl || imagePath) }} style={styles.imagePreview} />
+                    <View style={styles.imageActionBtns}>
+                      <TouchableOpacity style={styles.imageActionBtn} onPress={handlePickImage} activeOpacity={0.8}>
+                        <Ionicons name="image-outline" size={14} color="#166534" />
+                        <Text style={styles.imageActionBtnText}>Change</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.imageActionBtn, { borderColor: '#ef4444' }]}
+                        onPress={() => {
+                          setImagePath('');
+                          setImageUrl('');
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="trash-outline" size={14} color="#ef4444" />
+                        <Text style={[styles.imageActionBtnText, { color: '#ef4444' }]}>Remove</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.imageUploadPlaceholder}>
+                    <Ionicons name="cloud-upload-outline" size={28} color="#94a3b8" />
+                    <Text style={styles.imageUploadHint}>Upload photo to easily identify crop</Text>
+                    <View style={styles.imageBtnRow}>
+                      <TouchableOpacity style={styles.uploadPickBtn} onPress={handlePickImage} activeOpacity={0.8}>
+                        <Ionicons name="images-outline" size={16} color="#166534" />
+                        <Text style={styles.uploadPickBtnText}>Select Photo</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.uploadPickBtn} onPress={handleTakePhoto} activeOpacity={0.8}>
+                        <Ionicons name="camera-outline" size={16} color="#166534" />
+                        <Text style={styles.uploadPickBtnText}>Take Photo</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </View>
+
               <Text style={styles.inputLabel}>Crop Name (English)*</Text>
               <TextInput
                 style={styles.input}
@@ -340,20 +440,35 @@ export default function CropsScreen() {
                 ))}
               </View>
 
-              <Text style={styles.inputLabel}>Default unit*</Text>
+              <Text style={styles.inputLabel}>Default Harvest Unit*</Text>
               <View style={styles.pickerContainer}>
-                {['BAG', 'KG', 'TON', 'BOX', 'MAN', 'QUINTAL'].map((u) => (
+                {[
+                  { label: 'Kg', value: 'kg' },
+                  { label: 'Quintal', value: 'quintal' },
+                  { label: 'Ton', value: 'ton' },
+                  { label: 'Piece', value: 'piece' },
+                ].map((u) => (
                   <TouchableOpacity
-                    key={u}
-                    style={[styles.pickerItem, unit === u && styles.pickerItemActive]}
-                    onPress={() => setUnit(u)}
+                    key={u.value}
+                    style={[styles.pickerItem, unit.toLowerCase() === u.value && styles.pickerItemActive]}
+                    onPress={() => setUnit(u.value)}
                   >
-                    <Text style={[styles.pickerItemText, unit === u && styles.pickerItemTextActive]}>
-                      {u}
+                    <Text style={[styles.pickerItemText, unit.toLowerCase() === u.value && styles.pickerItemTextActive]}>
+                      {u.label}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
+
+              <Text style={styles.inputLabel}>Default Duration (Days)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 120 (approx days from sowing to harvest)"
+                placeholderTextColor="#94a3b8"
+                keyboardType="number-pad"
+                value={defaultDurationDays}
+                onChangeText={setDefaultDurationDays}
+              />
 
               <View style={styles.switchRow}>
                 <View>
@@ -743,5 +858,86 @@ const styles = StyleSheet.create({
   saveBtnText: {
     color: '#ffffff',
     fontWeight: '700',
+  },
+  imagePickerCard: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 12,
+    marginBottom: 8,
+  },
+  imageLoadingBox: {
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  imageLoadingText: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  imagePreviewWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  imagePreview: {
+    width: 64,
+    height: 64,
+    borderRadius: 10,
+    backgroundColor: '#e2e8f0',
+  },
+  imageActionBtns: {
+    flex: 1,
+    gap: 8,
+  },
+  imageActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 32,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    backgroundColor: '#ffffff',
+  },
+  imageActionBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#166534',
+  },
+  imageUploadPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+  },
+  imageUploadHint: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  imageBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  uploadPickBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  uploadPickBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#166534',
   },
 });

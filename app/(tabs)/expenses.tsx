@@ -15,6 +15,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   StatusBar,
+  Switch,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { expensesApi } from '../../src/api/expenses';
@@ -49,7 +50,8 @@ const PAYMENT_METHODS: ChipOption<string>[] = [
   { label: 'Cash', value: 'Cash' },
   { label: 'UPI', value: 'UPI' },
   { label: 'Bank Transfer', value: 'Bank Transfer' },
-  { label: 'Credit / Card', value: 'Credit' },
+  { label: 'Cheque', value: 'Cheque' },
+  { label: 'Other', value: 'Other' },
 ];
 
 export default function ExpensesScreen() {
@@ -74,6 +76,7 @@ export default function ExpensesScreen() {
   const [amount, setAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [paymentStatus, setPaymentStatus] = useState('PAID');
+  const [expenseIsPaid, setExpenseIsPaid] = useState(true);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -94,6 +97,7 @@ export default function ExpensesScreen() {
   const [editAmount, setEditAmount] = useState('');
   const [editPaymentMethod, setEditPaymentMethod] = useState('');
   const [editPaymentStatus, setEditPaymentStatus] = useState('');
+  const [editIsPaid, setEditIsPaid] = useState(true);
   const [editNotes, setEditNotes] = useState('');
   const [updating, setUpdating] = useState(false);
   const [showEditFarmDropdown, setShowEditFarmDropdown] = useState(false);
@@ -152,8 +156,8 @@ export default function ExpensesScreen() {
         date,
         expense_category: expenseCategory,
         amount: parseFloat(amount),
-        payment_method: paymentMethod,
-        payment_status: paymentStatus,
+        payment_method: expenseIsPaid ? paymentMethod : undefined,
+        payment_status: expenseIsPaid ? 'PAID' : 'UNPAID',
         notes: notes || undefined,
       };
 
@@ -167,6 +171,7 @@ export default function ExpensesScreen() {
       setAmount('');
       setPaymentMethod('Cash');
       setPaymentStatus('PAID');
+      setExpenseIsPaid(true);
       setNotes('');
       setCreateModalVisible(false);
 
@@ -196,8 +201,8 @@ export default function ExpensesScreen() {
         date: editDate,
         expense_category: editExpenseCategory,
         amount: parseFloat(editAmount),
-        payment_method: editPaymentMethod,
-        payment_status: editPaymentStatus,
+        payment_method: editIsPaid ? editPaymentMethod : undefined,
+        payment_status: editIsPaid ? 'PAID' : 'UNPAID',
         notes: editNotes || undefined,
       };
 
@@ -243,6 +248,7 @@ export default function ExpensesScreen() {
   };
 
   const handleOpenView = (expense: FarmExpense) => {
+    const expensePaid = isPaid(expense.payment_status);
     setSelectedExpense(expense);
     setEditFarmId(expense.farm_id?.toString() || '');
     setEditCropCycleId(expense.crop_cycle_id?.toString() || '');
@@ -251,12 +257,14 @@ export default function ExpensesScreen() {
     setEditAmount(expense.amount?.toString() || '');
     setEditPaymentMethod(expense.payment_method || 'Cash');
     setEditPaymentStatus(normalizeStatus(expense.payment_status));
+    setEditIsPaid(expensePaid);
     setEditNotes(expense.notes || '');
     setIsEditing(false);
     setDetailModalVisible(true);
   };
 
   const handleOpenManage = (expense: FarmExpense) => {
+    const expensePaid = isPaid(expense.payment_status);
     setSelectedExpense(expense);
     setEditFarmId(expense.farm_id?.toString() || '');
     setEditCropCycleId(expense.crop_cycle_id?.toString() || '');
@@ -265,6 +273,7 @@ export default function ExpensesScreen() {
     setEditAmount(expense.amount?.toString() || '');
     setEditPaymentMethod(expense.payment_method || 'Cash');
     setEditPaymentStatus(normalizeStatus(expense.payment_status));
+    setEditIsPaid(expensePaid);
     setEditNotes(expense.notes || '');
     setIsEditing(true);
     setDetailModalVisible(true);
@@ -678,24 +687,30 @@ export default function ExpensesScreen() {
                 onChangeText={setAmount}
               />
 
-              <Text style={styles.inputLabel}>Payment Method</Text>
-              <QuickChipGroup
-                options={PAYMENT_METHODS}
-                selectedValue={paymentMethod}
-                onSelect={(val) => setPaymentMethod(val)}
-                size="sm"
-              />
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1, marginRight: 12 }}>
+                  <Text style={styles.switchTitle}>Paid</Text>
+                  <Text style={styles.switchSubtitle}>Toggle off if payment is pending or unpaid</Text>
+                </View>
+                <Switch
+                  value={expenseIsPaid}
+                  onValueChange={setExpenseIsPaid}
+                  trackColor={{ false: colors.slate300, true: colors.primary }}
+                  thumbColor={Platform.OS === 'android' ? (expenseIsPaid ? colors.primaryDark : colors.slate100) : undefined}
+                />
+              </View>
 
-              <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Payment Status</Text>
-              <QuickChipGroup
-                options={[
-                  { label: 'Paid', value: 'PAID' },
-                  { label: 'Unpaid', value: 'UNPAID' },
-                ]}
-                selectedValue={paymentStatus}
-                onSelect={(val) => setPaymentStatus(val)}
-                size="sm"
-              />
+              {expenseIsPaid && (
+                <>
+                  <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Payment Method</Text>
+                  <QuickChipGroup
+                    options={PAYMENT_METHODS}
+                    selectedValue={paymentMethod}
+                    onSelect={(val) => setPaymentMethod(val)}
+                    size="sm"
+                  />
+                </>
+              )}
 
               <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Date (YYYY-MM-DD)</Text>
               <TextInput
@@ -863,24 +878,30 @@ export default function ExpensesScreen() {
                     onChangeText={setEditAmount}
                   />
 
-                  <Text style={styles.inputLabel}>Payment Method</Text>
-                  <QuickChipGroup
-                    options={PAYMENT_METHODS}
-                    selectedValue={editPaymentMethod}
-                    onSelect={(val) => setEditPaymentMethod(val)}
-                    size="sm"
-                  />
+                  <View style={styles.switchRow}>
+                    <View style={{ flex: 1, marginRight: 12 }}>
+                      <Text style={styles.switchTitle}>Paid</Text>
+                      <Text style={styles.switchSubtitle}>Toggle off if payment is pending or unpaid</Text>
+                    </View>
+                    <Switch
+                      value={editIsPaid}
+                      onValueChange={setEditIsPaid}
+                      trackColor={{ false: colors.slate300, true: colors.primary }}
+                      thumbColor={Platform.OS === 'android' ? (editIsPaid ? colors.primaryDark : colors.slate100) : undefined}
+                    />
+                  </View>
 
-                  <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Payment Status</Text>
-                  <QuickChipGroup
-                    options={[
-                      { label: 'Paid', value: 'PAID' },
-                      { label: 'Unpaid', value: 'UNPAID' },
-                    ]}
-                    selectedValue={editPaymentStatus}
-                    onSelect={(val) => setEditPaymentStatus(val)}
-                    size="sm"
-                  />
+                  {editIsPaid && (
+                    <>
+                      <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Payment Method</Text>
+                      <QuickChipGroup
+                        options={PAYMENT_METHODS}
+                        selectedValue={editPaymentMethod}
+                        onSelect={(val) => setEditPaymentMethod(val)}
+                        size="sm"
+                      />
+                    </>
+                  )}
 
                   <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Date</Text>
                   <TextInput
@@ -1411,5 +1432,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: colors.slate900,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.slate50,
+    borderWidth: 1,
+    borderColor: colors.slate200,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+  switchTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.slate900,
+  },
+  switchSubtitle: {
+    fontSize: 11,
+    color: colors.slate500,
+    marginTop: 2,
   },
 });

@@ -252,12 +252,26 @@ export default function FarmViewScreen() {
       return;
     }
 
+    const newAreaNum = parseFloat(editArea);
+    if (isNaN(newAreaNum) || newAreaNum <= 0) {
+      Alert.alert('Validation Error', 'Area must be a valid positive number.');
+      return;
+    }
+
+    if (farm.active_crop_cycles_area && newAreaNum < farm.active_crop_cycles_area - 0.0001) {
+      Alert.alert(
+        'Area Downsize Error',
+        `Total area cannot be less than the active crop cycles area (${farm.active_crop_cycles_area} ${editAreaUnit.toLowerCase()}).`
+      );
+      return;
+    }
+
     setUpdatingFarm(true);
     try {
       const updated = await farmsApi.update(farmIdentifier, {
         ...farm,
         name: editName.trim(),
-        area: parseFloat(editArea),
+        area: newAreaNum,
         area_unit: editAreaUnit,
         location: editLocation.trim() || undefined,
       });
@@ -999,19 +1013,11 @@ export default function FarmViewScreen() {
 
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>Area Unit</Text>
-                <View style={styles.unitPillsRow}>
-                  {AREA_UNITS.map((u) => (
-                    <TouchableOpacity
-                      key={u}
-                      style={[styles.unitPill, editAreaUnit === u && styles.unitPillActive]}
-                      onPress={() => setEditAreaUnit(u)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.unitPillText, editAreaUnit === u && styles.unitPillTextActive]}>
-                        {u.charAt(0) + u.slice(1).toLowerCase()}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                <View style={styles.lockedUnitBadge}>
+                  <Ionicons name="lock-closed" size={13} color="#166534" />
+                  <Text style={styles.lockedUnitText}>
+                    {editAreaUnit.charAt(0) + editAreaUnit.slice(1).toLowerCase()} (Locked to Farm Group)
+                  </Text>
                 </View>
               </View>
 
@@ -1803,5 +1809,21 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 8,
     backgroundColor: '#ffffff',
+  },
+  lockedUnitBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  lockedUnitText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#166534',
   },
 });

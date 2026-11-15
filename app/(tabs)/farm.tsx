@@ -68,6 +68,18 @@ export default function FarmsScreen() {
   const [editNameError, setEditNameError] = useState('');
   const [editAreaError, setEditAreaError] = useState('');
 
+  const preferredAreaUnit = farms.find((f) => f.preferred_area_unit)?.preferred_area_unit || 'acre';
+
+  const formatUnitLabel = (unit?: string) => {
+    if (!unit) return 'Acre';
+    const u = unit.toLowerCase();
+    if (u === 'acre') return 'Acre';
+    if (u === 'hectare') return 'Hectare';
+    if (u === 'bighas' || u === 'bigha') return 'Bigha';
+    if (u === 'gunthas' || u === 'guntha') return 'Guntha';
+    return unit.charAt(0).toUpperCase() + unit.slice(1).toLowerCase();
+  };
+
   const fetchFarms = async () => {
     try {
       const data = await farmsApi.getAll();
@@ -114,10 +126,10 @@ export default function FarmsScreen() {
     setSaving(true);
     try {
       const newFarm: Farm = {
-        name,
+        name: name.trim(),
         area: parseFloat(area),
-        area_unit: areaUnit,
-        location,
+        area_unit: preferredAreaUnit,
+        location: location.trim() || undefined,
         is_active: true,
       };
 
@@ -125,7 +137,7 @@ export default function FarmsScreen() {
 
       setName('');
       setArea('');
-      setAreaUnit('acre');
+      setAreaUnit(preferredAreaUnit);
       setLocation('');
       setCreateModalVisible(false);
 
@@ -164,6 +176,14 @@ export default function FarmsScreen() {
     } else if (isNaN(Number(editArea)) || Number(editArea) <= 0) {
       setEditAreaError('Area size must be a valid positive number.');
       hasError = true;
+    } else if (
+      selectedFarm.active_crop_cycles_area &&
+      Number(editArea) < Number(selectedFarm.active_crop_cycles_area) - 0.0001
+    ) {
+      setEditAreaError(
+        `Total area cannot be less than active crop cycles area (${selectedFarm.active_crop_cycles_area} ${formatUnitLabel(editAreaUnit)}).`
+      );
+      hasError = true;
     }
 
     if (hasError) return;
@@ -173,10 +193,10 @@ export default function FarmsScreen() {
     try {
       const updatedFarm: Farm = {
         ...selectedFarm,
-        name: editName,
+        name: editName.trim(),
         area: parseFloat(editArea),
         area_unit: editAreaUnit,
-        location: editLocation,
+        location: editLocation.trim() || undefined,
       };
 
       const result = await farmsApi.update(identifier, updatedFarm);
@@ -645,13 +665,12 @@ export default function FarmsScreen() {
             />
             {areaError ? <Text style={styles.errorText}>{areaError}</Text> : null}
 
-            <Text style={styles.inputLabel}>Area Measurement Unit</Text>
-            <QuickChipGroup
-              options={AREA_UNIT_OPTIONS}
-              selectedValue={areaUnit}
-              onSelect={(val) => setAreaUnit(val)}
-              size="sm"
-            />
+            <View style={styles.lockedUnitBadge}>
+              <Ionicons name="lock-closed" size={13} color="#166534" />
+              <Text style={styles.lockedUnitText}>
+                Unit: {formatUnitLabel(preferredAreaUnit)} (Locked to Farm Group)
+              </Text>
+            </View>
 
             <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Location (Optional)</Text>
             <TextInput
@@ -737,13 +756,12 @@ export default function FarmsScreen() {
                 />
                 {editAreaError ? <Text style={styles.errorText}>{editAreaError}</Text> : null}
 
-                <Text style={styles.inputLabel}>Area Measurement Unit</Text>
-                <QuickChipGroup
-                  options={AREA_UNIT_OPTIONS}
-                  selectedValue={editAreaUnit}
-                  onSelect={(val) => setEditAreaUnit(val)}
-                  size="sm"
-                />
+                <View style={styles.lockedUnitBadge}>
+                  <Ionicons name="lock-closed" size={13} color="#166534" />
+                  <Text style={styles.lockedUnitText}>
+                    Unit: {formatUnitLabel(editAreaUnit)} (Locked to Farm Group)
+                  </Text>
+                </View>
 
                 <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Location</Text>
                 <TextInput
@@ -1367,5 +1385,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: colors.slate900,
+  },
+  lockedUnitBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 10,
+    gap: 8,
+  },
+  lockedUnitText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#166534',
   },
 });

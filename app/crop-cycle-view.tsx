@@ -15,6 +15,7 @@ import {
   KeyboardAvoidingView,
   StatusBar,
   Image,
+  Switch,
 } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,6 +33,7 @@ import {
   Farm,
   FarmActivityMaster,
   Crop,
+  AgroInputProduct,
 } from '../src/types';
 import { extractErrorMessage, getBaseUrl } from '../src/api/client';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
@@ -66,6 +68,112 @@ const EXPENSE_CATEGORIES = [
   'Consulting / Inspection',
   'Other Operational',
 ];
+
+const HARVEST_UNITS: ChipOption<string>[] = [
+  { label: 'KG (kg)', value: 'kg' },
+  { label: 'Quintal (q)', value: 'quintal' },
+  { label: 'Ton (t)', value: 'ton' },
+  { label: 'Piece (pc)', value: 'piece' },
+];
+
+const EXPENSE_PAYMENT_METHODS: ChipOption<string>[] = [
+  { label: 'Cash', value: 'cash' },
+  { label: 'UPI', value: 'upi' },
+  { label: 'Bank Transfer', value: 'bank_transfer' },
+  { label: 'Cheque', value: 'cheque' },
+  { label: 'Other', value: 'other' },
+];
+
+const findFallbackMaster = (selectedName: string) => {
+  if (!selectedName) return undefined;
+  const normalized = selectedName.trim().toLowerCase();
+
+  const nameMappings = [
+    { key: 'f1', names: ['pesticide application', 'જંતુનાશક છંટકાવ', 'कीटनाशक छिड़काव'] },
+    { key: 'f2', names: ['fertilizer application', 'ખાતર ઉપયોગ', 'उर्वरक अनुप्रयोग'] },
+    { key: 'f3', names: ['harvesting/picking', 'કાપણી/તોડણી', 'कटाई/तोड़ाई'] },
+    { key: 'f4', names: ['irrigation', 'સિંચાઈ', 'सिंचाई'] },
+    { key: 'f5', names: ['sowing/planting', 'વાવેતર/રોપણ', 'बुवाई/रोपाई'] },
+    { key: 'f6', names: ['other', 'અન્ય', 'अन्य'] },
+  ];
+
+  const matched = nameMappings.find((m) => m.names.includes(normalized));
+  if (matched) {
+    return fallbackActivityMasters.find((f) => f.id === matched.key);
+  }
+  return undefined;
+};
+
+const fallbackActivityMasters: FarmActivityMaster[] = [
+  {
+    id: 'f1',
+    ulid: 'f1',
+    name: 'Pesticide Application',
+    is_active: true,
+    fields: [
+      { key: 'product_id', label: 'Pesticide', type: 'morph', required: true, morph: 'agro_input_products' },
+      { key: 'quantity', label: 'Quantity', type: 'number', required: true, min: 0 },
+      { key: 'quantity_unit', label: 'Unit', type: 'enum', required: true, options: { LITRE: 'Litre', ML: 'ML', KG: 'KG', GRAM: 'Gram' } },
+    ],
+  },
+  {
+    id: 'f2',
+    ulid: 'f2',
+    name: 'Fertilizer Application',
+    is_active: true,
+    fields: [
+      { key: 'product_id', label: 'Fertilizer', type: 'morph', required: true, morph: 'agro_input_products' },
+      { key: 'quantity', label: 'Quantity', type: 'number', required: true, min: 0 },
+      { key: 'quantity_unit', label: 'Unit', type: 'enum', required: true, options: { KG: 'KG', GRAM: 'Gram', BAGS: 'Bags' } },
+    ],
+  },
+  {
+    id: 'f3',
+    ulid: 'f3',
+    name: 'Harvesting/Picking',
+    is_active: true,
+    fields: [
+      { key: 'quantity', label: 'Quantity', type: 'number', required: true, min: 0 },
+      { key: 'quantity_unit', label: 'Unit', type: 'enum', required: true, options: { KG: 'KG', TONS: 'Tons', BAGS: 'Bags', QUINTAL: 'Quintal' } },
+    ],
+  },
+  {
+    id: 'f4',
+    ulid: 'f4',
+    name: 'Irrigation',
+    is_active: true,
+    fields: [
+      { key: 'duration_hours', label: 'Duration (Hours)', type: 'decimal', required: false, min: 0 },
+    ],
+  },
+  {
+    id: 'f5',
+    ulid: 'f5',
+    name: 'Sowing/Planting',
+    is_active: true,
+    fields: [
+      { key: 'quantity', label: 'Quantity', type: 'number', required: true, min: 0 },
+      { key: 'quantity_unit', label: 'Unit', type: 'enum', required: true, options: { KG: 'KG', GRAM: 'Gram', SEEDLINGS: 'Seedlings' } },
+    ],
+  },
+];
+
+const getNormalizedOptions = (opts: any): { key: string; label: string }[] => {
+  if (!opts) return [];
+  if (Array.isArray(opts)) {
+    return opts.map((item: any) => {
+      if (typeof item === 'string') return { key: item, label: item };
+      return { key: item.key || item.value || '', label: item.label || item.value || '' };
+    });
+  }
+  if (typeof opts === 'object') {
+    return Object.entries(opts).map(([k, v]) => ({
+      key: k,
+      label: typeof v === 'string' ? v : (v as any)?.label || k,
+    }));
+  }
+  return [];
+};
 
 export default function CropCycleViewScreen() {
   const params = useLocalSearchParams();
@@ -106,9 +214,11 @@ export default function CropCycleViewScreen() {
   const [updatingCycle, setUpdatingCycle] = useState(false);
 
   // Harvest form state
+  const [harvestIsHarvested, setHarvestIsHarvested] = useState(true);
+  const [createNextCycle, setCreateNextCycle] = useState(false);
   const [harvestDate, setHarvestDate] = useState('');
   const [harvestAmount, setHarvestAmount] = useState('');
-  const [harvestUnit, setHarvestUnit] = useState('KG');
+  const [harvestUnit, setHarvestUnit] = useState('kg');
   const [savingHarvest, setSavingHarvest] = useState(false);
 
   // Notes form state
@@ -119,16 +229,45 @@ export default function CropCycleViewScreen() {
   const [selectedActivityMasterId, setSelectedActivityMasterId] = useState<string | number>('');
   const [activityDate, setActivityDate] = useState('');
   const [activityNotes, setActivityNotes] = useState('');
+  const [inputProductsList, setInputProductsList] = useState<AgroInputProduct[]>([]);
+  const [activityFieldsValues, setActivityFieldsValues] = useState<Record<string, any>>({});
+  const [activityErrors, setActivityErrors] = useState<Record<string, string>>({});
+  const [showFieldDropdowns, setShowFieldDropdowns] = useState<Record<string, boolean>>({});
+  const [customProductNames, setCustomProductNames] = useState<Record<string, string>>({});
   const [savingActivity, setSavingActivity] = useState(false);
 
   // Quick Add Expense form state
   const [expenseCategory, setExpenseCategory] = useState(EXPENSE_CATEGORIES[0]);
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenseDate, setExpenseDate] = useState('');
+  const [expenseIsPaid, setExpenseIsPaid] = useState(true);
   const [expensePaymentMethod, setExpensePaymentMethod] = useState('cash');
-  const [expensePaymentStatus, setExpensePaymentStatus] = useState('completed');
   const [expenseNotes, setExpenseNotes] = useState('');
   const [savingExpense, setSavingExpense] = useState(false);
+
+  const handleSelectActivityMaster = (masterId: string | number) => {
+    setSelectedActivityMasterId(masterId);
+    const m = (activityMasters.length > 0 ? activityMasters : fallbackActivityMasters).find(
+      (act) => act.id.toString() === masterId.toString()
+    );
+    const initialVals: Record<string, any> = {};
+    let fields = m?.fields || [];
+    if (fields.length === 0 && m) {
+      const fallback = findFallbackMaster(m.name);
+      if (fallback) {
+        fields = fallback.fields || [];
+      }
+    }
+    fields.forEach((f: any) => {
+      if (f.default !== undefined) {
+        initialVals[f.key] = f.default;
+      } else if (f.type === 'boolean') {
+        initialVals[f.key] = false;
+      }
+    });
+    setActivityFieldsValues(initialVals);
+    setActivityErrors({});
+  };
 
   const fetchCycleData = useCallback(async () => {
     if (!cycleIdentifier) return;
@@ -143,31 +282,36 @@ export default function CropCycleViewScreen() {
       setEditSeasonName(cycleData.season_name || '');
       setEditStartedOn(cycleData.started_on ? cycleData.started_on.split('T')[0] : '');
       setEditExpectedHarvestOn(cycleData.expected_harvest_on ? cycleData.expected_harvest_on.split('T')[0] : '');
+      setHarvestIsHarvested(cycleData.status?.toUpperCase() === 'HARVESTED');
+      setCreateNextCycle(false);
       setHarvestDate(cycleData.actual_harvest_on ? cycleData.actual_harvest_on.split('T')[0] : new Date().toISOString().split('T')[0]);
       setHarvestAmount(cycleData.harvest_amount?.toString() || '');
-      setHarvestUnit(cycleData.harvest_unit || 'KG');
+      setHarvestUnit((cycleData.harvest_unit || 'kg').toLowerCase());
       setNotesText(cycleData.notes || '');
 
       const dbCycleId = cycleData.id || cycleIdentifier;
 
       // Fetch related data in parallel
-      const [acts, exps, sls, farmData, masters, cropsData] = await Promise.all([
+      const [acts, exps, sls, farmData, masters, cropsData, inputProds] = await Promise.all([
         farmActivitiesApi.getAll({ crop_cycle_id: dbCycleId }).catch(() => []),
         expensesApi.getAll({ crop_cycle_id: dbCycleId }).catch(() => []),
         salesApi.getSales({ crop_cycle_id: dbCycleId }).catch(() => []),
         cycleData.farm_id ? farmsApi.getById(cycleData.farm_id).catch(() => null) : Promise.resolve(null),
         mastersApi.getActivities().catch(() => []),
         mastersApi.getCrops().catch(() => []),
+        mastersApi.getInputProducts({ status: 'active' }).catch(() => []),
       ]);
 
       setActivities(acts);
       setExpenses(exps);
       setSales(sls);
       if (farmData) setFarm(farmData);
-      setActivityMasters(masters);
+      const effectiveMasters = masters.length > 0 ? masters : fallbackActivityMasters;
+      setActivityMasters(effectiveMasters);
       setCrops(cropsData);
-      if (masters.length > 0 && !selectedActivityMasterId) {
-        setSelectedActivityMasterId(masters[0].id);
+      setInputProductsList(inputProds);
+      if (effectiveMasters.length > 0 && !selectedActivityMasterId) {
+        setSelectedActivityMasterId(effectiveMasters[0].id);
       }
     } catch (error) {
       console.error('Error fetching crop cycle data:', error);
@@ -349,7 +493,7 @@ export default function CropCycleViewScreen() {
   // Handle Harvest Crop
   const handleSaveHarvest = async () => {
     if (!cycleIdentifier || !cycle) return;
-    if (!harvestDate.trim()) {
+    if (harvestIsHarvested && !harvestDate.trim()) {
       Alert.alert('Validation Error', 'Actual harvest date is required.');
       return;
     }
@@ -358,16 +502,22 @@ export default function CropCycleViewScreen() {
     try {
       const payload: CropCycle = {
         ...cycle,
-        status: 'HARVESTED',
-        actual_harvest_on: harvestDate,
-        harvest_amount: harvestAmount ? parseFloat(harvestAmount) : undefined,
-        harvest_unit: harvestUnit || 'KG',
+        status: harvestIsHarvested ? 'HARVESTED' : 'ACTIVE',
+        actual_harvest_on: harvestIsHarvested ? harvestDate : undefined,
+        harvest_amount: harvestIsHarvested && harvestAmount ? parseFloat(harvestAmount) : undefined,
+        harvest_unit: harvestIsHarvested ? (harvestUnit || 'kg') : undefined,
+        create_next_cycle: harvestIsHarvested ? createNextCycle : false,
       };
 
       const updated = await cropCyclesApi.update(cycleIdentifier, payload);
       setCycle(updated);
       setHarvestModalVisible(false);
-      Alert.alert('Success', 'Harvest record saved successfully!');
+      Alert.alert(
+        'Success',
+        harvestIsHarvested
+          ? (createNextCycle ? 'Harvest saved and next cycle created!' : 'Harvest record saved successfully!')
+          : 'Cycle moved back to Active status!'
+      );
       fetchCycleData();
     } catch (error) {
       Alert.alert('Error', extractErrorMessage(error, 'Failed to save harvest.'));
@@ -400,23 +550,73 @@ export default function CropCycleViewScreen() {
   // Quick Add Activity
   const handleCreateActivity = async () => {
     if (!cycle?.farm_id || !selectedActivityMasterId) {
-      Alert.alert('Error', 'Please select an activity master.');
+      Alert.alert('Validation Error', 'Please select an activity master.');
+      return;
+    }
+
+    const selectedMaster = activityMasters.find(
+      (m) => m.id.toString() === selectedActivityMasterId.toString()
+    );
+    let fields = selectedMaster?.fields || [];
+    if (fields.length === 0 && selectedMaster) {
+      const fallback = findFallbackMaster(selectedMaster.name);
+      if (fallback) {
+        fields = fallback.fields || [];
+      }
+    }
+
+    // Validate dynamic fields
+    const errors: Record<string, string> = {};
+    let hasError = false;
+    fields.forEach((f: any) => {
+      const val = activityFieldsValues[f.key];
+      if (f.required && (val === undefined || val === null || val === '')) {
+        errors[f.key] = `${f.label} is required.`;
+        hasError = true;
+      }
+      if (val === 'new' && (!customProductNames[f.key] || !customProductNames[f.key].trim())) {
+        errors[f.key] = `Please enter custom ${f.label.toLowerCase()} name.`;
+        hasError = true;
+      }
+    });
+
+    if (hasError) {
+      setActivityErrors(errors);
       return;
     }
 
     setSavingActivity(true);
     try {
+      const updatedFieldsValues = { ...activityFieldsValues };
+      for (const f of fields) {
+        if (f.type === 'morph' && updatedFieldsValues[f.key] === 'new') {
+          const customName = customProductNames[f.key];
+          if (customName && customName.trim()) {
+            const newProduct = await mastersApi.createInputProduct({
+              name: customName.trim(),
+              is_active: true,
+            });
+            setInputProductsList((prev) => [...prev, newProduct]);
+            updatedFieldsValues[f.key] = newProduct.id;
+          }
+        }
+      }
+
       await farmActivitiesApi.create({
         farm_id: cycle.farm_id,
         crop_cycle_id: cycle.id || cycleIdentifier,
         farm_activity_master_id: selectedActivityMasterId,
         date: activityDate || new Date().toISOString().split('T')[0],
-        status: 'completed',
-        notes: activityNotes,
+        activity_type: selectedMaster?.name || 'General',
+        status: activityDate && new Date(activityDate) > new Date() ? 'scheduled' : 'completed',
+        notes: activityNotes || undefined,
+        details_json: Object.keys(updatedFieldsValues).length > 0 ? updatedFieldsValues : undefined,
       });
 
       setAddActivityModalVisible(false);
       setActivityNotes('');
+      setActivityFieldsValues({});
+      setCustomProductNames({});
       Alert.alert('Success', 'Activity added successfully!');
       fetchCycleData();
     } catch (error) {
@@ -441,9 +641,9 @@ export default function CropCycleViewScreen() {
         expense_category: expenseCategory,
         amount: parseFloat(expenseAmount),
         date: expenseDate || new Date().toISOString().split('T')[0],
-        payment_method: expensePaymentMethod,
-        payment_status: expensePaymentStatus,
-        notes: expenseNotes,
+        payment_method: expenseIsPaid ? (expensePaymentMethod || 'cash') : undefined,
+        payment_status: expenseIsPaid ? 'PAID' : 'UNPAID',
+        notes: expenseNotes || undefined,
       });
 
       setAddExpenseModalVisible(false);
@@ -1088,7 +1288,7 @@ export default function CropCycleViewScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                {isHarvested ? 'Edit Harvest Record' : 'Record Crop Harvest'}
+                {harvestIsHarvested ? 'Harvest Crop Cycle' : 'Update Cycle Status'}
               </Text>
               <TouchableOpacity onPress={() => setHarvestModalVisible(false)}>
                 <Ionicons name="close" size={22} color={colors.slate600} />
@@ -1096,33 +1296,77 @@ export default function CropCycleViewScreen() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.inputLabel}>Actual Harvest Date (YYYY-MM-DD) *</Text>
-              <TextInput
-                style={styles.input}
-                value={harvestDate}
-                onChangeText={setHarvestDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.slate400}
-              />
+              {/* Harvested Toggle */}
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1, paddingRight: spacing.sm }}>
+                  <Text style={styles.switchTitle}>Harvested</Text>
+                  <Text style={styles.switchSubtitle}>
+                    {harvestIsHarvested
+                      ? 'Turn off to move this cycle back to Active status'
+                      : 'Turn on to mark this crop cycle as harvested'}
+                  </Text>
+                </View>
+                <Switch
+                  value={harvestIsHarvested}
+                  onValueChange={(val) => {
+                    setHarvestIsHarvested(val);
+                    if (val && !harvestDate) {
+                      setHarvestDate(new Date().toISOString().split('T')[0]);
+                    }
+                  }}
+                  trackColor={{ false: colors.slate200, true: '#86efac' }}
+                  thumbColor={harvestIsHarvested ? colors.primary : colors.slate400}
+                />
+              </View>
 
-              <Text style={styles.inputLabel}>Harvest Yield Amount</Text>
-              <TextInput
-                style={styles.input}
-                value={harvestAmount}
-                onChangeText={setHarvestAmount}
-                keyboardType="decimal-pad"
-                placeholder="e.g. 1200"
-                placeholderTextColor={colors.slate400}
-              />
+              {harvestIsHarvested ? (
+                <>
+                  {/* Create New Cycle Toggle (for Perennial crops like Mango, Lemon, etc.) */}
+                  <View style={[styles.switchRow, { marginTop: spacing.md }]}>
+                    <View style={{ flex: 1, paddingRight: spacing.sm }}>
+                      <Text style={styles.switchTitle}>Create New Cycle</Text>
+                      <Text style={styles.switchSubtitle}>
+                        For perennial crops (mango, lemon, chikoo, etc.) where planting continues after each harvest
+                      </Text>
+                    </View>
+                    <Switch
+                      value={createNextCycle}
+                      onValueChange={setCreateNextCycle}
+                      trackColor={{ false: colors.slate200, true: '#86efac' }}
+                      thumbColor={createNextCycle ? colors.primary : colors.slate400}
+                    />
+                  </View>
 
-              <Text style={styles.inputLabel}>Yield Unit</Text>
-              <TextInput
-                style={styles.input}
-                value={harvestUnit}
-                onChangeText={setHarvestUnit}
-                placeholder="e.g. KG, Quintal, Bags, Ton"
-                placeholderTextColor={colors.slate400}
-              />
+                  <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>
+                    Actual Harvest Date (YYYY-MM-DD) *
+                  </Text>
+                  <TextInput
+                    style={styles.input}
+                    value={harvestDate}
+                    onChangeText={setHarvestDate}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={colors.slate400}
+                  />
+
+                  <Text style={styles.inputLabel}>Harvest Yield Amount</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={harvestAmount}
+                    onChangeText={setHarvestAmount}
+                    keyboardType="decimal-pad"
+                    placeholder="e.g. 1200"
+                    placeholderTextColor={colors.slate400}
+                  />
+
+                  <Text style={styles.inputLabel}>Yield Unit</Text>
+                  <QuickChipGroup
+                    options={HARVEST_UNITS}
+                    selectedValue={harvestUnit.toLowerCase()}
+                    onSelect={(val) => setHarvestUnit(val.toString())}
+                    size="sm"
+                  />
+                </>
+              ) : null}
 
               <View style={styles.modalActions}>
                 <TouchableOpacity
@@ -1141,7 +1385,9 @@ export default function CropCycleViewScreen() {
                   {savingHarvest ? (
                     <ActivityIndicator color={colors.white} />
                   ) : (
-                    <Text style={styles.saveBtnText}>Save Harvest</Text>
+                    <Text style={styles.saveBtnText}>
+                      {harvestIsHarvested ? 'Save Harvest' : 'Move to Active'}
+                    </Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -1227,12 +1473,12 @@ export default function CropCycleViewScreen() {
               <Text style={styles.inputLabel}>Select Activity Type *</Text>
               <View style={styles.chipSelectorWrap}>
                 {activityMasters.map((master) => {
-                  const isSel = selectedActivityMasterId === master.id;
+                  const isSel = selectedActivityMasterId?.toString() === master.id?.toString();
                   return (
                     <TouchableOpacity
                       key={master.id}
                       style={[styles.masterChip, isSel && styles.masterChipSelected]}
-                      onPress={() => setSelectedActivityMasterId(master.id)}
+                      onPress={() => handleSelectActivityMaster(master.id)}
                     >
                       <Text
                         style={[styles.masterChipText, isSel && styles.masterChipTextSelected]}
@@ -1243,6 +1489,211 @@ export default function CropCycleViewScreen() {
                   );
                 })}
               </View>
+
+              {/* Dynamic Master Fields Section */}
+              {selectedActivityMasterId && (() => {
+                const selectedMaster = activityMasters.find(
+                  (m) => m.id.toString() === selectedActivityMasterId.toString()
+                );
+                if (!selectedMaster) return null;
+                let fields = selectedMaster.fields || [];
+                if (fields.length === 0) {
+                  const fallback = findFallbackMaster(selectedMaster.name);
+                  if (fallback) {
+                    fields = fallback.fields || [];
+                  }
+                }
+                if (fields.length === 0) return null;
+
+                return (
+                  <View style={styles.dynamicFieldsCard}>
+                    <View style={styles.dynamicFieldsHeader}>
+                      <Ionicons name="options-outline" size={16} color={colors.slate700} style={{ marginRight: 6 }} />
+                      <Text style={styles.dynamicFieldsTitle}>
+                        {selectedMaster.name} Details
+                      </Text>
+                    </View>
+
+                    {fields.map((f: any) => {
+                      const val = activityFieldsValues[f.key];
+                      const error = activityErrors[f.key];
+
+                      if (f.type === 'string') {
+                        return (
+                          <View key={f.key} style={{ marginBottom: 12 }}>
+                            <Text style={styles.inputLabel}>
+                              {f.label} {f.required && <Text style={{ color: colors.danger }}>*</Text>}
+                            </Text>
+                            <TextInput
+                              style={[styles.input, { backgroundColor: colors.white }, error ? styles.inputErrorBorder : null]}
+                              value={val || ''}
+                              onChangeText={(txt) => {
+                                setActivityFieldsValues((prev) => ({ ...prev, [f.key]: txt }));
+                                if (activityErrors[f.key]) {
+                                  setActivityErrors((prev) => ({ ...prev, [f.key]: '' }));
+                                }
+                              }}
+                              placeholder={`Enter ${f.label.toLowerCase()}`}
+                              placeholderTextColor={colors.slate400}
+                            />
+                            {error ? <Text style={styles.inputErrorText}>{error}</Text> : null}
+                          </View>
+                        );
+                      }
+
+                      if (f.type === 'number' || f.type === 'decimal') {
+                        return (
+                          <View key={f.key} style={{ marginBottom: 12 }}>
+                            <Text style={styles.inputLabel}>
+                              {f.label} {f.required && <Text style={{ color: colors.danger }}>*</Text>}
+                            </Text>
+                            <TextInput
+                              style={[styles.input, { backgroundColor: colors.white }, error ? styles.inputErrorBorder : null]}
+                              value={val !== undefined && val !== null ? val.toString() : ''}
+                              onChangeText={(txt) => {
+                                setActivityFieldsValues((prev) => ({ ...prev, [f.key]: txt }));
+                                if (activityErrors[f.key]) {
+                                  setActivityErrors((prev) => ({ ...prev, [f.key]: '' }));
+                                }
+                              }}
+                              placeholder="e.g. 10"
+                              placeholderTextColor={colors.slate400}
+                              keyboardType="numeric"
+                            />
+                            {error ? <Text style={styles.inputErrorText}>{error}</Text> : null}
+                          </View>
+                        );
+                      }
+
+                      if (f.type === 'boolean') {
+                        return (
+                          <View key={f.key} style={styles.dynamicBoolRow}>
+                            <Text style={styles.dynamicBoolLabel}>{f.label}</Text>
+                            <Switch
+                              value={!!val}
+                              onValueChange={(boolVal) => {
+                                setActivityFieldsValues((prev) => ({ ...prev, [f.key]: boolVal }));
+                              }}
+                              trackColor={{ false: colors.slate200, true: '#86efac' }}
+                              thumbColor={val ? colors.primary : colors.slate400}
+                            />
+                          </View>
+                        );
+                      }
+
+                      if (f.type === 'enum') {
+                        const normalizedOpts = getNormalizedOptions(f.options);
+                        return (
+                          <View key={f.key} style={{ marginBottom: 12 }}>
+                            <Text style={styles.inputLabel}>
+                              {f.label} {f.required && <Text style={{ color: colors.danger }}>*</Text>}
+                            </Text>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 }}>
+                              {normalizedOpts.map((opt) => {
+                                const isSelected = val === opt.key;
+                                return (
+                                  <TouchableOpacity
+                                    key={opt.key}
+                                    style={[styles.enumChip, isSelected && styles.enumChipSelected]}
+                                    onPress={() => {
+                                      setActivityFieldsValues((prev) => ({ ...prev, [f.key]: opt.key }));
+                                      if (activityErrors[f.key]) {
+                                        setActivityErrors((prev) => ({ ...prev, [f.key]: '' }));
+                                      }
+                                    }}
+                                    activeOpacity={0.7}
+                                  >
+                                    <Text style={[styles.enumChipText, isSelected && styles.enumChipTextSelected]}>
+                                      {opt.label}
+                                    </Text>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                            {error ? <Text style={styles.inputErrorText}>{error}</Text> : null}
+                          </View>
+                        );
+                      }
+
+                      if (f.type === 'morph') {
+                        const showDropdown = !!showFieldDropdowns[f.key];
+                        const isCustom = val === 'new';
+                        const selectedProduct = isCustom
+                          ? { name: customProductNames[f.key] || '+ Add Custom Product...' }
+                          : inputProductsList.find((p) => p.id.toString() === val?.toString());
+
+                        const dropdownItems = [
+                          ...inputProductsList,
+                          { id: 'new', name: '+ Add Custom Product...' },
+                        ];
+
+                        return (
+                          <View key={f.key} style={{ marginBottom: 12 }}>
+                            <Text style={styles.inputLabel}>
+                              {f.label} {f.required && <Text style={{ color: colors.danger }}>*</Text>}
+                            </Text>
+                            <TouchableOpacity
+                              style={[styles.dropdownTrigger, { backgroundColor: colors.white }, error ? styles.inputErrorBorder : null]}
+                              onPress={() => setShowFieldDropdowns((prev) => ({ ...prev, [f.key]: !showDropdown }))}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={[styles.dropdownTriggerText, selectedProduct ? { color: colors.slate900 } : null]}>
+                                {selectedProduct ? selectedProduct.name : `Select ${f.label}`}
+                              </Text>
+                              <Ionicons name={showDropdown ? 'chevron-up' : 'chevron-down'} size={16} color={colors.slate400} />
+                            </TouchableOpacity>
+                            {error ? <Text style={styles.inputErrorText}>{error}</Text> : null}
+
+                            {showDropdown && (
+                              <View style={styles.dynamicDropdownMenu}>
+                                <ScrollView style={{ maxHeight: 160 }} nestedScrollEnabled>
+                                  {dropdownItems.map((prod) => (
+                                    <TouchableOpacity
+                                      key={prod.id}
+                                      style={styles.dropdownItem}
+                                      onPress={() => {
+                                        setActivityFieldsValues((prev) => ({ ...prev, [f.key]: prod.id }));
+                                        setShowFieldDropdowns((prev) => ({ ...prev, [f.key]: false }));
+                                        if (activityErrors[f.key]) {
+                                          setActivityErrors((prev) => ({ ...prev, [f.key]: '' }));
+                                        }
+                                      }}
+                                    >
+                                      <Text style={[
+                                        styles.dropdownItemText,
+                                        prod.id === 'new' ? { color: colors.primary, fontWeight: '700' } : null,
+                                      ]}>
+                                        {prod.name}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  ))}
+                                </ScrollView>
+                              </View>
+                            )}
+
+                            {isCustom && (
+                              <TextInput
+                                style={[styles.input, { marginTop: 6, backgroundColor: colors.white }]}
+                                placeholder={`Enter custom ${f.label.toLowerCase()} name`}
+                                placeholderTextColor={colors.slate400}
+                                value={customProductNames[f.key] || ''}
+                                onChangeText={(txt) => {
+                                  setCustomProductNames((prev) => ({ ...prev, [f.key]: txt }));
+                                  if (activityErrors[f.key]) {
+                                    setActivityErrors((prev) => ({ ...prev, [f.key]: '' }));
+                                  }
+                                }}
+                              />
+                            )}
+                          </View>
+                        );
+                      }
+
+                      return null;
+                    })}
+                  </View>
+                );
+              })()}
 
               <Text style={styles.inputLabel}>Date (YYYY-MM-DD)</Text>
               <TextInput
@@ -1349,17 +1800,38 @@ export default function CropCycleViewScreen() {
                 placeholderTextColor={colors.slate400}
               />
 
-              <Text style={styles.inputLabel}>Payment Method</Text>
-              <QuickChipGroup
-                options={[
-                  { label: 'Cash', value: 'cash' },
-                  { label: 'UPI / Online', value: 'upi' },
-                  { label: 'Bank Transfer', value: 'bank_transfer' },
-                ]}
-                selectedValue={expensePaymentMethod}
-                onSelect={(val) => setExpensePaymentMethod(val)}
-                size="sm"
-              />
+              {/* Paid Toggle Switch */}
+              <View style={[styles.switchRow, { marginTop: spacing.xs }]}>
+                <View style={{ flex: 1, paddingRight: spacing.sm }}>
+                  <Text style={styles.switchTitle}>Paid</Text>
+                  <Text style={styles.switchSubtitle}>
+                    {expenseIsPaid ? 'Expense has been settled' : 'Expense is pending / unpaid'}
+                  </Text>
+                </View>
+                <Switch
+                  value={expenseIsPaid}
+                  onValueChange={(val) => {
+                    setExpenseIsPaid(val);
+                    if (!val) setExpensePaymentMethod('');
+                    else if (!expensePaymentMethod) setExpensePaymentMethod('cash');
+                  }}
+                  trackColor={{ false: colors.slate200, true: '#86efac' }}
+                  thumbColor={expenseIsPaid ? colors.primary : colors.slate400}
+                />
+              </View>
+
+              {/* Payment Method (conditional) */}
+              {expenseIsPaid && (
+                <View style={{ marginTop: spacing.sm }}>
+                  <Text style={styles.inputLabel}>Payment Method</Text>
+                  <QuickChipGroup
+                    options={EXPENSE_PAYMENT_METHODS}
+                    selectedValue={expensePaymentMethod}
+                    onSelect={(val) => setExpensePaymentMethod(val.toString())}
+                    size="sm"
+                  />
+                </View>
+              )}
 
               <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Notes</Text>
               <TextInput
@@ -2159,5 +2631,126 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748b',
     fontWeight: '600',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
+  },
+  switchTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  switchSubtitle: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  dynamicFieldsCard: {
+    marginTop: 14,
+    backgroundColor: '#f1f5f9',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  dynamicFieldsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  dynamicFieldsTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  inputErrorBorder: {
+    borderColor: colors.danger,
+  },
+  inputErrorText: {
+    fontSize: 11,
+    color: colors.danger,
+    marginTop: 3,
+    fontWeight: '600',
+  },
+  dynamicBoolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    backgroundColor: '#ffffff',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  dynamicBoolLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  enumChip: {
+    backgroundColor: '#ffffff',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    marginRight: 6,
+    marginBottom: 6,
+  },
+  enumChipSelected: {
+    backgroundColor: '#16a34a',
+    borderColor: '#16a34a',
+  },
+  enumChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  enumChipTextSelected: {
+    color: '#ffffff',
+  },
+  dropdownTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 44,
+  },
+  dropdownTriggerText: {
+    fontSize: 13,
+    color: '#94a3b8',
+    fontWeight: '500',
+  },
+  dynamicDropdownMenu: {
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginTop: 4,
+    overflow: 'hidden',
+    ...shadows.medium,
+  },
+  dropdownItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  dropdownItemText: {
+    fontSize: 13,
+    color: '#334155',
   },
 });

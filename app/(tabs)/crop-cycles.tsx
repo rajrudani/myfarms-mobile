@@ -20,7 +20,8 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { cropCyclesApi } from '../../src/api/cropCycles';
 import { farmsApi } from '../../src/api/farms';
-import { CropCycle, Farm } from '../../src/types';
+import { mastersApi } from '../../src/api/masters';
+import { CropCycle, Farm, Crop } from '../../src/types';
 import { useAuth } from '../../src/hooks/useAuth';
 import { extractErrorMessage } from '../../src/api/client';
 import { colors, radius, spacing, shadows } from '../../src/theme/tokens';
@@ -49,6 +50,7 @@ export default function CropCyclesScreen() {
   const { isAuthenticated } = useAuth();
   const [cycles, setCycles] = useState<CropCycle[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
+  const [crops, setCrops] = useState<Crop[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -59,6 +61,7 @@ export default function CropCyclesScreen() {
   // Create Cycle Modal State
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [farmId, setFarmId] = useState('');
+  const [cropId, setCropId] = useState('');
   const [cropType, setCropType] = useState('');
   const [allocatedArea, setAllocatedArea] = useState('');
   const [allocatedAreaUnit, setAllocatedAreaUnit] = useState('ACRE');
@@ -70,6 +73,7 @@ export default function CropCyclesScreen() {
 
   // Dropdown states
   const [showFarmDropdown, setShowFarmDropdown] = useState(false);
+  const [showCropDropdown, setShowCropDropdown] = useState(false);
 
   // View/Manage Modal State
   const [selectedCycle, setSelectedCycle] = useState<CropCycle | null>(null);
@@ -78,6 +82,7 @@ export default function CropCyclesScreen() {
 
   // Edit Form State
   const [editFarmId, setEditFarmId] = useState('');
+  const [editCropId, setEditCropId] = useState('');
   const [editCropType, setEditCropType] = useState('');
   const [editAllocatedArea, setEditAllocatedArea] = useState('');
   const [editAllocatedAreaUnit, setEditAllocatedAreaUnit] = useState('ACRE');
@@ -91,15 +96,18 @@ export default function CropCyclesScreen() {
   const [editNotes, setEditNotes] = useState('');
   const [updating, setUpdating] = useState(false);
   const [showEditFarmDropdown, setShowEditFarmDropdown] = useState(false);
+  const [showEditCropDropdown, setShowEditCropDropdown] = useState(false);
 
   const fetchData = async () => {
     try {
-      const [cycleData, farmData] = await Promise.all([
+      const [cycleData, farmData, cropsData] = await Promise.all([
         cropCyclesApi.getAll(),
         farmsApi.getAll(),
+        mastersApi.getCrops({ status: 'active' }),
       ]);
       setCycles(cycleData);
       setFarms(farmData);
+      setCrops(cropsData);
     } catch (error: any) {
       console.error('Error fetching crop cycles data:', error);
       Alert.alert('Error', 'Failed to fetch data from server.');
@@ -128,9 +136,49 @@ export default function CropCyclesScreen() {
     fetchData();
   };
 
+  const calculateFarmRemainingArea = (targetFarmId?: string | number, excludeCycleId?: string | number) => {
+    if (!targetFarmId) return null;
+    const farm = farms.find((f) => f.ulid === targetFarmId || f.id?.toString() === targetFarmId.toString());
+    if (!farm) return null;
+    const farmTotal = parseFloat(String(farm.area || 0));
+    const activeCyclesArea = cycles
+      .filter((c) => {
+        const matchesFarm = c.farm_id?.toString() === farm.id?.toString() || (farm.ulid && c.farm_id === farm.ulid);
+        const notExcluded = !excludeCycleId || (c.id !== excludeCycleId && c.ulid !== excludeCycleId);
+        return matchesFarm && c.status === 'ACTIVE' && notExcluded;
+      })
+      .reduce((sum, c) => sum + (parseFloat(String(c.allocated_area)) || 0), 0);
+
+    const remaining = Math.max(0, farmTotal - activeCyclesArea);
+    return {
+      total: farmTotal,
+      activeArea: activeCyclesArea,
+      remaining: Math.round(remaining * 100) / 100,
+      unit: farm.area_unit,
+      name: farm.name,
+    };
+  };
+
+  const currentFarmAreaInfo = calculateFarmRemainingArea(farmId);
+  const editFarmAreaInfo = calculateFarmRemainingArea(editFarmId, selectedCycle?.id || selectedCycle?.ulid);
+
   const handleCreateCycle = async () => {
-    if (!farmId || !cropType || !allocatedArea) {
-      Alert.alert('Validation Error', 'Farm, Crop name, and Allocated Area are required.');
+    if (!farmId || !cropId || !allocatedArea) {
+      Alert.alert('Validation Error', 'Farm, Crop, and Allocated Area are required.');
+      return;
+    }
+
+    const areaNum = parseFloat(allocatedArea);
+    if (isNaN(areaNum) || areaNum <= 0) {
+      Alert.alert('Validation Error', 'Please enter a valid positive allocated area.');
+      return;
+    }
+
+    if (currentFarmAreaInfo && areaNum > currentFarmAreaInfo.remaining) {
+      Alert.alert(
+        'Warning: Area Exceeded',
+        `Allocated area (${areaNum} ${allocatedAreaUnit}) exceeds the remaining available farm area (${currentFarmAreaInfo.remaining} ${currentFarmAreaInfo.unit}). Please adjust allocated area.`
+      );
       return;
     }
 
@@ -138,20 +186,22 @@ export default function CropCyclesScreen() {
     try {
       const newCycle: CropCycle = {
         farm_id: farmId,
-        crop_type: cropType,
-        allocated_area: parseFloat(allocatedArea),
+        crop_id: cropId,
+        crop_type: cropType.trim() || undefined,
+        allocated_area: areaNum,
         allocated_area_unit: allocatedAreaUnit,
-        season_name: seasonName || undefined,
+        season_name: seasonName.trim() || undefined,
         started_on: startedOn,
         expected_harvest_on: expectedHarvestOn || undefined,
         status: 'ACTIVE',
-        notes: notes || undefined,
+        notes: notes.trim() || undefined,
       };
 
       await cropCyclesApi.create(newCycle);
       Alert.alert('Success', 'Crop cycle added successfully!');
 
       setFarmId('');
+      setCropId('');
       setCropType('');
       setAllocatedArea('');
       setAllocatedAreaUnit('ACRE');
@@ -173,8 +223,14 @@ export default function CropCyclesScreen() {
 
   const handleUpdateCycle = async () => {
     if (!selectedCycle || (!selectedCycle.id && !selectedCycle.ulid)) return;
-    if (!editFarmId || !editCropType || !editAllocatedArea) {
-      Alert.alert('Validation Error', 'Farm, Crop type, and Area are required.');
+    if (!editFarmId || (!editCropId && !selectedCycle.crop_id) || !editAllocatedArea) {
+      Alert.alert('Validation Error', 'Farm, Crop, and Allocated Area are required.');
+      return;
+    }
+
+    const areaNum = parseFloat(editAllocatedArea);
+    if (isNaN(areaNum) || areaNum <= 0) {
+      Alert.alert('Validation Error', 'Please enter a valid positive allocated area.');
       return;
     }
 
@@ -184,17 +240,18 @@ export default function CropCyclesScreen() {
       const updatedCycle: CropCycle = {
         ...selectedCycle,
         farm_id: editFarmId,
-        crop_type: editCropType,
-        allocated_area: parseFloat(editAllocatedArea),
+        crop_id: editCropId || selectedCycle.crop_id,
+        crop_type: editCropType.trim() || undefined,
+        allocated_area: areaNum,
         allocated_area_unit: editAllocatedAreaUnit,
-        season_name: editSeasonName || undefined,
+        season_name: editSeasonName.trim() || undefined,
         started_on: editStartedOn,
         expected_harvest_on: editExpectedHarvestOn || undefined,
         actual_harvest_on: editActualHarvestOn || undefined,
         status: editStatus,
         harvest_amount: editHarvestAmount ? parseFloat(editHarvestAmount) : undefined,
         harvest_unit: editHarvestUnit || undefined,
-        notes: editNotes || undefined,
+        notes: editNotes.trim() || undefined,
       };
 
       const result = await cropCyclesApi.update(identifier, updatedCycle);
@@ -260,6 +317,7 @@ export default function CropCyclesScreen() {
   const handleOpenManage = (cycle: CropCycle) => {
     setSelectedCycle(cycle);
     setEditFarmId(cycle.farm_id?.toString() || '');
+    setEditCropId(cycle.crop_id?.toString() || '');
     setEditCropType(cycle.crop_type || '');
     setEditAllocatedArea(cycle.allocated_area?.toString() || '');
     setEditAllocatedAreaUnit(cycle.allocated_area_unit || 'ACRE');
@@ -542,7 +600,9 @@ export default function CropCyclesScreen() {
                         key={f.ulid || f.id}
                         style={styles.dropdownItem}
                         onPress={() => {
-                          setFarmId((f.ulid || f.id!).toString());
+                          const targetId = (f.ulid || f.id!).toString();
+                          setFarmId(targetId);
+                          setAllocatedAreaUnit(f.area_unit || 'ACRE');
                           setShowFarmDropdown(false);
                         }}
                       >
@@ -555,15 +615,69 @@ export default function CropCyclesScreen() {
                 </View>
               )}
 
+              {/* Crop Master Selector */}
               <Text style={styles.inputLabel}>
-                Crop Type / Name <Text style={{ color: colors.danger }}>*</Text>
+                Crop <Text style={{ color: colors.danger }}>*</Text>
               </Text>
+              <TouchableOpacity
+                style={styles.dropdownTrigger}
+                onPress={() => setShowCropDropdown(!showCropDropdown)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.dropdownTriggerText}>
+                  {crops.find((c) => (c.ulid || c.id)?.toString() === cropId.toString())?.name || 'Select Crop'}
+                </Text>
+                <Ionicons
+                  name={showCropDropdown ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color={colors.slate500}
+                />
+              </TouchableOpacity>
+
+              {showCropDropdown && (
+                <View style={styles.dropdownList}>
+                  {crops.length === 0 ? (
+                    <View style={styles.dropdownItem}>
+                      <Text style={styles.dropdownItemText}>No crops available. Create a crop in Masters first.</Text>
+                    </View>
+                  ) : (
+                    crops.map((c) => (
+                      <TouchableOpacity
+                        key={c.ulid || c.id}
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          const cid = (c.ulid || c.id!).toString();
+                          setCropId(cid);
+                          setShowCropDropdown(false);
+                          const year = new Date(startedOn).getFullYear() || new Date().getFullYear();
+                          const varText = cropType.trim() ? ` ${cropType.trim()}` : '';
+                          setSeasonName(`${c.name}${varText} ${year}`);
+                        }}
+                      >
+                        <Text style={styles.dropdownItemText}>
+                          {c.name} {c.category ? `(${c.category})` : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    ))
+                  )}
+                </View>
+              )}
+
+              <Text style={styles.inputLabel}>Variety / Crop Type (Optional)</Text>
               <TextInput
                 style={styles.input}
-                placeholder="e.g. Wheat, Tomatoes, Cotton"
+                placeholder="e.g. Bhagwa, Kesar, Alphonso"
                 placeholderTextColor={colors.slate400}
                 value={cropType}
-                onChangeText={setCropType}
+                onChangeText={(val) => {
+                  setCropType(val);
+                  const selCrop = crops.find((c) => (c.ulid || c.id)?.toString() === cropId.toString());
+                  if (selCrop) {
+                    const year = new Date(startedOn).getFullYear() || new Date().getFullYear();
+                    const varText = val.trim() ? ` ${val.trim()}` : '';
+                    setSeasonName(`${selCrop.name}${varText} ${year}`);
+                  }
+                }}
               />
 
               <Text style={styles.inputLabel}>
@@ -577,6 +691,14 @@ export default function CropCyclesScreen() {
                 value={allocatedArea}
                 onChangeText={setAllocatedArea}
               />
+              {currentFarmAreaInfo && (
+                <View style={styles.areaInfoBox}>
+                  <Ionicons name="pie-chart-outline" size={14} color="#059669" />
+                  <Text style={styles.areaInfoText}>
+                    Remaining on {currentFarmAreaInfo.name}: <Text style={{ fontWeight: '700' }}>{currentFarmAreaInfo.remaining} {currentFarmAreaInfo.unit}</Text> (Total: {currentFarmAreaInfo.total} {currentFarmAreaInfo.unit})
+                  </Text>
+                </View>
+              )}
 
               <Text style={styles.inputLabel}>Area Measurement Unit</Text>
               <QuickChipGroup
@@ -709,9 +831,49 @@ export default function CropCyclesScreen() {
                     </View>
                   )}
 
-                  <Text style={styles.inputLabel}>Crop Type / Name</Text>
+                  {/* Edit Crop Selector */}
+                  <Text style={styles.inputLabel}>Crop</Text>
+                  <TouchableOpacity
+                    style={styles.dropdownTrigger}
+                    onPress={() => setShowEditCropDropdown(!showEditCropDropdown)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.dropdownTriggerText}>
+                      {crops.find((c) => (c.ulid || c.id)?.toString() === editCropId.toString())?.name ||
+                        selectedCycle?.crop_name ||
+                        'Select Crop'}
+                    </Text>
+                    <Ionicons
+                      name={showEditCropDropdown ? 'chevron-up' : 'chevron-down'}
+                      size={16}
+                      color={colors.slate500}
+                    />
+                  </TouchableOpacity>
+
+                  {showEditCropDropdown && (
+                    <View style={styles.dropdownList}>
+                      {crops.map((c) => (
+                        <TouchableOpacity
+                          key={c.ulid || c.id}
+                          style={styles.dropdownItem}
+                          onPress={() => {
+                            setEditCropId((c.ulid || c.id!).toString());
+                            setShowEditCropDropdown(false);
+                          }}
+                        >
+                          <Text style={styles.dropdownItemText}>
+                            {c.name} {c.category ? `(${c.category})` : ''}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+
+                  <Text style={styles.inputLabel}>Variety / Crop Type (Optional)</Text>
                   <TextInput
                     style={styles.input}
+                    placeholder="e.g. Bhagwa, Kesar, Alphonso"
+                    placeholderTextColor={colors.slate400}
                     value={editCropType}
                     onChangeText={setEditCropType}
                   />
@@ -723,6 +885,14 @@ export default function CropCyclesScreen() {
                     value={editAllocatedArea}
                     onChangeText={setEditAllocatedArea}
                   />
+                  {editFarmAreaInfo && (
+                    <View style={styles.areaInfoBox}>
+                      <Ionicons name="pie-chart-outline" size={14} color="#059669" />
+                      <Text style={styles.areaInfoText}>
+                        Available on {editFarmAreaInfo.name}: <Text style={{ fontWeight: '700' }}>{editFarmAreaInfo.remaining} {editFarmAreaInfo.unit}</Text> (Total: {editFarmAreaInfo.total} {editFarmAreaInfo.unit})
+                      </Text>
+                    </View>
+                  )}
 
                   <Text style={styles.inputLabel}>Area Measurement Unit</Text>
                   <QuickChipGroup
@@ -1311,5 +1481,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: colors.slate900,
+  },
+  areaInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+    borderRadius: radius.md,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginTop: 6,
+    marginBottom: spacing.xs,
+  },
+  areaInfoText: {
+    fontSize: 12,
+    color: '#065f46',
+    flex: 1,
   },
 });

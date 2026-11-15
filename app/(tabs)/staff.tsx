@@ -103,8 +103,10 @@ export default function StaffScreen() {
   const [newStaffEmail, setNewStaffEmail] = useState('');
   const [newStaffPassword, setNewStaffPassword] = useState('');
   const [newStaffFarms, setNewStaffFarms] = useState<number[]>([]);
+  const [newStaffFamilyHeadId, setNewStaffFamilyHeadId] = useState<number | null>(null);
   const [savingStaff, setSavingStaff] = useState(false);
   const [showAddFarmDropdown, setShowAddFarmDropdown] = useState(false);
+  const [showFamilyHeadDropdown, setShowFamilyHeadDropdown] = useState(false);
 
   // Add Payment Form State
   const [payStaffId, setPayStaffId] = useState<number | null>(null);
@@ -199,6 +201,16 @@ export default function StaffScreen() {
       return;
     }
 
+    if (newStaffRole === 'Worker' && newStaffFarms.length === 0) {
+      Alert.alert('Validation Error', 'Please select an assigned farm for this worker.');
+      return;
+    }
+
+    if ((newStaffRole === 'Manager' || newStaffRole === 'Consultant') && newStaffFarms.length === 0) {
+      Alert.alert('Validation Error', 'Please select at least one assigned farm.');
+      return;
+    }
+
     setSavingStaff(true);
     try {
       const staffPayload = {
@@ -207,7 +219,8 @@ export default function StaffScreen() {
         username: newStaffUsername || undefined,
         email: newStaffEmail || undefined,
         password: newStaffPassword || undefined,
-        farms: newStaffFarms,
+        farms: newStaffRole === 'Owner' ? [] : newStaffFarms,
+        family_head_id: newStaffRole === 'Worker' ? (newStaffFamilyHeadId || undefined) : undefined,
         status: true,
       };
 
@@ -221,6 +234,7 @@ export default function StaffScreen() {
       setNewStaffEmail('');
       setNewStaffPassword('');
       setNewStaffFarms([]);
+      setNewStaffFamilyHeadId(null);
 
       fetchData();
     } catch (error: any) {
@@ -1092,9 +1106,141 @@ export default function StaffScreen() {
               <QuickChipGroup
                 options={ROLE_OPTIONS}
                 selectedValue={newStaffRole}
-                onSelect={(val) => setNewStaffRole(val)}
+                onSelect={(val) => {
+                  setNewStaffRole(val as StaffRoleValue);
+                  if (val === 'Owner') {
+                    setNewStaffFarms([]);
+                    setNewStaffFamilyHeadId(null);
+                  } else if (val === 'Worker') {
+                    if (farms.length > 0 && newStaffFarms.length === 0) {
+                      setNewStaffFarms([Number(farms[0].id)]);
+                    }
+                  }
+                }}
                 size="sm"
               />
+
+              {/* Role-Specific Farm Assignment */}
+              {newStaffRole === 'Owner' ? (
+                <View style={styles.roleInfoBox}>
+                  <Ionicons name="information-circle-outline" size={16} color="#1e40af" />
+                  <Text style={styles.roleInfoText}>Owners automatically have full access to all farms.</Text>
+                </View>
+              ) : newStaffRole === 'Worker' ? (
+                <View style={{ marginTop: spacing.md }}>
+                  <Text style={styles.inputLabel}>
+                    Assigned Farm <Text style={{ color: colors.danger }}>*</Text>
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+                    {farms.map((f) => {
+                      const fId = Number(f.id);
+                      const isSel = newStaffFarms.includes(fId);
+                      return (
+                        <TouchableOpacity
+                          key={f.id}
+                          style={[styles.farmSelectChip, isSel && styles.farmSelectChipActive]}
+                          onPress={() => setNewStaffFarms([fId])}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons
+                            name={isSel ? 'checkmark-circle' : 'business-outline'}
+                            size={14}
+                            color={isSel ? colors.white : colors.slate600}
+                          />
+                          <Text style={[styles.farmSelectChipText, isSel && styles.farmSelectChipTextActive]}>
+                            {f.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              ) : (
+                <View style={{ marginTop: spacing.md }}>
+                  <Text style={styles.inputLabel}>
+                    Assigned Farms <Text style={{ color: colors.danger }}>*</Text>
+                  </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 4 }}>
+                    {farms.map((f) => {
+                      const fId = Number(f.id);
+                      const isSel = newStaffFarms.includes(fId);
+                      return (
+                        <TouchableOpacity
+                          key={f.id}
+                          style={[styles.farmSelectChip, isSel && styles.farmSelectChipActive]}
+                          onPress={() => {
+                            if (isSel) {
+                              setNewStaffFarms(newStaffFarms.filter((id) => id !== fId));
+                            } else {
+                              setNewStaffFarms([...newStaffFarms, fId]);
+                            }
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons
+                            name={isSel ? 'checkmark-circle' : 'square-outline'}
+                            size={14}
+                            color={isSel ? colors.white : colors.slate600}
+                          />
+                          <Text style={[styles.farmSelectChipText, isSel && styles.farmSelectChipTextActive]}>
+                            {f.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
+              {/* Family Head Selection (Worker Only) */}
+              {newStaffRole === 'Worker' && (
+                <View style={{ marginTop: spacing.md }}>
+                  <Text style={styles.inputLabel}>Family Head (Optional)</Text>
+                  <TouchableOpacity
+                    style={styles.dropdownTrigger}
+                    onPress={() => setShowFamilyHeadDropdown(!showFamilyHeadDropdown)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.dropdownTriggerText}>
+                      {newStaffFamilyHeadId
+                        ? staff.find((s) => s.id === newStaffFamilyHeadId)?.name || 'Selected'
+                        : 'None (Independent Worker)'}
+                    </Text>
+                    <Ionicons
+                      name={showFamilyHeadDropdown ? 'chevron-up' : 'chevron-down'}
+                      size={16}
+                      color={colors.slate500}
+                    />
+                  </TouchableOpacity>
+                  {showFamilyHeadDropdown && (
+                    <View style={styles.dropdownList}>
+                      <TouchableOpacity
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          setNewStaffFamilyHeadId(null);
+                          setShowFamilyHeadDropdown(false);
+                        }}
+                      >
+                        <Text style={styles.dropdownItemText}>None (Independent Worker)</Text>
+                      </TouchableOpacity>
+                      {staff
+                        .filter((s) => s.roles.some((r) => r.value === 'Worker'))
+                        .map((w) => (
+                          <TouchableOpacity
+                            key={w.id}
+                            style={styles.dropdownItem}
+                            onPress={() => {
+                              setNewStaffFamilyHeadId(w.id);
+                              setShowFamilyHeadDropdown(false);
+                            }}
+                          >
+                            <Text style={styles.dropdownItemText}>{w.name}</Text>
+                          </TouchableOpacity>
+                        ))}
+                    </View>
+                  )}
+                </View>
+              )}
 
               <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Username (Optional)</Text>
               <TextInput
@@ -1244,7 +1390,54 @@ export default function StaffScreen() {
                 onChangeText={setPayDate}
               />
 
-              <Text style={styles.inputLabel}>Notes</Text>
+              <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Given By</Text>
+              <TouchableOpacity
+                style={styles.dropdownTrigger}
+                onPress={() => setShowPayGivenDropdown(!showPayGivenDropdown)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.dropdownTriggerText}>
+                  {payGivenBy
+                    ? staff.find((s) => s.id === payGivenBy)?.name || 'Selected'
+                    : 'Current User (Self)'}
+                </Text>
+                <Ionicons
+                  name={showPayGivenDropdown ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color={colors.slate500}
+                />
+              </TouchableOpacity>
+              {showPayGivenDropdown && (
+                <View style={styles.dropdownList}>
+                  <TouchableOpacity
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setPayGivenBy(null);
+                      setShowPayGivenDropdown(false);
+                    }}
+                  >
+                    <Text style={styles.dropdownItemText}>Current User (Self)</Text>
+                  </TouchableOpacity>
+                  {staff
+                    .filter((s) => s.roles.some((r) => r.value === 'Owner' || r.value === 'Manager'))
+                    .map((s) => (
+                      <TouchableOpacity
+                        key={s.id}
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          setPayGivenBy(s.id);
+                          setShowPayGivenDropdown(false);
+                        }}
+                      >
+                        <Text style={styles.dropdownItemText}>
+                          {s.name} ({s.roles.map((r) => r.value).join(', ')})
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                </View>
+              )}
+
+              <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Notes</Text>
               <TextInput
                 style={[styles.input, styles.multilineInput]}
                 placeholder="e.g. Weekly wages, harvest bonus..."
@@ -2342,5 +2535,46 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '700',
     fontSize: 14,
+  },
+  roleInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: spacing.sm,
+  },
+  roleInfoText: {
+    fontSize: 13,
+    color: '#1e40af',
+    fontWeight: '500',
+    flex: 1,
+  },
+  farmSelectChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+    backgroundColor: colors.slate100,
+    borderWidth: 1,
+    borderColor: colors.slate200,
+  },
+  farmSelectChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  farmSelectChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.slate700,
+  },
+  farmSelectChipTextActive: {
+    color: colors.white,
   },
 });

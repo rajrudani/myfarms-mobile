@@ -29,11 +29,15 @@ import { colors, spacing, radius, typography, shadows } from '../src/theme/token
 type ActiveTab = 'purchases' | 'payments' | 'info';
 
 const COMMON_UNITS = [
+  { label: 'KG', value: 'kg' },
+  { label: 'L', value: 'L' },
+  { label: 'ML', value: 'ml' },
+  { label: 'G', value: 'g' },
+  { label: 'TON', value: 'ton' },
+  { label: 'PCS', value: 'pcs' },
   { label: 'BAG', value: 'BAG' },
-  { label: 'KG', value: 'KG' },
-  { label: 'LTR', value: 'LTR' },
-  { label: 'PKT', value: 'PKT' },
   { label: 'BTL', value: 'BTL' },
+  { label: 'PKT', value: 'PKT' },
 ];
 
 const PAYMENT_METHODS = [
@@ -73,6 +77,7 @@ export default function AgroShopScreen() {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [shopNotes, setShopNotes] = useState('');
+  const [shopIsActive, setShopIsActive] = useState(true);
 
   // Purchase Form Fields
   const [purchaseDate, setPurchaseDate] = useState('');
@@ -173,7 +178,7 @@ export default function AgroShopScreen() {
         phone,
         address,
         notes: shopNotes,
-        is_active: true,
+        is_active: shopIsActive,
       });
       Alert.alert('Success', 'Agro Shop added successfully.');
       setShopModalVisible(false);
@@ -182,6 +187,7 @@ export default function AgroShopScreen() {
       setPhone('');
       setAddress('');
       setShopNotes('');
+      setShopIsActive(true);
 
       setSelectedShopId(newShop.id);
       loadShops();
@@ -1011,6 +1017,19 @@ export default function AgroShopScreen() {
                 value={shopNotes}
                 onChangeText={setShopNotes}
               />
+
+              <View style={styles.profileStatusToggleRow}>
+                <View>
+                  <Text style={styles.statusToggleLabel}>Active Supplier</Text>
+                  <Text style={styles.statusToggleSubLabel}>Enable this shop for purchases and payments</Text>
+                </View>
+                <Switch
+                  value={shopIsActive}
+                  onValueChange={setShopIsActive}
+                  trackColor={{ false: colors.slate300, true: colors.primaryLight }}
+                  thumbColor={shopIsActive ? colors.primary : colors.slate100}
+                />
+              </View>
 
               <View style={styles.modalActions}>
                 <TouchableOpacity

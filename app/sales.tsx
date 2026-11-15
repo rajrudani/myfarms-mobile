@@ -9,6 +9,7 @@ import {
   Alert,
   Modal,
   TextInput,
+  Switch,
   ActivityIndicator,
   RefreshControl,
   ScrollView,
@@ -21,7 +22,8 @@ import { router } from 'expo-router';
 import { salesApi } from '../src/api/sales';
 import { farmsApi } from '../src/api/farms';
 import { cropCyclesApi } from '../src/api/cropCycles';
-import { Sale, Farm, CropCycle, CreateSalePayload } from '../src/types';
+import { mastersApi } from '../src/api/masters';
+import { Sale, Farm, CropCycle, CreateSalePayload, Buyer, SaleGradeItem } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
 import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar } from '../src/components/ui';
@@ -29,10 +31,21 @@ import { colors, spacing, radius, typography, shadows } from '../src/theme/token
 
 const COMMON_UNITS = ['BAG', 'KG', 'QUINTAL', 'TON', 'CRATE'];
 
+const GRADE_OPTIONS = [
+  { label: 'Grade A+', value: 'a_plus' },
+  { label: 'Grade A', value: 'a' },
+  { label: 'Grade B+', value: 'b_plus' },
+  { label: 'Grade B', value: 'b' },
+  { label: 'Grade C+', value: 'c_plus' },
+  { label: 'Grade C', value: 'c' },
+  { label: 'Grade D', value: 'd' },
+];
+
 export default function SalesScreen() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
   const [cropCycles, setCropCycles] = useState<CropCycle[]>([]);
+  const [buyers, setBuyers] = useState<Buyer[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -47,8 +60,12 @@ export default function SalesScreen() {
   // Form Fields
   const [farmId, setFarmId] = useState<string | number>('');
   const [cropCycleId, setCropCycleId] = useState<string | number>('');
+  const [buyerId, setBuyerId] = useState<string | number>('');
   const [buyerName, setBuyerName] = useState('');
+  const [showBuyerDropdown, setShowBuyerDropdown] = useState(false);
   const [saleDate, setSaleDate] = useState('');
+  const [hasGrades, setHasGrades] = useState(false);
+  const [grades, setGrades] = useState<{ grade_name: string; quantity: string; rate: string }[]>([]);
   const [totalQuantity, setTotalQuantity] = useState('');
   const [quantityUnit, setQuantityUnit] = useState('BAG');
   const [rate, setRate] = useState('');
@@ -63,14 +80,26 @@ export default function SalesScreen() {
   const [billPhotoUrl, setBillPhotoUrl] = useState<string | null>(null);
   const [previewModalUrl, setPreviewModalUrl] = useState<string | null>(null);
 
+  // Quick Add Buyer Modal State
+  const [addBuyerModalVisible, setAddBuyerModalVisible] = useState(false);
+  const [newBuyerName, setNewBuyerName] = useState('');
+  const [newBuyerPhone, setNewBuyerPhone] = useState('');
+  const [newBuyerCompany, setNewBuyerCompany] = useState('');
+  const [newBuyerAddress, setNewBuyerAddress] = useState('');
+  const [newBuyerNotes, setNewBuyerNotes] = useState('');
+  const [savingBuyer, setSavingBuyer] = useState(false);
+
   // Initial load
   const loadMasterData = async () => {
     try {
-      const farmsData = await farmsApi.getAll();
+      const [farmsData, cyclesData, buyersData] = await Promise.all([
+        farmsApi.getAll(),
+        cropCyclesApi.getAll(),
+        mastersApi.getBuyers({ status: 'active' }),
+      ]);
       setFarms(farmsData);
-
-      const cyclesData = await cropCyclesApi.getAll();
       setCropCycles(cyclesData);
+      setBuyers(buyersData);
     } catch (error) {
       console.error('Error fetching master data:', error);
     }
@@ -114,8 +143,12 @@ export default function SalesScreen() {
     setEditingSale(null);
     setFarmId(farms.length > 0 ? farms[0].id || '' : '');
     setCropCycleId('');
-    setBuyerName('');
+    const firstBuyer = buyers.length > 0 ? buyers[0] : null;
+    setBuyerId(firstBuyer ? (firstBuyer.ulid || firstBuyer.id).toString() : '');
+    setBuyerName(firstBuyer ? firstBuyer.name : '');
     setSaleDate(new Date().toISOString().split('T')[0]);
+    setHasGrades(false);
+    setGrades([]);
     setTotalQuantity('');
     setQuantityUnit('BAG');
     setRate('');
@@ -131,11 +164,24 @@ export default function SalesScreen() {
     setEditingSale(sale);
     setFarmId(sale.farm_id);
     setCropCycleId(sale.crop_cycle_id);
-    setBuyerName(sale.buyer_name);
+    setBuyerId(sale.buyer_id ? sale.buyer_id.toString() : '');
+    setBuyerName(sale.buyer_name || '');
     setSaleDate(sale.date);
-    setTotalQuantity(sale.total_quantity.toString());
-    setQuantityUnit(sale.quantity_unit);
-    setRate(sale.rate.toString());
+    setHasGrades(Boolean(sale.has_grades));
+    if (sale.grades && sale.grades.length > 0) {
+      setGrades(
+        sale.grades.map((g) => ({
+          grade_name: g.grade_name,
+          quantity: g.quantity.toString(),
+          rate: g.rate.toString(),
+        }))
+      );
+    } else {
+      setGrades([]);
+    }
+    setTotalQuantity(sale.total_quantity?.toString() || '');
+    setQuantityUnit(sale.quantity_unit || 'BAG');
+    setRate(sale.rate?.toString() || '');
     setNotes(sale.notes || '');
     setBillPhotoPath(sale.bill_photo_path || null);
     setBillPhotoUrl(sale.bill_photo_url || null);
@@ -154,30 +200,131 @@ export default function SalesScreen() {
     setSaleModalVisible(true);
   };
 
+  // Create Quick Buyer
+  const handleCreateQuickBuyer = async () => {
+    if (!newBuyerName.trim()) {
+      Alert.alert('Validation Error', 'Buyer name is required.');
+      return;
+    }
+    setSavingBuyer(true);
+    try {
+      const created = await mastersApi.createBuyer({
+        name: newBuyerName.trim(),
+        phone: newBuyerPhone.trim() || null,
+        company_name: newBuyerCompany.trim() || null,
+        address: newBuyerAddress.trim() || null,
+        notes: newBuyerNotes.trim() || null,
+        is_active: true,
+      });
+      setBuyers((prev) => [created, ...prev]);
+      setBuyerId((created.ulid || created.id).toString());
+      setBuyerName(created.name);
+      setAddBuyerModalVisible(false);
+      setNewBuyerName('');
+      setNewBuyerPhone('');
+      setNewBuyerCompany('');
+      setNewBuyerAddress('');
+      setNewBuyerNotes('');
+      Alert.alert('Success', 'Buyer created and selected.');
+    } catch (error) {
+      console.error('Error creating buyer:', error);
+      Alert.alert('Error', extractErrorMessage(error, 'Failed to create buyer.'));
+    } finally {
+      setSavingBuyer(false);
+    }
+  };
+
+  // Grades handlers
+  const handleAddGradeLine = () => {
+    setGrades([...grades, { grade_name: 'a', quantity: '', rate: '' }]);
+  };
+
+  const handleRemoveGradeLine = (index: number) => {
+    setGrades(grades.filter((_, idx) => idx !== index));
+  };
+
+  const handleUpdateGradeField = (index: number, field: string, val: string) => {
+    const updated = [...grades];
+    updated[index] = { ...updated[index], [field]: val };
+    setGrades(updated);
+  };
+
+  const gradesTotalQty = useMemo(() => {
+    return grades.reduce((sum, g) => sum + (parseFloat(g.quantity) || 0), 0);
+  }, [grades]);
+
+  const gradesGross = useMemo(() => {
+    return grades.reduce(
+      (sum, g) => sum + (parseFloat(g.quantity) || 0) * (parseFloat(g.rate) || 0),
+      0
+    );
+  }, [grades]);
+
   // Save Sale
   const handleSaveSale = async () => {
-    if (!farmId || !cropCycleId || !buyerName.trim() || !saleDate.trim() || !totalQuantity || !rate) {
-      Alert.alert('Validation Error', 'All fields except notes are required.');
+    if (!farmId || !cropCycleId || (!buyerId && !buyerName.trim()) || !saleDate.trim()) {
+      Alert.alert('Validation Error', 'Farm, Crop Cycle, Buyer, and Sale Date are required.');
       return;
     }
 
-    const selectedCycle = cropCycles.find((c) => c.id?.toString() === cropCycleId.toString());
-    if (!selectedCycle || !selectedCycle.crop_id) {
-      Alert.alert('Validation Error', 'Selected crop cycle has no associated crop.');
-      return;
+    if (hasGrades) {
+      if (grades.length === 0) {
+        Alert.alert('Validation Error', 'Please add at least one grade row.');
+        return;
+      }
+      for (let i = 0; i < grades.length; i++) {
+        const g = grades[i];
+        if (!g.quantity || isNaN(parseFloat(g.quantity)) || parseFloat(g.quantity) <= 0) {
+          Alert.alert('Validation Error', `Grade row #${i + 1} has an invalid quantity.`);
+          return;
+        }
+        if (!g.rate || isNaN(parseFloat(g.rate)) || parseFloat(g.rate) <= 0) {
+          Alert.alert('Validation Error', `Grade row #${i + 1} has an invalid rate.`);
+          return;
+        }
+      }
+    } else {
+      if (!totalQuantity || isNaN(parseFloat(totalQuantity)) || parseFloat(totalQuantity) <= 0) {
+        Alert.alert('Validation Error', 'Please enter a valid positive quantity.');
+        return;
+      }
+      if (!rate || isNaN(parseFloat(rate)) || parseFloat(rate) <= 0) {
+        Alert.alert('Validation Error', 'Please enter a valid positive rate.');
+        return;
+      }
     }
+
+    const selectedCycle = cropCycles.find(
+      (c) => (c.ulid || c.id)?.toString() === cropCycleId.toString()
+    );
+    const cropIdToUse = selectedCycle?.crop_id;
+
+    const chosenBuyerName =
+      buyerName ||
+      buyers.find((b) => (b.ulid || b.id)?.toString() === buyerId?.toString())?.name ||
+      'Direct Buyer';
 
     const payload: CreateSalePayload = {
       farm_id: farmId,
       crop_cycle_id: cropCycleId,
-      crop_id: selectedCycle.crop_id,
-      buyer_name: buyerName,
+      crop_id: cropIdToUse,
+      buyer_id: buyerId || undefined,
+      buyer_name: chosenBuyerName,
       date: saleDate,
-      total_quantity: parseFloat(totalQuantity),
+      has_grades: hasGrades,
+      total_quantity: hasGrades ? gradesTotalQty : parseFloat(totalQuantity),
       quantity_unit: quantityUnit,
-      rate: parseFloat(rate),
+      rate: hasGrades ? (gradesTotalQty > 0 ? gradesGross / gradesTotalQty : 0) : parseFloat(rate),
       notes: notes || undefined,
       bill_photo_path: billPhotoPath,
+      grades: hasGrades
+        ? grades.map((g) => ({
+            grade_name: g.grade_name,
+            quantity: parseFloat(g.quantity),
+            rate: parseFloat(g.rate),
+            amount: (parseFloat(g.quantity) || 0) * (parseFloat(g.rate) || 0),
+          }))
+        : undefined,
       charges: charges
         .filter((c) => c.charge_name.trim() && !isNaN(parseFloat(c.value)))
         .map((c) => ({
@@ -247,7 +394,9 @@ export default function SalesScreen() {
     setCharges(updated);
   };
 
-  const calcGross = (parseFloat(totalQuantity) || 0) * (parseFloat(rate) || 0);
+  const calcGross = hasGrades
+    ? gradesGross
+    : (parseFloat(totalQuantity) || 0) * (parseFloat(rate) || 0);
   const calcCharges = charges.reduce((acc, c) => {
     const val = parseFloat(c.value) || 0;
     if (c.type === 'percentage') {
@@ -416,6 +565,12 @@ export default function SalesScreen() {
                     label={item.farm?.name || 'Farm'}
                     variant="neutral"
                   />
+                  {item.has_grades ? (
+                    <StatusBadge
+                      label={`Graded (${item.grades?.length || 0})`}
+                      variant="warning"
+                    />
+                  ) : null}
                 </View>
 
                 {/* Quantity & Rate Grid */}
@@ -586,18 +741,149 @@ export default function SalesScreen() {
                 </View>
               )}
 
-              <Text style={styles.inputLabel}>Buyer / Trader Name *</Text>
+              {/* Buyer / Trader Selector with Quick-Create */}
+              <View style={styles.buyerHeaderRow}>
+                <Text style={styles.inputLabel}>Buyer / Trader *</Text>
+                <TouchableOpacity
+                  style={styles.addBuyerTriggerBtn}
+                  onPress={() => setAddBuyerModalVisible(true)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="person-add-outline" size={13} color={colors.primary} />
+                  <Text style={styles.addBuyerTriggerText}>+ New Buyer</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={styles.dropdownTrigger}
+                onPress={() => setShowBuyerDropdown(!showBuyerDropdown)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="business-outline" size={18} color={colors.slate500} />
+                <View style={{ flex: 1, marginLeft: 8 }}>
+                  <Text style={buyerName ? styles.dropdownSelectedText : styles.dropdownPlaceholderText}>
+                    {buyerName || 'Select a registered buyer'}
+                  </Text>
+                </View>
+                <Ionicons
+                  name={showBuyerDropdown ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color={colors.slate400}
+                />
+              </TouchableOpacity>
+
+              {showBuyerDropdown && (
+                <View style={styles.dropdownMenu}>
+                  <ScrollView style={{ maxHeight: 180 }} nestedScrollEnabled>
+                    {buyers.map((b) => {
+                      const bId = (b.ulid || b.id).toString();
+                      const isSelected = buyerId?.toString() === bId;
+                      return (
+                        <TouchableOpacity
+                          key={bId}
+                          style={[styles.dropdownItem, isSelected && styles.dropdownItemSelected]}
+                          onPress={() => {
+                            setBuyerId(bId);
+                            setBuyerName(b.name);
+                            setShowBuyerDropdown(false);
+                          }}
+                        >
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.dropdownItemText, isSelected && styles.dropdownItemTextSelected]}>
+                              {b.name}
+                            </Text>
+                            {(b.company_name || b.phone) ? (
+                              <Text style={styles.dropdownItemSubtext}>
+                                {[b.company_name, b.phone].filter(Boolean).join(' • ')}
+                              </Text>
+                            ) : null}
+                          </View>
+                          {isSelected && <Ionicons name="checkmark" size={16} color={colors.primary} />}
+                        </TouchableOpacity>
+                      );
+                    })}
+                    {buyers.length === 0 && (
+                      <View style={{ padding: 12, alignItems: 'center' }}>
+                        <Text style={styles.dropdownPlaceholderText}>No registered buyers found.</Text>
+                      </View>
+                    )}
+                  </ScrollView>
+                </View>
+              )}
+
               <TextInput
-                style={styles.input}
-                placeholder="e.g. Reliance Fresh, APMC Mandi, Local Trader"
+                style={[styles.input, { marginTop: spacing.xs }]}
+                placeholder="Or custom trader name..."
                 placeholderTextColor={colors.slate400}
                 value={buyerName}
-                onChangeText={setBuyerName}
+                onChangeText={(val) => {
+                  setBuyerName(val);
+                  const match = buyers.find((b) => b.name.toLowerCase() === val.toLowerCase());
+                  if (match) {
+                    setBuyerId((match.ulid || match.id).toString());
+                  } else {
+                    setBuyerId('');
+                  }
+                }}
               />
 
-              <View style={styles.rowInputs}>
-                <View style={{ flex: 1, marginRight: spacing.sm }}>
-                  <Text style={styles.inputLabel}>Total Quantity *</Text>
+              {/* Quality Grades Switch */}
+              <View style={styles.switchRowContainer}>
+                <View style={{ flex: 1, paddingRight: spacing.sm }}>
+                  <Text style={styles.switchTitle}>Enable Quality Grades</Text>
+                  <Text style={styles.switchSubtitle}>
+                    Split harvest into grades (A+, A, B, etc.) with specific rates
+                  </Text>
+                </View>
+                <Switch
+                  value={hasGrades}
+                  onValueChange={(val) => {
+                    setHasGrades(val);
+                    if (val && grades.length === 0) {
+                      setGrades([{ grade_name: 'a', quantity: '', rate: '' }]);
+                    }
+                  }}
+                  trackColor={{ false: colors.slate200, true: '#86efac' }}
+                  thumbColor={hasGrades ? colors.primary : colors.slate400}
+                />
+              </View>
+
+              {/* Quantity Unit */}
+              <View style={{ marginTop: spacing.sm }}>
+                <Text style={styles.inputLabel}>Quantity Unit *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="BAG"
+                  placeholderTextColor={colors.slate400}
+                  value={quantityUnit}
+                  onChangeText={setQuantityUnit}
+                />
+                <View style={styles.unitChipsRow}>
+                  {COMMON_UNITS.map((u) => (
+                    <TouchableOpacity
+                      key={u}
+                      style={[
+                        styles.unitChip,
+                        quantityUnit === u && styles.unitChipActive,
+                      ]}
+                      onPress={() => setQuantityUnit(u)}
+                    >
+                      <Text
+                        style={[
+                          styles.unitChipText,
+                          quantityUnit === u && styles.unitChipTextActive,
+                        ]}
+                      >
+                        {u}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {!hasGrades ? (
+                <>
+                  <Text style={styles.inputLabel}>Total Quantity ({quantityUnit || 'units'}) *</Text>
                   <TextInput
                     style={styles.input}
                     placeholder="e.g. 50"
@@ -606,51 +892,111 @@ export default function SalesScreen() {
                     value={totalQuantity}
                     onChangeText={setTotalQuantity}
                   />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputLabel}>Quantity Unit *</Text>
+
+                  <Text style={styles.inputLabel}>Rate (₹ per {quantityUnit || 'unit'}) *</Text>
                   <TextInput
                     style={styles.input}
-                    placeholder="BAG"
+                    placeholder="e.g. 450"
                     placeholderTextColor={colors.slate400}
-                    value={quantityUnit}
-                    onChangeText={setQuantityUnit}
+                    keyboardType="numeric"
+                    value={rate}
+                    onChangeText={setRate}
                   />
-                </View>
-              </View>
-
-              {/* Common Unit Switcher Chips */}
-              <View style={styles.unitChipsRow}>
-                {COMMON_UNITS.map((u) => (
-                  <TouchableOpacity
-                    key={u}
-                    style={[
-                      styles.unitChip,
-                      quantityUnit === u && styles.unitChipActive,
-                    ]}
-                    onPress={() => setQuantityUnit(u)}
-                  >
-                    <Text
-                      style={[
-                        styles.unitChipText,
-                        quantityUnit === u && styles.unitChipTextActive,
-                      ]}
+                </>
+              ) : (
+                <View style={styles.gradesCard}>
+                  <View style={styles.gradesCardHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.gradesCardTitle}>Grades Breakdown</Text>
+                      <Text style={styles.gradesCardSubtitle}>
+                        Total: {gradesTotalQty.toFixed(1)} {quantityUnit} • ₹{gradesGross.toFixed(2)}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={handleAddGradeLine}
+                      style={styles.addGradeBtn}
+                      activeOpacity={0.7}
                     >
-                      {u}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                      <Ionicons name="add" size={14} color={colors.white} />
+                      <Text style={styles.addGradeBtnText}>Add Grade</Text>
+                    </TouchableOpacity>
+                  </View>
 
-              <Text style={styles.inputLabel}>Rate (₹ per {quantityUnit || 'unit'}) *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. 450"
-                placeholderTextColor={colors.slate400}
-                keyboardType="numeric"
-                value={rate}
-                onChangeText={setRate}
-              />
+                  {grades.length === 0 ? (
+                    <Text style={styles.noGradesText}>
+                      No grades added. Tap "+ Add Grade" to split your harvest by quality.
+                    </Text>
+                  ) : (
+                    grades.map((grade, idx) => (
+                      <View key={idx} style={styles.gradeItemBox}>
+                        <View style={styles.gradeItemTopRow}>
+                          <Text style={styles.gradeRowNumber}>#{idx + 1}</Text>
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1, marginHorizontal: 6 }}>
+                            <View style={styles.gradePillsContainer}>
+                              {GRADE_OPTIONS.map((opt) => (
+                                <TouchableOpacity
+                                  key={opt.value}
+                                  style={[
+                                    styles.gradePill,
+                                    grade.grade_name === opt.value && styles.gradePillActive,
+                                  ]}
+                                  onPress={() => handleUpdateGradeField(idx, 'grade_name', opt.value)}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.gradePillText,
+                                      grade.grade_name === opt.value && styles.gradePillTextActive,
+                                    ]}
+                                  >
+                                    {opt.label.replace('Grade ', '')}
+                                  </Text>
+                                </TouchableOpacity>
+                              ))}
+                            </View>
+                          </ScrollView>
+                          <TouchableOpacity
+                            onPress={() => handleRemoveGradeLine(idx)}
+                            style={styles.removeGradeBtn}
+                          >
+                            <Ionicons name="trash-outline" size={16} color={colors.danger} />
+                          </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.gradeInputsRow}>
+                          <View style={{ flex: 1, marginRight: spacing.xs }}>
+                            <Text style={styles.gradeFieldLabel}>Qty ({quantityUnit})</Text>
+                            <TextInput
+                              style={[styles.input, styles.compactInput]}
+                              placeholder="0"
+                              placeholderTextColor={colors.slate400}
+                              keyboardType="numeric"
+                              value={grade.quantity}
+                              onChangeText={(val) => handleUpdateGradeField(idx, 'quantity', val)}
+                            />
+                          </View>
+                          <View style={{ flex: 1, marginRight: spacing.xs }}>
+                            <Text style={styles.gradeFieldLabel}>Rate (₹)</Text>
+                            <TextInput
+                              style={[styles.input, styles.compactInput]}
+                              placeholder="0"
+                              placeholderTextColor={colors.slate400}
+                              keyboardType="numeric"
+                              value={grade.rate}
+                              onChangeText={(val) => handleUpdateGradeField(idx, 'rate', val)}
+                            />
+                          </View>
+                          <View style={{ flex: 1.1, justifyContent: 'center', alignItems: 'flex-end', paddingTop: 14 }}>
+                            <Text style={styles.gradeFieldLabel}>Amount</Text>
+                            <Text style={styles.gradeAmountText}>
+                              ₹{((parseFloat(grade.quantity) || 0) * (parseFloat(grade.rate) || 0)).toFixed(0)}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    ))
+                  )}
+                </View>
+              )}
 
               {/* Deductions & Charges Section */}
               <View style={styles.deductionsCard}>
@@ -804,6 +1150,104 @@ export default function SalesScreen() {
               resizeMode="contain"
             />
           ) : null}
+        </View>
+      </Modal>
+
+      {/* Quick Add Buyer Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={addBuyerModalVisible}
+        onRequestClose={() => setAddBuyerModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalKicker}>BUYERS MASTER</Text>
+                <Text style={styles.modalTitle}>Add New Buyer</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => setAddBuyerModalVisible(false)}
+              >
+                <Ionicons name="close" size={20} color={colors.slate600} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              <Text style={styles.inputLabel}>Buyer / Trader Name *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Ramesh Trading Co."
+                placeholderTextColor={colors.slate400}
+                value={newBuyerName}
+                onChangeText={setNewBuyerName}
+              />
+
+              <Text style={styles.inputLabel}>Phone Number</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 9876543210"
+                placeholderTextColor={colors.slate400}
+                keyboardType="phone-pad"
+                value={newBuyerPhone}
+                onChangeText={setNewBuyerPhone}
+              />
+
+              <Text style={styles.inputLabel}>Company / Stall Name</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. APMC Shop #42"
+                placeholderTextColor={colors.slate400}
+                value={newBuyerCompany}
+                onChangeText={setNewBuyerCompany}
+              />
+
+              <Text style={styles.inputLabel}>Address</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Mandi address or city"
+                placeholderTextColor={colors.slate400}
+                value={newBuyerAddress}
+                onChangeText={setNewBuyerAddress}
+              />
+
+              <Text style={styles.inputLabel}>Notes</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="Payment terms, market agent, etc."
+                placeholderTextColor={colors.slate400}
+                multiline
+                numberOfLines={2}
+                value={newBuyerNotes}
+                onChangeText={setNewBuyerNotes}
+              />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.cancelBtn]}
+                  onPress={() => setAddBuyerModalVisible(false)}
+                >
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.saveBtn, savingBuyer && { opacity: 0.7 }]}
+                  onPress={handleCreateQuickBuyer}
+                  disabled={savingBuyer}
+                >
+                  {savingBuyer ? (
+                    <ActivityIndicator color={colors.white} size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-circle-outline" size={18} color={colors.white} />
+                      <Text style={styles.saveBtnText}>Save Buyer</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -1369,5 +1813,219 @@ const styles = StyleSheet.create({
   fullPreviewImage: {
     width: '94%',
     height: '80%',
+  },
+  buyerHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  addBuyerTriggerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySurface,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder,
+  },
+  addBuyerTriggerText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  dropdownTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.slate50,
+    borderWidth: 1,
+    borderColor: colors.slate300,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    height: 48,
+  },
+  dropdownSelectedText: {
+    ...typography.body,
+    color: colors.slate900,
+    fontWeight: '600',
+  },
+  dropdownPlaceholderText: {
+    ...typography.body,
+    color: colors.slate400,
+  },
+  dropdownMenu: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.slate200,
+    borderRadius: radius.md,
+    marginTop: 4,
+    overflow: 'hidden',
+    ...shadows.medium,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.slate100,
+  },
+  dropdownItemSelected: {
+    backgroundColor: colors.primarySurface,
+  },
+  dropdownItemText: {
+    ...typography.body,
+    fontSize: 14,
+    color: colors.slate800,
+    fontWeight: '600',
+  },
+  dropdownItemTextSelected: {
+    color: colors.primaryDark,
+    fontWeight: '700',
+  },
+  dropdownItemSubtext: {
+    ...typography.caption,
+    color: colors.slate500,
+    marginTop: 1,
+  },
+  switchRowContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.slate50,
+    borderWidth: 1,
+    borderColor: colors.slate200,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+  switchTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.slate900,
+  },
+  switchSubtitle: {
+    ...typography.caption,
+    color: colors.slate500,
+    marginTop: 2,
+  },
+  gradesCard: {
+    backgroundColor: '#f8fafc',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+  gradesCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  gradesCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.slate900,
+  },
+  gradesCardSubtitle: {
+    fontSize: 11,
+    color: colors.slate600,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  addGradeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.xs,
+  },
+  addGradeBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.white,
+  },
+  noGradesText: {
+    ...typography.bodySmall,
+    color: colors.slate500,
+    fontStyle: 'italic',
+    paddingVertical: 8,
+    textAlign: 'center',
+  },
+  gradeItemBox: {
+    backgroundColor: colors.white,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.slate200,
+    padding: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  gradeItemTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  gradeRowNumber: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.slate500,
+    width: 24,
+  },
+  gradePillsContainer: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  gradePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    backgroundColor: colors.slate100,
+    borderWidth: 1,
+    borderColor: colors.slate200,
+  },
+  gradePillActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  gradePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.slate600,
+  },
+  gradePillTextActive: {
+    color: colors.white,
+  },
+  removeGradeBtn: {
+    padding: 4,
+  },
+  gradeInputsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  compactInput: {
+    height: 40,
+    fontSize: 13,
+    marginBottom: 0,
+    paddingHorizontal: 8,
+  },
+  gradeFieldLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.slate500,
+    marginBottom: 2,
+    textTransform: 'uppercase',
+  },
+  gradeAmountText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.primary,
+    height: 40,
+    lineHeight: 40,
   },
 });

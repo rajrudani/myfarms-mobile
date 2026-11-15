@@ -44,6 +44,9 @@ export interface Farm {
   name: string;
   area: number | string;
   area_unit: 'ACRE' | 'HECTARE' | 'BIGHAS' | 'GUNTHAS' | string;
+  preferred_area_unit?: string;
+  active_crop_cycles_area?: number;
+  active_crop_cycles_area_in_acres?: number;
   location?: string;
   is_active: boolean;
   active_cycles_count?: number;
@@ -71,6 +74,8 @@ export interface CropCycle {
   status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | string;
   harvest_amount?: number | string;
   harvest_unit?: string;
+  create_next_cycle?: boolean;
+  is_harvested?: boolean;
   notes?: string;
   crop_details?: {
     image_url?: string | null;
@@ -93,7 +98,7 @@ export interface FarmExpense {
   date: string; // ISO date string
   expense_category: string;
   amount: number | string;
-  payment_method: string;
+  payment_method?: string | null;
   payment_status: 'PAID' | 'UNPAID' | 'PARTIALLY_PAID' | 'completed' | 'pending' | 'partial' | string;
   notes?: string;
   created_at?: string;
@@ -385,6 +390,14 @@ export interface SaleChargeItem {
   applies_on: 'gross' | 'final' | string;
 }
 
+export interface SaleGradeItem {
+  id?: number | string;
+  grade_name: string; // 'a_plus' | 'a' | 'b_plus' | 'b' | 'c_plus' | 'c' | 'd'
+  quantity: number;
+  rate: number;
+  amount?: number;
+}
+
 export interface Sale {
   id: number | string;
   ulid: string;
@@ -420,6 +433,7 @@ export interface Sale {
     season_name?: string | null;
   } | null;
   charges?: SaleChargeItem[];
+  grades?: SaleGradeItem[];
 }
 
 export interface CreateSalePayload {
@@ -429,12 +443,14 @@ export interface CreateSalePayload {
   buyer_id?: number | string | null;
   buyer_name?: string;
   date: string;
-  total_quantity: number;
+  has_grades?: boolean;
+  total_quantity?: number;
   quantity_unit: string;
-  rate: number;
+  rate?: number;
   notes?: string;
   bill_photo_path?: string | null;
   charges?: SaleChargeItem[];
+  grades?: SaleGradeItem[];
 }
 
 // Masters Types
@@ -446,6 +462,8 @@ export interface Crop {
   name_hi?: string | null;
   category: string;
   unit: string;
+  default_duration_days?: number | null;
+  image_path?: string | null;
   is_perennial: boolean;
   is_active: boolean;
   image_url?: string | null;

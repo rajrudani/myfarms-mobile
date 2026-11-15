@@ -7,7 +7,8 @@ export type UploadCategory =
   | 'agro-shop-bills'
   | 'consultant-visit-recommendations'
   | 'note-reminders'
-  | 'farm-staff-photos';
+  | 'farm-staff-photos'
+  | 'crop-images';
 
 export interface PickedMediaResult {
   uri: string;

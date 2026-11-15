@@ -286,6 +286,35 @@ export default function SaleViewScreen() {
           </View>
         </View>
 
+        {/* Quality Grades Breakdown (if graded) */}
+        {sale.has_grades && sale.grades && sale.grades.length > 0 ? (
+          <View style={styles.card}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="ribbon-outline" size={18} color="#059669" />
+              <Text style={[styles.sectionTitle, { color: '#059669' }]}>Quality Grades Breakdown</Text>
+            </View>
+
+            <View style={styles.deductionList}>
+              {sale.grades.map((g, idx) => {
+                const gradeLabel = g.grade_name ? g.grade_name.toUpperCase().replace('_', '+') : `Grade #${idx + 1}`;
+                return (
+                  <View key={g.id || idx} style={styles.deductionRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.deductionName}>Grade {gradeLabel}</Text>
+                      <Text style={styles.produceSub}>
+                        {g.quantity} {unit} @ ₹{g.rate}/{unit}
+                      </Text>
+                    </View>
+                    <Text style={[styles.deductionVal, { color: '#0f172a' }]}>
+                      ₹{(g.amount ? parseFloat(g.amount.toString()) : (g.quantity * g.rate)).toFixed(2)}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
+
         {/* 4. Deductions Card (if any) */}
         {charges.length > 0 ? (
           <View style={styles.card}>
