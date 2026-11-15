@@ -93,6 +93,11 @@ export const agroShopsApi = {
     return response.data.data;
   },
 
+  async updatePurchase(id: string | number, payload: Partial<RecordPurchasePayload>): Promise<AgroShopPurchase> {
+    const response = await apiClient.put<{ data: AgroShopPurchase }>(`/agro-shop-purchases/${id}`, payload);
+    return response.data.data;
+  },
+
   async deletePurchase(id: string | number): Promise<void> {
     await apiClient.delete(`/agro-shop-purchases/${id}`);
   },
@@ -111,6 +116,11 @@ export const agroShopsApi = {
 
   async createPayment(shopId: string | number, payload: RecordPaymentPayload): Promise<AgroShopPayment> {
     const response = await apiClient.post<{ data: AgroShopPayment }>(`/agro-shops/${shopId}/payments`, payload);
+    return response.data.data;
+  },
+
+  async updatePayment(id: string | number, payload: Partial<RecordPaymentPayload>): Promise<AgroShopPayment> {
+    const response = await apiClient.put<{ data: AgroShopPayment }>(`/agro-shop-payments/${id}`, payload);
     return response.data.data;
   },
 

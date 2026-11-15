@@ -18,7 +18,8 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { farmActivitiesApi } from '../src/api/farmActivities';
-import { FarmActivity } from '../src/types';
+import { expensesApi } from '../src/api/expenses';
+import { FarmActivity, FarmExpense } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
 
@@ -43,6 +44,13 @@ export default function ActivityViewScreen() {
   const [editDate, setEditDate] = useState<string>('');
   const [editNotes, setEditNotes] = useState<string>('');
   const [saving, setSaving] = useState(false);
+
+  // Link Expense Modal State
+  const [linkModalVisible, setLinkModalVisible] = useState(false);
+  const [availableExpenses, setAvailableExpenses] = useState<FarmExpense[]>([]);
+  const [selectedExpenseIds, setSelectedExpenseIds] = useState<(string | number)[]>([]);
+  const [loadingAvailableExpenses, setLoadingAvailableExpenses] = useState(false);
+  const [linkingExpenses, setLinkingExpenses] = useState(false);
 
   const fetchActivity = useCallback(async () => {
     if (!activityIdentifier) return;
@@ -129,6 +137,80 @@ export default function ActivityViewScreen() {
             } catch (error) {
               console.error('Error deleting activity:', error);
               Alert.alert('Error', extractErrorMessage(error, 'Failed to delete activity.'));
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleOpenLinkExpensesModal = async () => {
+    if (!activity) return;
+    setLinkModalVisible(true);
+    setLoadingAvailableExpenses(true);
+    setSelectedExpenseIds([]);
+    try {
+      const expenses = await expensesApi.getAll({
+        farm_id: activity.farm_id,
+        per_page: 'all',
+      });
+      const alreadyLinkedIds = new Set(
+        ((activity as any).expenses || []).map((e: any) => e.id)
+      );
+      setAvailableExpenses(expenses.filter((e) => !alreadyLinkedIds.has(e.id)));
+    } catch (error) {
+      console.error('Error fetching available expenses:', error);
+      Alert.alert('Error', extractErrorMessage(error, 'Failed to load expenses.'));
+    } finally {
+      setLoadingAvailableExpenses(false);
+    }
+  };
+
+  const handleToggleSelectExpense = (id: string | number) => {
+    setSelectedExpenseIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleConfirmLinkExpenses = async () => {
+    if (!activity || selectedExpenseIds.length === 0) return;
+    const identifier = activity.ulid || activity.id!;
+    try {
+      setLinkingExpenses(true);
+      await farmActivitiesApi.linkExpenses(identifier, selectedExpenseIds);
+      Alert.alert('Success', 'Expenses linked successfully.');
+      setLinkModalVisible(false);
+      setSelectedExpenseIds([]);
+      fetchActivity();
+    } catch (error) {
+      console.error('Error linking expenses:', error);
+      Alert.alert('Error', extractErrorMessage(error, 'Failed to link expenses.'));
+    } finally {
+      setLinkingExpenses(false);
+    }
+  };
+
+  const handleUnlinkExpense = (expenseItem: any) => {
+    if (!activity) return;
+    const identifier = activity.ulid || activity.id!;
+    Alert.alert(
+      'Unlink Expense',
+      `Are you sure you want to unlink "${expenseItem.expense_category || 'this expense'}" (₹${expenseItem.amount}) from this activity?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unlink',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await farmActivitiesApi.unlinkExpense(identifier, expenseItem.id);
+              Alert.alert('Success', 'Expense unlinked successfully.');
+              fetchActivity();
+            } catch (error) {
+              console.error('Error unlinking expense:', error);
+              Alert.alert('Error', extractErrorMessage(error, 'Failed to unlink expense.'));
               setLoading(false);
             }
           },
@@ -296,12 +378,22 @@ export default function ActivityViewScreen() {
 
         {/* 4. Linked Expenses */}
         <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="wallet-outline" size={18} color="#166534" />
-            <Text style={styles.sectionTitle}>Linked Expenses</Text>
-            <View style={styles.countBadge}>
-              <Text style={styles.countBadgeText}>{linkedExpenses.length}</Text>
+          <View style={styles.sectionHeaderBetween}>
+            <View style={styles.row}>
+              <Ionicons name="wallet-outline" size={18} color="#166534" />
+              <Text style={styles.sectionTitle}>Linked Expenses</Text>
+              <View style={styles.countBadge}>
+                <Text style={styles.countBadgeText}>{linkedExpenses.length}</Text>
+              </View>
             </View>
+            <TouchableOpacity
+              style={styles.miniActionBtn}
+              onPress={handleOpenLinkExpensesModal}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="link-outline" size={13} color="#166534" />
+              <Text style={styles.miniActionText}>+ Link</Text>
+            </TouchableOpacity>
           </View>
 
           {linkedExpenses.length > 0 ? (
@@ -333,6 +425,17 @@ export default function ActivityViewScreen() {
                     </View>
                     <View style={styles.linkedItemRight}>
                       <Text style={styles.linkedItemAmount}>₹{parseFloat(exp.amount || 0).toFixed(2)}</Text>
+                      <TouchableOpacity
+                        style={styles.unlinkBtn}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleUnlinkExpense(exp);
+                        }}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        accessibilityLabel="Unlink Expense"
+                      >
+                        <Ionicons name="trash-outline" size={16} color="#dc2626" />
+                      </TouchableOpacity>
                       <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                     </View>
                   </TouchableOpacity>
@@ -452,6 +555,104 @@ export default function ActivityViewScreen() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Link Expense Modal */}
+      <Modal
+        visible={linkModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setLinkModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Link Existing Expense</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setLinkModalVisible(false)}
+                style={styles.modalCloseBtn}
+              >
+                <Ionicons name="close" size={20} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            {loadingAvailableExpenses ? (
+              <View style={{ paddingVertical: spacing.xl, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color="#16a34a" />
+                <Text style={styles.loadingText}>Fetching available expenses...</Text>
+              </View>
+            ) : availableExpenses.length === 0 ? (
+              <View style={{ paddingVertical: spacing.lg, alignItems: 'center' }}>
+                <Ionicons name="wallet-outline" size={36} color="#94a3b8" />
+                <Text style={[styles.emptyText, { marginTop: 8 }]}>No unlinked expenses found for this farm.</Text>
+              </View>
+            ) : (
+              <ScrollView style={{ maxHeight: 320, marginVertical: spacing.xs }}>
+                {availableExpenses.map((exp) => {
+                  const expId = exp.id ?? exp.ulid;
+                  if (!expId) return null;
+                  const isSelected = selectedExpenseIds.includes(expId);
+                  return (
+                    <TouchableOpacity
+                      key={expId}
+                      style={[
+                        styles.candidateItem,
+                        isSelected && styles.candidateItemSelected,
+                      ]}
+                      onPress={() => handleToggleSelectExpense(expId)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={isSelected ? 'checkbox' : 'square-outline'}
+                        size={20}
+                        color={isSelected ? '#16a34a' : '#94a3b8'}
+                      />
+                      <View style={{ flex: 1, marginLeft: spacing.sm }}>
+                        <Text style={styles.candidateTitle}>{exp.expense_category || 'Expense'}</Text>
+                        <Text style={styles.candidateSub}>
+                          {exp.date ? exp.date.split('T')[0] : ''} • {exp.payment_method || 'Cash'}
+                        </Text>
+                      </View>
+                      <Text style={styles.candidateAmount}>
+                        ₹{parseFloat(exp.amount ? exp.amount.toString() : '0').toFixed(2)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setLinkModalVisible(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalSaveBtn,
+                  (selectedExpenseIds.length === 0 || linkingExpenses) && { opacity: 0.5 },
+                ]}
+                onPress={handleConfirmLinkExpenses}
+                disabled={selectedExpenseIds.length === 0 || linkingExpenses}
+              >
+                {linkingExpenses ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.modalSaveText}>
+                    Link ({selectedExpenseIds.length})
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -912,5 +1113,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#ffffff',
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  unlinkBtn: {
+    padding: 4,
+    marginRight: 4,
+  },
+  candidateItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+  },
+  candidateItemSelected: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#bbf7d0',
+  },
+  candidateTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  candidateSub: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  candidateAmount: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#15803d',
+    marginLeft: 8,
   },
 });

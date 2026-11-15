@@ -17,6 +17,7 @@ import { router } from 'expo-router';
 import { dailyCropPricesApi } from '../src/api/dailyCropPrices';
 import { DailyCropPrice } from '../src/types';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
+import { storage } from '../src/utils/storage';
 import {
   BentoCard,
   StatusBadge,
@@ -40,6 +41,36 @@ export default function MandiPricesScreen() {
   const [selectedState, setSelectedState] = useState('Gujarat');
   const [selectedDistrict, setSelectedDistrict] = useState('all');
   const [priceUnit, setPriceUnit] = useState<'quintal' | 'kg'>('quintal');
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+
+  // Load saved preferences on mount
+  useEffect(() => {
+    async function loadSavedPrefs() {
+      try {
+        const saved = await storage.getMandiPreferences();
+        if (saved) {
+          if (saved.state) setSelectedState(saved.state);
+          if (saved.district) setSelectedDistrict(saved.district);
+          if (saved.unit) setPriceUnit(saved.unit);
+        }
+      } catch (err) {
+        console.warn('Failed to load mandi preferences:', err);
+      } finally {
+        setPrefsLoaded(true);
+      }
+    }
+    loadSavedPrefs();
+  }, []);
+
+  // Persist preferences whenever state, district, or unit changes
+  useEffect(() => {
+    if (!prefsLoaded) return;
+    storage.setMandiPreferences({
+      state: selectedState,
+      district: selectedDistrict,
+      unit: priceUnit,
+    }).catch((err) => console.warn('Failed to save mandi preferences:', err));
+  }, [selectedState, selectedDistrict, priceUnit, prefsLoaded]);
 
   // Metadata
   const [states, setStates] = useState<string[]>([]);
@@ -82,8 +113,10 @@ export default function MandiPricesScreen() {
   }, [selectedState]);
 
   useEffect(() => {
-    fetchPrices(true);
-  }, [fetchPrices]);
+    if (prefsLoaded) {
+      fetchPrices(true);
+    }
+  }, [fetchPrices, prefsLoaded]);
 
   const onRefresh = () => {
     setRefreshing(true);

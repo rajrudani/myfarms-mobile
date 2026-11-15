@@ -15,6 +15,7 @@ import {
   KeyboardAvoidingView,
   Image,
   StatusBar,
+  Switch,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -52,6 +53,28 @@ export default function SaleViewScreen() {
   const [editRate, setEditRate] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Grades Modal State
+  const [gradesModalVisible, setGradesModalVisible] = useState(false);
+  const [modalHasGrades, setModalHasGrades] = useState(false);
+  const [gradeRows, setGradeRows] = useState<{
+    id?: number | string;
+    grade_name: string;
+    quantity: string;
+    rate: string;
+  }[]>([]);
+  const [savingGrades, setSavingGrades] = useState(false);
+
+  // Charges Modal State
+  const [chargesModalVisible, setChargesModalVisible] = useState(false);
+  const [chargeRows, setChargeRows] = useState<{
+    id?: number | string;
+    charge_name: string;
+    type: 'flat' | 'percentage';
+    value: string;
+    applies_on: 'gross' | 'final';
+  }[]>([]);
+  const [savingCharges, setSavingCharges] = useState(false);
 
   const fetchSale = useCallback(async () => {
     if (!saleIdentifier) return;
@@ -137,6 +160,120 @@ export default function SaleViewScreen() {
         },
       ]
     );
+  };
+
+  const handleOpenGradesModal = () => {
+    if (!sale) return;
+    setModalHasGrades(Boolean(sale.has_grades));
+    if (sale.grades && sale.grades.length > 0) {
+      setGradeRows(
+        sale.grades.map((g) => ({
+          id: g.id,
+          grade_name: g.grade_name || 'A',
+          quantity: g.quantity ? g.quantity.toString() : '',
+          rate: g.rate ? g.rate.toString() : '',
+        }))
+      );
+    } else {
+      setGradeRows([
+        { grade_name: 'A', quantity: '', rate: '' },
+        { grade_name: 'B', quantity: '', rate: '' },
+      ]);
+    }
+    setGradesModalVisible(true);
+  };
+
+  const handleOpenChargesModal = () => {
+    if (!sale) return;
+    if (sale.charges && sale.charges.length > 0) {
+      setChargeRows(
+        sale.charges.map((c) => ({
+          id: c.id,
+          charge_name: c.charge_name,
+          type: (c.type === 'percent' || c.type === 'percentage') ? 'percentage' : 'flat',
+          value: c.value ? c.value.toString() : '',
+          applies_on: c.applies_on === 'final' ? 'final' : 'gross',
+        }))
+      );
+    } else {
+      setChargeRows([
+        { charge_name: 'Mandi Cess / Market Fee', type: 'percentage', value: '1.5', applies_on: 'gross' },
+        { charge_name: 'Hamali / Labour', type: 'flat', value: '', applies_on: 'gross' },
+      ]);
+    }
+    setChargesModalVisible(true);
+  };
+
+  const handleSaveGrades = async () => {
+    if (!sale) return;
+    const identifier = sale.ulid || sale.id!;
+    try {
+      setSavingGrades(true);
+      if (!modalHasGrades) {
+        const updated = await salesApi.updateSale(identifier, {
+          has_grades: false,
+          grades: [],
+        });
+        setSale(updated);
+        setGradesModalVisible(false);
+        Alert.alert(t('Success'), t('Quality grades disabled.'));
+        return;
+      }
+
+      const validRows = gradeRows.filter(
+        (r) => r.grade_name.trim() && parseFloat(r.quantity) > 0 && parseFloat(r.rate) > 0
+      );
+
+      if (validRows.length === 0) {
+        Alert.alert(t('Validation Error'), t('Please add at least one valid grade row with quantity and rate.'));
+        return;
+      }
+
+      const updated = await salesApi.updateSale(identifier, {
+        has_grades: true,
+        grades: validRows.map((r) => ({
+          grade_name: r.grade_name,
+          quantity: parseFloat(r.quantity),
+          rate: parseFloat(r.rate),
+        })),
+      });
+      setSale(updated);
+      setGradesModalVisible(false);
+      Alert.alert(t('Success'), t('Quality grades updated successfully!'));
+    } catch (error) {
+      console.error('Error saving grades:', error);
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to update quality grades.')));
+    } finally {
+      setSavingGrades(false);
+    }
+  };
+
+  const handleSaveCharges = async () => {
+    if (!sale) return;
+    const identifier = sale.ulid || sale.id!;
+    try {
+      setSavingCharges(true);
+      const validRows = chargeRows.filter(
+        (r) => r.charge_name.trim() && parseFloat(r.value) >= 0
+      );
+
+      const updated = await salesApi.updateSale(identifier, {
+        charges: validRows.map((r) => ({
+          charge_name: r.charge_name.trim(),
+          type: r.type,
+          value: parseFloat(r.value),
+          applies_on: r.applies_on,
+        })),
+      });
+      setSale(updated);
+      setChargesModalVisible(false);
+      Alert.alert(t('Success'), t('Mandi deductions updated successfully!'));
+    } catch (error) {
+      console.error('Error saving charges:', error);
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to update deductions.')));
+    } finally {
+      setSavingCharges(false);
+    }
   };
 
   if (loading) {
@@ -306,14 +443,35 @@ export default function SaleViewScreen() {
           </View>
         </View>
 
-        {/* Quality Grades Breakdown (if graded) */}
-        {sale.has_grades && sale.grades && sale.grades.length > 0 ? (
-          <View style={styles.card}>
-            <View style={styles.sectionHeader}>
+        {/* Quality Grades Breakdown */}
+        <View style={styles.card}>
+          <View style={styles.sectionHeaderBetween}>
+            <View style={styles.row}>
               <Ionicons name="ribbon-outline" size={18} color="#059669" />
-              <Text style={[styles.sectionTitle, { color: '#059669' }]}>{t('Quality Grades Breakdown')}</Text>
+              <Text style={[styles.sectionTitle, { color: '#059669' }]}>
+                {t('Quality Grades Breakdown')}
+              </Text>
+              {sale.has_grades && sale.grades && sale.grades.length > 0 ? (
+                <View style={[styles.countBadge, { backgroundColor: '#ecfdf5' }]}>
+                  <Text style={[styles.countBadgeText, { color: '#059669' }]}>{sale.grades.length}</Text>
+                </View>
+              ) : null}
             </View>
+            {permissions.canManageCommercials(user) && (
+              <TouchableOpacity
+                style={styles.miniActionBtn}
+                onPress={handleOpenGradesModal}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="create-outline" size={13} color="#059669" />
+                <Text style={[styles.miniActionText, { color: '#059669' }]}>
+                  {sale.has_grades && sale.grades && sale.grades.length > 0 ? t('Edit') : t('+ Add')}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
+          {sale.has_grades && sale.grades && sale.grades.length > 0 ? (
             <View style={styles.deductionList}>
               {sale.grades.map((g, idx) => {
                 const gradeLabel = g.grade_name ? g.grade_name.toUpperCase().replace('_', '+') : `#${idx + 1}`;
@@ -335,32 +493,70 @@ export default function SaleViewScreen() {
                 );
               })}
             </View>
-          </View>
-        ) : null}
+          ) : (
+            <Text style={styles.emptyText}>
+              {t('Standard single-rate sale. Tap + Add to record itemized grade breakdown.')}
+            </Text>
+          )}
+        </View>
 
-        {/* 4. Deductions Card (if any) */}
-        {charges.length > 0 && permissions.canViewFinancials(user) ? (
+        {/* 4. Mandi Deductions Card */}
+        {permissions.canViewFinancials(user) && (
           <View style={styles.card}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="alert-circle-outline" size={18} color="#dc2626" />
-              <Text style={[styles.sectionTitle, { color: '#dc2626' }]}>{t('Deductions')}</Text>
-            </View>
-
-            <View style={styles.deductionList}>
-              {charges.map((c, i) => (
-                <View key={i} style={styles.deductionRow}>
-                  <Text style={styles.deductionName}>{c.charge_name}</Text>
-                  <Text style={styles.deductionVal}>- ₹{parseFloat(c.value.toString()).toFixed(2)}</Text>
-                </View>
-              ))}
-
-              <View style={styles.deductionSummaryRow}>
-                <Text style={styles.deductionSummaryLabel}>{t('Total Deductions')}</Text>
-                <Text style={styles.deductionSummaryVal}>- ₹{deductionsTotal.toFixed(2)}</Text>
+            <View style={styles.sectionHeaderBetween}>
+              <View style={styles.row}>
+                <Ionicons name="alert-circle-outline" size={18} color="#dc2626" />
+                <Text style={[styles.sectionTitle, { color: '#dc2626' }]}>{t('Mandi Deductions')}</Text>
+                {charges.length > 0 ? (
+                  <View style={[styles.countBadge, { backgroundColor: '#fef2f2' }]}>
+                    <Text style={[styles.countBadgeText, { color: '#dc2626' }]}>{charges.length}</Text>
+                  </View>
+                ) : null}
               </View>
+              {permissions.canManageCommercials(user) && (
+                <TouchableOpacity
+                  style={[styles.miniActionBtn, { borderColor: '#fecaca', backgroundColor: '#fef2f2' }]}
+                  onPress={handleOpenChargesModal}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="create-outline" size={13} color="#dc2626" />
+                  <Text style={[styles.miniActionText, { color: '#dc2626' }]}>
+                    {charges.length > 0 ? t('Edit') : t('+ Add')}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
+
+            {charges.length > 0 ? (
+              <View style={styles.deductionList}>
+                {charges.map((c, i) => (
+                  <View key={i} style={styles.deductionRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.deductionName}>{c.charge_name}</Text>
+                      {c.type === 'percentage' || c.type === 'percent' ? (
+                        <Text style={[styles.produceSub, { fontSize: 11 }]}>
+                          {c.value}% on {c.applies_on || 'gross'}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Text style={styles.deductionVal}>
+                      - ₹{parseFloat(c.value.toString()).toFixed(2)}
+                    </Text>
+                  </View>
+                ))}
+
+                <View style={styles.deductionSummaryRow}>
+                  <Text style={styles.deductionSummaryLabel}>{t('Total Deductions')}</Text>
+                  <Text style={styles.deductionSummaryVal}>- ₹{deductionsTotal.toFixed(2)}</Text>
+                </View>
+              </View>
+            ) : (
+              <Text style={styles.emptyText}>
+                {t('No deductions or mandi charges recorded. Tap + Add to apply charges.')}
+              </Text>
+            )}
           </View>
-        ) : null}
+        )}
 
         {/* 5. Final Summary Card */}
         {permissions.canViewFinancials(user) && (
@@ -509,6 +705,339 @@ export default function SaleViewScreen() {
                     <ActivityIndicator size="small" color="#ffffff" />
                   ) : (
                     <Text style={styles.modalSaveText}>{t('Save Changes')}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Manage Quality Grades Modal */}
+      <Modal visible={gradesModalVisible} transparent animationType="slide" onRequestClose={() => setGradesModalVisible(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>{t('Quality Grades Breakdown')}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setGradesModalVisible(false)}>
+                <Ionicons name="close" size={22} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
+              <View style={styles.toggleRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.toggleTitle}>{t('Enable Quality Grading')}</Text>
+                  <Text style={styles.toggleSub}>{t('Record multiple quality tiers at different rates')}</Text>
+                </View>
+                <Switch
+                  value={modalHasGrades}
+                  onValueChange={setModalHasGrades}
+                  trackColor={{ false: '#cbd5e1', true: '#86efac' }}
+                  thumbColor={modalHasGrades ? '#16a34a' : '#f8fafc'}
+                />
+              </View>
+
+              {modalHasGrades && (
+                <View style={{ marginTop: spacing.md }}>
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.sectionSubTitle}>{t('Grade Tiers')}</Text>
+                    <TouchableOpacity
+                      style={styles.addLineBtn}
+                      onPress={() => setGradeRows([...gradeRows, { grade_name: 'Grade', quantity: '', rate: '' }])}
+                    >
+                      <Ionicons name="add" size={14} color="#166534" />
+                      <Text style={styles.addLineText}>{t('Add Tier')}</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {gradeRows.map((row, idx) => {
+                    const rowTotal = (parseFloat(row.quantity) || 0) * (parseFloat(row.rate) || 0);
+                    return (
+                      <View key={idx} style={styles.editorItemCard}>
+                        <View style={styles.editorItemHead}>
+                          <Text style={styles.editorItemIndex}>Tier #{idx + 1}</Text>
+                          {rowTotal > 0 && (
+                            <Text style={styles.editorItemAmount}>₹{rowTotal.toFixed(2)}</Text>
+                          )}
+                          {gradeRows.length > 1 && (
+                            <TouchableOpacity
+                              onPress={() => setGradeRows(gradeRows.filter((_, i) => i !== idx))}
+                              style={{ padding: 4 }}
+                            >
+                              <Ionicons name="trash-outline" size={16} color="#dc2626" />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+
+                        <Text style={styles.inputMiniLabel}>{t('Grade Name')}</Text>
+                        <TextInput
+                          style={styles.inputSmall}
+                          value={row.grade_name}
+                          onChangeText={(text) => {
+                            const newRows = [...gradeRows];
+                            newRows[idx].grade_name = text;
+                            setGradeRows(newRows);
+                          }}
+                          placeholder="e.g. A+, A, B, Rejection"
+                          placeholderTextColor="#94a3b8"
+                        />
+                        <View style={styles.chipQuickRow}>
+                          {['A+', 'A', 'B+', 'B', 'C', 'Reject'].map((preset) => (
+                            <TouchableOpacity
+                              key={preset}
+                              style={[
+                                styles.quickChip,
+                                row.grade_name === preset && styles.quickChipActive,
+                              ]}
+                              onPress={() => {
+                                const newRows = [...gradeRows];
+                                newRows[idx].grade_name = preset;
+                                setGradeRows(newRows);
+                              }}
+                            >
+                              <Text
+                                style={[
+                                  styles.quickChipText,
+                                  row.grade_name === preset && styles.quickChipTextActive,
+                                ]}
+                              >
+                                {preset}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+
+                        <View style={styles.rowTwoCols}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.inputMiniLabel}>{t('Quantity')} ({unit})</Text>
+                            <TextInput
+                              style={styles.inputSmall}
+                              value={row.quantity}
+                              onChangeText={(text) => {
+                                const newRows = [...gradeRows];
+                                newRows[idx].quantity = text;
+                                setGradeRows(newRows);
+                              }}
+                              keyboardType="numeric"
+                              placeholder="0"
+                              placeholderTextColor="#94a3b8"
+                            />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.inputMiniLabel}>{t('Rate')} (₹/{unit})</Text>
+                            <TextInput
+                              style={styles.inputSmall}
+                              value={row.rate}
+                              onChangeText={(text) => {
+                                const newRows = [...gradeRows];
+                                newRows[idx].rate = text;
+                                setGradeRows(newRows);
+                              }}
+                              keyboardType="numeric"
+                              placeholder="0.00"
+                              placeholderTextColor="#94a3b8"
+                            />
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
+                  onPress={() => setGradesModalVisible(false)}
+                >
+                  <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalSaveBtn}
+                  onPress={handleSaveGrades}
+                  disabled={savingGrades}
+                >
+                  {savingGrades ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text style={styles.modalSaveText}>{t('Save Grades')}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Manage Mandi Deductions Modal */}
+      <Modal visible={chargesModalVisible} transparent animationType="slide" onRequestClose={() => setChargesModalVisible(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>{t('Mandi Deductions & Charges')}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setChargesModalVisible(false)}>
+                <Ionicons name="close" size={22} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
+              <View style={styles.rowBetween}>
+                <Text style={styles.sectionSubTitle}>{t('Deduction Entries')}</Text>
+                <TouchableOpacity
+                  style={styles.addLineBtn}
+                  onPress={() =>
+                    setChargeRows([
+                      ...chargeRows,
+                      { charge_name: '', type: 'flat', value: '', applies_on: 'gross' },
+                    ])
+                  }
+                >
+                  <Ionicons name="add" size={14} color="#166534" />
+                  <Text style={styles.addLineText}>{t('Add Charge')}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {chargeRows.map((charge, idx) => (
+                <View key={idx} style={styles.editorItemCard}>
+                  <View style={styles.editorItemHead}>
+                    <Text style={styles.editorItemIndex}>Charge #{idx + 1}</Text>
+                    <TouchableOpacity
+                      onPress={() => setChargeRows(chargeRows.filter((_, i) => i !== idx))}
+                      style={{ padding: 4 }}
+                    >
+                      <Ionicons name="trash-outline" size={16} color="#dc2626" />
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={styles.inputMiniLabel}>{t('Charge Name')}</Text>
+                  <TextInput
+                    style={styles.inputSmall}
+                    value={charge.charge_name}
+                    onChangeText={(text) => {
+                      const newRows = [...chargeRows];
+                      newRows[idx].charge_name = text;
+                      setChargeRows(newRows);
+                    }}
+                    placeholder="e.g. Mandi Cess, Hamali, Weighing"
+                    placeholderTextColor="#94a3b8"
+                  />
+                  <View style={styles.chipQuickRow}>
+                    {['Mandi Cess', 'Commission', 'Hamali / Labour', 'Weighing', 'Transport'].map((preset) => (
+                      <TouchableOpacity
+                        key={preset}
+                        style={[
+                          styles.quickChip,
+                          charge.charge_name === preset && styles.quickChipActive,
+                        ]}
+                        onPress={() => {
+                          const newRows = [...chargeRows];
+                          newRows[idx].charge_name = preset;
+                          setChargeRows(newRows);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.quickChipText,
+                            charge.charge_name === preset && styles.quickChipTextActive,
+                          ]}
+                        >
+                          {preset}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <View style={styles.rowTwoCols}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.inputMiniLabel}>{t('Type')}</Text>
+                      <View style={styles.typeSegmentRow}>
+                        <TouchableOpacity
+                          style={[
+                            styles.typeSegmentBtn,
+                            charge.type === 'flat' && styles.typeSegmentBtnActive,
+                          ]}
+                          onPress={() => {
+                            const newRows = [...chargeRows];
+                            newRows[idx].type = 'flat';
+                            setChargeRows(newRows);
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.typeSegmentText,
+                              charge.type === 'flat' && styles.typeSegmentTextActive,
+                            ]}
+                          >
+                            Fixed (₹)
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[
+                            styles.typeSegmentBtn,
+                            charge.type === 'percentage' && styles.typeSegmentBtnActive,
+                          ]}
+                          onPress={() => {
+                            const newRows = [...chargeRows];
+                            newRows[idx].type = 'percentage';
+                            setChargeRows(newRows);
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.typeSegmentText,
+                              charge.type === 'percentage' && styles.typeSegmentTextActive,
+                            ]}
+                          >
+                            Percent (%)
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.inputMiniLabel}>
+                        {charge.type === 'percentage' ? t('Rate (%)') : t('Amount (₹)')}
+                      </Text>
+                      <TextInput
+                        style={styles.inputSmall}
+                        value={charge.value}
+                        onChangeText={(text) => {
+                          const newRows = [...chargeRows];
+                          newRows[idx].value = text;
+                          setChargeRows(newRows);
+                        }}
+                        keyboardType="numeric"
+                        placeholder="0.00"
+                        placeholderTextColor="#94a3b8"
+                      />
+                    </View>
+                  </View>
+                </View>
+              ))}
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
+                  onPress={() => setChargesModalVisible(false)}
+                >
+                  <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalSaveBtn}
+                  onPress={handleSaveCharges}
+                  disabled={savingCharges}
+                >
+                  {savingCharges ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text style={styles.modalSaveText}>{t('Save Deductions')}</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -934,5 +1463,192 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#ffffff',
+  },
+  sectionHeaderBetween: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  rowBetween: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  sectionSubTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  countBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+  },
+  countBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  miniActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+  },
+  miniActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 12,
+    marginBottom: 8,
+  },
+  toggleTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  toggleSub: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  addLineBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: '#f0fdf4',
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  addLineText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  editorItemCard: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 10,
+    marginBottom: 10,
+  },
+  editorItemHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  editorItemIndex: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#475569',
+  },
+  editorItemAmount: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#166534',
+  },
+  inputMiniLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  inputSmall: {
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 13,
+    color: '#0f172a',
+    backgroundColor: '#ffffff',
+  },
+  chipQuickRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 6,
+  },
+  quickChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  quickChipActive: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#86efac',
+  },
+  quickChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  quickChipTextActive: {
+    color: '#15803d',
+    fontWeight: '800',
+  },
+  rowTwoCols: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  typeSegmentRow: {
+    flexDirection: 'row',
+    borderRadius: 8,
+    backgroundColor: '#e2e8f0',
+    padding: 2,
+  },
+  typeSegmentBtn: {
+    flex: 1,
+    paddingVertical: 5,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  typeSegmentBtnActive: {
+    backgroundColor: '#ffffff',
+    ...shadows.subtle,
+  },
+  typeSegmentText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  typeSegmentTextActive: {
+    color: '#0f172a',
+    fontWeight: '800',
+  },
+  emptyText: {
+    fontSize: 13,
+    color: '#94a3b8',
+    fontStyle: 'italic',
+    paddingVertical: 4,
   },
 });

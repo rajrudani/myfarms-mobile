@@ -47,4 +47,16 @@ export const expensesApi = {
   async delete(id: string | number): Promise<void> {
     await apiClient.delete(`/expenses/${id}`);
   },
+
+  async linkActivities(id: string | number, activityIds: (string | number)[]): Promise<FarmExpense> {
+    const response = await apiClient.post<{ data: FarmExpense }>(`/expenses/${id}/link-activities`, {
+      activity_ids: activityIds,
+    });
+    return response.data.data;
+  },
+
+  async unlinkActivity(id: string | number, activityId: string | number): Promise<FarmExpense> {
+    const response = await apiClient.delete<{ data: FarmExpense }>(`/expenses/${id}/unlink-activity/${activityId}`);
+    return response.data.data;
+  },
 };

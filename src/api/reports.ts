@@ -34,6 +34,7 @@ export const reportsApi = {
 
   async getPaymentReport(params: {
     farm_staff_id?: number | string;
+    include_family?: boolean;
     from_date?: string;
     to_date?: string;
   }): Promise<PaymentReportResponse> {

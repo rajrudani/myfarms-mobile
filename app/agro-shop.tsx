@@ -84,6 +84,10 @@ export default function AgroShopScreen() {
   const [shopNotes, setShopNotes] = useState('');
   const [shopIsActive, setShopIsActive] = useState(true);
 
+  // Editing State
+  const [editingPurchase, setEditingPurchase] = useState<AgroShopPurchase | null>(null);
+  const [editingPayment, setEditingPayment] = useState<AgroShopPayment | null>(null);
+
   // Purchase Form Fields
   const [purchaseDate, setPurchaseDate] = useState('');
   const [purchaseNotes, setPurchaseNotes] = useState('');
@@ -216,6 +220,39 @@ export default function AgroShopScreen() {
     setPurchaseItems(purchaseItems.filter((_, i) => i !== index));
   };
 
+  // Open Edit Purchase
+  const handleOpenEditPurchase = (purchase: AgroShopPurchase) => {
+    setEditingPurchase(purchase);
+    setPurchaseDate(purchase.date || '');
+    setPurchaseNotes(purchase.notes || '');
+    setPurchaseBillPhotoPath(purchase.bill_photo_path || null);
+    setPurchaseBillPhotoUrl(purchase.bill_photo_url || null);
+    if (purchase.items && purchase.items.length > 0) {
+      setPurchaseItems(
+        purchase.items.map((item) => ({
+          agro_input_product_id: item.agro_input_product_id ? item.agro_input_product_id.toString() : '',
+          quantity: item.quantity ? item.quantity.toString() : '',
+          unit: item.unit || 'BAG',
+          unit_price: item.unit_price ? item.unit_price.toString() : '',
+        }))
+      );
+    } else {
+      setPurchaseItems([{ agro_input_product_id: '', quantity: '', unit: 'BAG', unit_price: '' }]);
+    }
+    setPurchaseModalVisible(true);
+  };
+
+  // Open Edit Payment
+  const handleOpenEditPayment = (payment: AgroShopPayment) => {
+    setEditingPayment(payment);
+    setPaymentPurchaseId(payment.agro_shop_purchase_id ? payment.agro_shop_purchase_id.toString() : '');
+    setPaymentDate(payment.date || '');
+    setPaymentAmount(payment.amount ? payment.amount.toString() : '');
+    setPaymentMethod(payment.payment_method || 'cash');
+    setPaymentNotes(payment.notes || '');
+    setPaymentModalVisible(true);
+  };
+
   // Save Purchase
   const handleSavePurchase = async () => {
     if (!selectedShopId) return;
@@ -245,9 +282,15 @@ export default function AgroShopScreen() {
     };
 
     try {
-      await agroShopsApi.createPurchase(selectedShopId, payload);
-      Alert.alert('Success', 'Purchase recorded successfully.');
+      if (editingPurchase) {
+        await agroShopsApi.updatePurchase(editingPurchase.id, payload);
+        Alert.alert('Success', 'Purchase updated successfully.');
+      } else {
+        await agroShopsApi.createPurchase(selectedShopId, payload);
+        Alert.alert('Success', 'Purchase recorded successfully.');
+      }
       setPurchaseModalVisible(false);
+      setEditingPurchase(null);
       setPurchaseDate('');
       setPurchaseNotes('');
       setPurchaseBillPhotoPath(null);
@@ -256,8 +299,8 @@ export default function AgroShopScreen() {
       fetchLedgerData(false);
       loadShops();
     } catch (error) {
-      console.error('Error recording purchase:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to record purchase.'));
+      console.error('Error saving purchase:', error);
+      Alert.alert('Error', extractErrorMessage(error, 'Failed to save purchase.'));
     }
   };
 
@@ -278,9 +321,15 @@ export default function AgroShopScreen() {
     };
 
     try {
-      await agroShopsApi.createPayment(selectedShopId, payload);
-      Alert.alert('Success', 'Payment recorded successfully.');
+      if (editingPayment) {
+        await agroShopsApi.updatePayment(editingPayment.id, payload);
+        Alert.alert('Success', 'Payment updated successfully.');
+      } else {
+        await agroShopsApi.createPayment(selectedShopId, payload);
+        Alert.alert('Success', 'Payment recorded successfully.');
+      }
       setPaymentModalVisible(false);
+      setEditingPayment(null);
       setPaymentPurchaseId('');
       setPaymentDate('');
       setPaymentAmount('');
@@ -522,15 +571,27 @@ export default function AgroShopScreen() {
                     <View />
                   )}
 
-                  {permissions.canAccessDangerZone(user) && (
-                    <TouchableOpacity
-                      style={styles.deleteCardBtn}
-                      onPress={() => handleDeletePurchase(item)}
-                    >
-                      <Ionicons name="trash-outline" size={14} color={colors.danger} />
-                      <Text style={styles.deleteCardBtnText}>{t('Delete')}</Text>
-                    </TouchableOpacity>
-                  )}
+                  <View style={styles.actionGroup}>
+                    {permissions.canManageCommercials(user) && (
+                      <TouchableOpacity
+                        style={styles.editCardBtn}
+                        onPress={() => handleOpenEditPurchase(item)}
+                      >
+                        <Ionicons name="create-outline" size={14} color={colors.primary} />
+                        <Text style={styles.editCardBtnText}>{t('Edit')}</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {permissions.canAccessDangerZone(user) && (
+                      <TouchableOpacity
+                        style={styles.deleteCardBtn}
+                        onPress={() => handleDeletePurchase(item)}
+                      >
+                        <Ionicons name="trash-outline" size={14} color={colors.danger} />
+                        <Text style={styles.deleteCardBtnText}>{t('Delete')}</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
               </BentoCard>
             );
@@ -609,15 +670,27 @@ export default function AgroShopScreen() {
 
                 <View style={styles.paymentFooter}>
                   <View />
-                  {permissions.canAccessDangerZone(user) && (
-                    <TouchableOpacity
-                      style={styles.deleteCardBtn}
-                      onPress={() => handleDeletePayment(item)}
-                    >
-                      <Ionicons name="trash-outline" size={14} color={colors.danger} />
-                      <Text style={styles.deleteCardBtnText}>{t('Delete')}</Text>
-                    </TouchableOpacity>
-                  )}
+                  <View style={styles.actionGroup}>
+                    {permissions.canManageCommercials(user) && (
+                      <TouchableOpacity
+                        style={styles.editCardBtn}
+                        onPress={() => handleOpenEditPayment(item)}
+                      >
+                        <Ionicons name="create-outline" size={14} color={colors.primary} />
+                        <Text style={styles.editCardBtnText}>{t('Edit')}</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {permissions.canAccessDangerZone(user) && (
+                      <TouchableOpacity
+                        style={styles.deleteCardBtn}
+                        onPress={() => handleDeletePayment(item)}
+                      >
+                        <Ionicons name="trash-outline" size={14} color={colors.danger} />
+                        <Text style={styles.deleteCardBtnText}>{t('Delete')}</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
               </BentoCard>
             );
@@ -906,7 +979,12 @@ export default function AgroShopScreen() {
                   style={styles.choiceItem}
                   onPress={() => {
                     setActionChoiceVisible(false);
+                    setEditingPurchase(null);
                     setPurchaseDate(new Date().toISOString().split('T')[0]);
+                    setPurchaseNotes('');
+                    setPurchaseBillPhotoPath(null);
+                    setPurchaseBillPhotoUrl(null);
+                    setPurchaseItems([{ agro_input_product_id: '', quantity: '', unit: 'BAG', unit_price: '' }]);
                     setPurchaseModalVisible(true);
                   }}
                 >
@@ -925,7 +1003,12 @@ export default function AgroShopScreen() {
                     style={styles.choiceItem}
                     onPress={() => {
                       setActionChoiceVisible(false);
+                      setEditingPayment(null);
+                      setPaymentPurchaseId('');
                       setPaymentDate(new Date().toISOString().split('T')[0]);
+                      setPaymentAmount('');
+                      setPaymentMethod('cash');
+                      setPaymentNotes('');
                       setPaymentModalVisible(true);
                     }}
                   >
@@ -1082,12 +1165,15 @@ export default function AgroShopScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalKicker}>INVENTORY ENTRY</Text>
-                <Text style={styles.modalTitle}>Record Purchase</Text>
+                <Text style={styles.modalKicker}>{editingPurchase ? 'UPDATE INVENTORY' : 'INVENTORY ENTRY'}</Text>
+                <Text style={styles.modalTitle}>{editingPurchase ? t('Edit Purchase') : t('Record Purchase')}</Text>
               </View>
               <TouchableOpacity
                 style={styles.modalCloseBtn}
-                onPress={() => setPurchaseModalVisible(false)}
+                onPress={() => {
+                  setPurchaseModalVisible(false);
+                  setEditingPurchase(null);
+                }}
               >
                 <Ionicons name="close" size={20} color={colors.slate600} />
               </TouchableOpacity>
@@ -1295,16 +1381,19 @@ export default function AgroShopScreen() {
               <View style={styles.modalActions}>
                 <TouchableOpacity
                   style={[styles.modalBtn, styles.cancelBtn]}
-                  onPress={() => setPurchaseModalVisible(false)}
+                  onPress={() => {
+                    setPurchaseModalVisible(false);
+                    setEditingPurchase(null);
+                  }}
                 >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.modalBtn, styles.saveBtn]}
                   onPress={handleSavePurchase}
                 >
                   <Ionicons name="checkmark-circle-outline" size={18} color={colors.white} />
-                  <Text style={styles.saveBtnText}>Save Purchase</Text>
+                  <Text style={styles.saveBtnText}>{editingPurchase ? t('Update Purchase') : t('Save Purchase')}</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -1323,12 +1412,15 @@ export default function AgroShopScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalKicker}>LEDGER TRANSACTION</Text>
-                <Text style={styles.modalTitle}>Record Payment</Text>
+                <Text style={styles.modalKicker}>{editingPayment ? 'UPDATE TRANSACTION' : 'LEDGER TRANSACTION'}</Text>
+                <Text style={styles.modalTitle}>{editingPayment ? t('Edit Payment') : t('Record Payment')}</Text>
               </View>
               <TouchableOpacity
                 style={styles.modalCloseBtn}
-                onPress={() => setPaymentModalVisible(false)}
+                onPress={() => {
+                  setPaymentModalVisible(false);
+                  setEditingPayment(null);
+                }}
               >
                 <Ionicons name="close" size={20} color={colors.slate600} />
               </TouchableOpacity>
@@ -1423,16 +1515,19 @@ export default function AgroShopScreen() {
               <View style={styles.modalActions}>
                 <TouchableOpacity
                   style={[styles.modalBtn, styles.cancelBtn]}
-                  onPress={() => setPaymentModalVisible(false)}
+                  onPress={() => {
+                    setPaymentModalVisible(false);
+                    setEditingPayment(null);
+                  }}
                 >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.modalBtn, styles.saveBtn]}
                   onPress={handleSavePayment}
                 >
                   <Ionicons name="checkmark-circle-outline" size={18} color={colors.white} />
-                  <Text style={styles.saveBtnText}>Save Payment</Text>
+                  <Text style={styles.saveBtnText}>{editingPayment ? t('Update Payment') : t('Save Payment')}</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -1806,6 +1901,27 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   attachmentBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primaryDark,
+  },
+  actionGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  editCardBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primarySurface,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    gap: 4,
+  },
+  editCardBtnText: {
     fontSize: 11,
     fontWeight: '700',
     color: colors.primaryDark,

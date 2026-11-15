@@ -18,7 +18,8 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { expensesApi } from '../src/api/expenses';
-import { FarmExpense } from '../src/types';
+import { farmActivitiesApi } from '../src/api/farmActivities';
+import { FarmExpense, FarmActivity } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
 
@@ -46,6 +47,13 @@ export default function ExpenseViewScreen() {
   const [editDate, setEditDate] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Link Activity Modal State
+  const [linkModalVisible, setLinkModalVisible] = useState(false);
+  const [availableActivities, setAvailableActivities] = useState<FarmActivity[]>([]);
+  const [selectedActivityIds, setSelectedActivityIds] = useState<(string | number)[]>([]);
+  const [loadingAvailableActivities, setLoadingAvailableActivities] = useState(false);
+  const [linkingActivities, setLinkingActivities] = useState(false);
 
   const fetchExpense = useCallback(async () => {
     if (!expenseIdentifier) return;
@@ -125,6 +133,80 @@ export default function ExpenseViewScreen() {
             } catch (error) {
               console.error('Error deleting expense:', error);
               Alert.alert('Error', extractErrorMessage(error, 'Failed to delete expense.'));
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleOpenLinkActivitiesModal = async () => {
+    if (!expense) return;
+    setLinkModalVisible(true);
+    setLoadingAvailableActivities(true);
+    setSelectedActivityIds([]);
+    try {
+      const activities = await farmActivitiesApi.getAll({
+        farm_id: expense.farm_id,
+        per_page: 'all',
+      });
+      const alreadyLinkedIds = new Set(
+        ((expense as any).activities || []).map((a: any) => a.id)
+      );
+      setAvailableActivities(activities.filter((a) => !alreadyLinkedIds.has(a.id)));
+    } catch (error) {
+      console.error('Error fetching available activities:', error);
+      Alert.alert('Error', extractErrorMessage(error, 'Failed to load activities.'));
+    } finally {
+      setLoadingAvailableActivities(false);
+    }
+  };
+
+  const handleToggleSelectActivity = (id: string | number) => {
+    setSelectedActivityIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleConfirmLinkActivities = async () => {
+    if (!expense || selectedActivityIds.length === 0) return;
+    const identifier = expense.ulid || expense.id!;
+    try {
+      setLinkingActivities(true);
+      await expensesApi.linkActivities(identifier, selectedActivityIds);
+      Alert.alert('Success', 'Activities linked successfully.');
+      setLinkModalVisible(false);
+      setSelectedActivityIds([]);
+      fetchExpense();
+    } catch (error) {
+      console.error('Error linking activities:', error);
+      Alert.alert('Error', extractErrorMessage(error, 'Failed to link activities.'));
+    } finally {
+      setLinkingActivities(false);
+    }
+  };
+
+  const handleUnlinkActivity = (activityItem: any) => {
+    if (!expense) return;
+    const identifier = expense.ulid || expense.id!;
+    Alert.alert(
+      'Unlink Activity',
+      `Are you sure you want to unlink "${activityItem.farm_activity_master?.name || activityItem.activity_type || 'this activity'}" from this expense?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unlink',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await expensesApi.unlinkActivity(identifier, activityItem.id);
+              Alert.alert('Success', 'Activity unlinked successfully.');
+              fetchExpense();
+            } catch (error) {
+              console.error('Error unlinking activity:', error);
+              Alert.alert('Error', extractErrorMessage(error, 'Failed to unlink activity.'));
               setLoading(false);
             }
           },
@@ -287,12 +369,22 @@ export default function ExpenseViewScreen() {
 
         {/* 3. Linked Activities Card */}
         <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="clipboard-outline" size={18} color="#166534" />
-            <Text style={styles.sectionTitle}>Linked Activities</Text>
-            <View style={styles.countBadge}>
-              <Text style={styles.countBadgeText}>{linkedActivities.length}</Text>
+          <View style={styles.sectionHeaderBetween}>
+            <View style={styles.row}>
+              <Ionicons name="clipboard-outline" size={18} color="#166534" />
+              <Text style={styles.sectionTitle}>Linked Activities</Text>
+              <View style={styles.countBadge}>
+                <Text style={styles.countBadgeText}>{linkedActivities.length}</Text>
+              </View>
             </View>
+            <TouchableOpacity
+              style={styles.miniActionBtn}
+              onPress={handleOpenLinkActivitiesModal}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="link-outline" size={13} color="#166534" />
+              <Text style={styles.miniActionText}>+ Link</Text>
+            </TouchableOpacity>
           </View>
 
           {linkedActivities.length > 0 ? (
@@ -308,11 +400,22 @@ export default function ExpenseViewScreen() {
                   })}
                 >
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.activityItemTitle}>{act.activity_type || 'Farm Activity'}</Text>
+                    <Text style={styles.activityItemTitle}>{act.farm_activity_master?.name || act.activity_type || 'Farm Activity'}</Text>
                     <Text style={styles.activityItemDate}>{act.date ? act.date.split('T')[0] : ''}</Text>
                   </View>
                   <View style={styles.activityItemRight}>
                     <Text style={styles.activityItemStatus}>{act.status || 'completed'}</Text>
+                    <TouchableOpacity
+                      style={styles.unlinkBtn}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleUnlinkActivity(act);
+                      }}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      accessibilityLabel="Unlink Activity"
+                    >
+                      <Ionicons name="trash-outline" size={16} color="#dc2626" />
+                    </TouchableOpacity>
                     <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                   </View>
                 </TouchableOpacity>
@@ -456,6 +559,103 @@ export default function ExpenseViewScreen() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Link Activity Modal */}
+      <Modal
+        visible={linkModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setLinkModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Link Farm Activity</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setLinkModalVisible(false)}
+                style={styles.modalCloseBtn}
+              >
+                <Ionicons name="close" size={20} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            {loadingAvailableActivities ? (
+              <View style={{ paddingVertical: spacing.xl, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color="#16a34a" />
+                <Text style={styles.loadingText}>Fetching available activities...</Text>
+              </View>
+            ) : availableActivities.length === 0 ? (
+              <View style={{ paddingVertical: spacing.lg, alignItems: 'center' }}>
+                <Ionicons name="clipboard-outline" size={36} color="#94a3b8" />
+                <Text style={[styles.emptyText, { marginTop: 8 }]}>No unlinked activities found for this farm.</Text>
+              </View>
+            ) : (
+              <ScrollView style={{ maxHeight: 320, marginVertical: spacing.xs }}>
+                {availableActivities.map((act) => {
+                  const actId = act.id ?? act.ulid;
+                  if (!actId) return null;
+                  const isSelected = selectedActivityIds.includes(actId);
+                  return (
+                    <TouchableOpacity
+                      key={actId}
+                      style={[
+                        styles.candidateItem,
+                        isSelected && styles.candidateItemSelected,
+                      ]}
+                      onPress={() => handleToggleSelectActivity(actId)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={isSelected ? 'checkbox' : 'square-outline'}
+                        size={20}
+                        color={isSelected ? '#16a34a' : '#94a3b8'}
+                      />
+                      <View style={{ flex: 1, marginLeft: spacing.sm }}>
+                        <Text style={styles.candidateTitle}>
+                          {act.farm_activity_master?.name || act.activity_type || 'Farm Activity'}
+                        </Text>
+                        <Text style={styles.candidateSub}>
+                          {act.date ? act.date.split('T')[0] : ''} • {act.status || 'scheduled'}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setLinkModalVisible(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalSaveBtn,
+                  (selectedActivityIds.length === 0 || linkingActivities) && { opacity: 0.5 },
+                ]}
+                onPress={handleConfirmLinkActivities}
+                disabled={selectedActivityIds.length === 0 || linkingActivities}
+              >
+                {linkingActivities ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.modalSaveText}>
+                    Link ({selectedActivityIds.length})
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -856,5 +1056,63 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#ffffff',
+  },
+  sectionHeaderBetween: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  miniActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  miniActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  unlinkBtn: {
+    padding: 4,
+    marginRight: 4,
+  },
+  candidateItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+  },
+  candidateItemSelected: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#bbf7d0',
+  },
+  candidateTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  candidateSub: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 2,
   },
 });

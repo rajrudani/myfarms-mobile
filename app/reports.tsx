@@ -13,6 +13,7 @@ import {
   Platform,
   StatusBar,
   Modal,
+  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -62,6 +63,7 @@ export default function ReportsScreen() {
   // Filter States
   const [selectedFarm, setSelectedFarm] = useState<string>('');
   const [selectedWorker, setSelectedWorker] = useState<string>('');
+  const [includeFamily, setIncludeFamily] = useState<boolean>(false);
   const [selectedCycle, setSelectedCycle] = useState<string>('');
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -114,6 +116,7 @@ export default function ReportsScreen() {
     setActiveReport(type);
     setSelectedFarm('');
     setSelectedWorker('');
+    setIncludeFamily(false);
     setSelectedCycle('');
     setAttendanceData(null);
     setPaymentData(null);
@@ -150,13 +153,15 @@ export default function ReportsScreen() {
   const fetchPaymentReport = async (
     workerVal = selectedWorker,
     fromVal = fromDate,
-    toVal = toDate
+    toVal = toDate,
+    familyVal = includeFamily
   ) => {
     if (!workerVal) return;
     setReportLoading(true);
     try {
       const data = await reportsApi.getPaymentReport({
         farm_staff_id: workerVal,
+        include_family: familyVal,
         from_date: fromVal,
         to_date: toVal,
       });
@@ -288,6 +293,7 @@ export default function ReportsScreen() {
       const params = {
         farm_id: selectedFarm || undefined,
         farm_staff_id: selectedWorker || undefined,
+        include_family: activeReport === 'payment' ? includeFamily : undefined,
         crop_cycle_id: selectedCycle || undefined,
         from_date: fromDate || undefined,
         to_date: toDate || undefined,
@@ -665,10 +671,31 @@ export default function ReportsScreen() {
                 selectedValue={selectedWorker}
                 onSelect={(val) => {
                   setSelectedWorker(val);
-                  fetchPaymentReport(val, fromDate, toDate);
+                  fetchPaymentReport(val, fromDate, toDate, includeFamily);
                 }}
                 scrollable
                 size="sm"
+              />
+            </View>
+
+            {/* Include Family Members Toggle */}
+            <View style={[styles.filterRow, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+              <View style={{ flex: 1, paddingRight: spacing.sm }}>
+                <Text style={styles.filterSectionLabel}>{t("Include family members' payments")}</Text>
+                <Text style={{ fontSize: 11, color: colors.slate500 }}>
+                  {t('Aggregate payments for family members')}
+                </Text>
+              </View>
+              <Switch
+                value={includeFamily}
+                onValueChange={(val) => {
+                  setIncludeFamily(val);
+                  if (selectedWorker) {
+                    fetchPaymentReport(selectedWorker, fromDate, toDate, val);
+                  }
+                }}
+                trackColor={{ false: colors.slate200, true: colors.primarySurface }}
+                thumbColor={includeFamily ? colors.primary : colors.slate400}
               />
             </View>
 

@@ -16,9 +16,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/context/AuthContext';
 import { authApi } from '../../src/api/auth';
+import { supportApi } from '../../src/api/support';
 import { extractErrorMessage } from '../../src/api/client';
 import { router } from 'expo-router';
-import { BentoCard, StatusBadge } from '../../src/components/ui';
+import { BentoCard, StatusBadge, QuickChipGroup, ChipOption } from '../../src/components/ui';
 import { useTranslation } from '../../src/i18n/I18nContext';
 import { colors, spacing, radius, typography, shadows } from '../../src/theme/tokens';
 
@@ -107,6 +108,45 @@ export default function MoreScreen() {
       Alert.alert('Error', extractErrorMessage(error, 'Failed to change password.'));
     } finally {
       setSavingPassword(false);
+    }
+  };
+
+  // Support & Feedback Form States
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+  const [feedbackSubject, setFeedbackSubject] = useState('');
+  const [feedbackCategory, setFeedbackCategory] = useState<'bug' | 'feature' | 'question' | 'billing'>('bug');
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [sendingFeedback, setSendingFeedback] = useState(false);
+
+  const handleSendFeedback = async () => {
+    if (!feedbackSubject.trim()) {
+      Alert.alert(t('Validation Error') || 'Validation Error', t('Please enter a subject.') || 'Please enter a subject.');
+      return;
+    }
+    if (!feedbackMessage.trim()) {
+      Alert.alert(t('Validation Error') || 'Validation Error', t('Please enter your message.') || 'Please enter your message.');
+      return;
+    }
+
+    setSendingFeedback(true);
+    try {
+      await supportApi.submitFeedback({
+        subject: feedbackSubject.trim(),
+        category: feedbackCategory,
+        message: feedbackMessage.trim(),
+      });
+      Alert.alert(
+        t('Success') || 'Success',
+        t('Thank you! Your feedback has been submitted to support.') || 'Thank you! Your feedback has been submitted to support.'
+      );
+      setFeedbackSubject('');
+      setFeedbackMessage('');
+      setFeedbackModalVisible(false);
+    } catch (error) {
+      console.error('Error sending feedback:', error);
+      Alert.alert(t('Error') || 'Error', extractErrorMessage(error, t('Failed to submit feedback.') || 'Failed to submit feedback.'));
+    } finally {
+      setSendingFeedback(false);
     }
   };
 
@@ -297,6 +337,27 @@ export default function MoreScreen() {
           </View>
         </BentoCard>
 
+        {/* Support & Feedback Section */}
+        <Text style={styles.sectionHeader}>{(t('Support & Help') || 'SUPPORT & HELP').toUpperCase()}</Text>
+        <BentoCard variant="elevated" style={styles.stackCard}>
+          <TouchableOpacity
+            style={[styles.stackItem, { borderBottomWidth: 0 }]}
+            onPress={() => setFeedbackModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.stackIcon, { backgroundColor: colors.accentSurface }]}>
+              <Ionicons name="chatbubble-ellipses-outline" size={17} color={colors.accentDark} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.stackText}>{t('Send Feedback & Support Ticket') || 'Send Feedback & Support Ticket'}</Text>
+              <Text style={{ fontSize: 11, color: colors.slate500 }}>
+                {t('Report a bug, suggest features, or reach support') || 'Report a bug, suggest features, or reach support'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
+          </TouchableOpacity>
+        </BentoCard>
+
         {/* Sign Out Button */}
         <TouchableOpacity
           style={styles.logoutButton}
@@ -459,6 +520,81 @@ export default function MoreScreen() {
                   </TouchableOpacity>
                 </View>
               )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Support & Feedback Modal */}
+      <Modal
+        visible={feedbackModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setFeedbackModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {/* Header */}
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalKicker}>HELP DESK & FEEDBACK</Text>
+                <Text style={styles.modalTitle}>{t('Submit Support Ticket') || 'Submit Support Ticket'}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setFeedbackModalVisible(false)}
+                style={styles.modalCloseBtn}
+              >
+                <Ionicons name="close" size={20} color={colors.slate600} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              <View style={styles.formContainer}>
+                <Text style={styles.inputLabel}>{t('Category') || 'Category'} *</Text>
+                <QuickChipGroup
+                  options={[
+                    { label: t('Bug / Issue') || 'Bug / Issue', value: 'bug' },
+                    { label: t('Feature Request') || 'Feature Request', value: 'feature' },
+                    { label: t('Question') || 'Question', value: 'question' },
+                    { label: t('Billing') || 'Billing', value: 'billing' },
+                  ]}
+                  selectedValue={feedbackCategory}
+                  onSelect={(val) => setFeedbackCategory(val as any)}
+                  size="sm"
+                />
+
+                <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>{t('Subject') || 'Subject'} *</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={feedbackSubject}
+                  onChangeText={setFeedbackSubject}
+                  placeholder={t('Brief summary of the issue') || 'Brief summary of the issue'}
+                  placeholderTextColor={colors.slate400}
+                />
+
+                <Text style={styles.inputLabel}>{t('Message / Details') || 'Message / Details'} *</Text>
+                <TextInput
+                  style={[styles.textInput, { height: 110, textAlignVertical: 'top', paddingTop: spacing.sm }]}
+                  value={feedbackMessage}
+                  onChangeText={setFeedbackMessage}
+                  placeholder={t('Explain what happened or what you need assistance with...') || 'Explain what happened or what you need assistance with...'}
+                  placeholderTextColor={colors.slate400}
+                  multiline
+                  numberOfLines={4}
+                />
+
+                <TouchableOpacity
+                  style={[styles.saveBtn, sendingFeedback && styles.btnDisabled]}
+                  onPress={handleSendFeedback}
+                  disabled={sendingFeedback}
+                >
+                  {sendingFeedback ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <Text style={styles.saveBtnText}>{t('Submit Feedback') || 'Submit Feedback'}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </ScrollView>
           </View>
         </View>

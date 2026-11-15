@@ -11,6 +11,7 @@ export type ReportExportFormat = 'pdf' | 'xlsx';
 export interface ExportReportParams {
   farm_id?: number | string;
   farm_staff_id?: number | string;
+  include_family?: boolean;
   crop_cycle_id?: number | string;
   from_date?: string;
   to_date?: string;
@@ -44,6 +45,9 @@ export function buildExportUrl(
 
   if (params.farm_id) searchParams.append('farm_id', String(params.farm_id));
   if (params.farm_staff_id) searchParams.append('farm_staff_id', String(params.farm_staff_id));
+  if (params.include_family !== undefined) {
+    searchParams.append('include_family', params.include_family ? 'true' : 'false');
+  }
   if (params.crop_cycle_id && params.crop_cycle_id !== 'all') {
     searchParams.append('crop_cycle_id', String(params.crop_cycle_id));
   }

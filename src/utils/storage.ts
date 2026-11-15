@@ -51,6 +51,20 @@ export const storage = {
     return await SecureStore.getItemAsync('push_token');
   },
 
+  async setMandiPreferences(prefs: { state?: string; district?: string; unit?: 'quintal' | 'kg' }): Promise<void> {
+    await SecureStore.setItemAsync('mandi_prefs', JSON.stringify(prefs));
+  },
+
+  async getMandiPreferences(): Promise<{ state?: string; district?: string; unit?: 'quintal' | 'kg' } | null> {
+    const raw = await SecureStore.getItemAsync('mandi_prefs');
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  },
+
   async clearSession(): Promise<void> {
     await Promise.all([
       SecureStore.deleteItemAsync(TOKEN_KEY),
