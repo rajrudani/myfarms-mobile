@@ -25,6 +25,8 @@ import { extractErrorMessage } from '../../src/api/client';
 import { AttachmentPicker } from '../../src/components/AttachmentPicker';
 import { colors, radius, spacing, typography } from '../../src/theme/tokens';
 import { useTranslation } from '../../src/i18n/I18nContext';
+import { scheduleLocalReminder } from '../../src/utils/notifications';
+import { offlineSync } from '../../src/utils/offlineSync';
 
 export default function NotesScreen() {
   const { t } = useTranslation();
@@ -162,12 +164,61 @@ export default function NotesScreen() {
         status,
         attachment_path: attachmentPath,
       });
+
+      // Schedule local notification if notifyEnabled
+      if (notifyEnabled && notifyAt) {
+        const trigger = new Date(notifyAt);
+        if (!isNaN(trigger.getTime()) && trigger.getTime() > Date.now()) {
+          scheduleLocalReminder({
+            title: `Farm Reminder: ${title.trim()}`,
+            body: details.trim() || 'Scheduled farm note alert',
+            triggerDate: trigger,
+            data: { url: 'myfarmsapp://notes' },
+          });
+        }
+      }
+
       setCreateModalVisible(false);
       fetchNotes(1, false);
       Alert.alert(t('Success'), t('Note / Reminder created successfully!'));
-    } catch (error) {
-      console.error('Error saving note:', error);
-      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to save note.')));
+    } catch (error: any) {
+      if (error.message === 'Network Error' || !error.response) {
+        // Enqueue offline mutation for automatic syncing
+        await offlineSync.enqueue({
+          endpoint: '/note-reminders',
+          method: 'POST',
+          data: {
+            title: title.trim(),
+            details: details.trim(),
+            notify_enabled: notifyEnabled,
+            notify_at: notifyEnabled ? notifyAt : null,
+            status,
+            attachment_path: attachmentPath,
+          },
+          description: `Create Note: ${title.trim()}`,
+        });
+
+        if (notifyEnabled && notifyAt) {
+          const trigger = new Date(notifyAt);
+          if (!isNaN(trigger.getTime()) && trigger.getTime() > Date.now()) {
+            scheduleLocalReminder({
+              title: `Farm Reminder: ${title.trim()}`,
+              body: details.trim() || 'Scheduled farm note alert',
+              triggerDate: trigger,
+              data: { url: 'myfarmsapp://notes' },
+            });
+          }
+        }
+
+        setCreateModalVisible(false);
+        Alert.alert(
+          t('Saved Offline'),
+          t('You are working offline. This note has been saved to the offline queue and will sync automatically once connected.')
+        );
+      } else {
+        console.error('Error saving note:', error);
+        Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to save note.')));
+      }
     } finally {
       setSaving(false);
     }

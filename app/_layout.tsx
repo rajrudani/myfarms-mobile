@@ -9,8 +9,10 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { I18nProvider } from '../src/i18n/I18nContext';
 import { OfflineBanner } from '../src/components/OfflineBanner';
-
 import { PWABottomNav } from '../src/components/PWABottomNav';
+import * as Notifications from 'expo-notifications';
+import { registerForPushNotificationsAsync } from '../src/utils/notifications';
+import { setupDeepLinking, handleDeepLink } from '../src/utils/deepLinking';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -69,6 +71,39 @@ function RootLayoutNav() {
       }
     }
   }, [isAuthenticated, isLoading]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      // Register device push token with backend
+      registerForPushNotificationsAsync();
+
+      // Listen for notification tap responses
+      const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
+        const data = response.notification.request.content.data;
+        if (data?.url) {
+          handleDeepLink(data.url as string);
+        } else if (data?.crop_cycle_id) {
+          router.push({
+            pathname: '/crop-cycle-view',
+            params: { id: String(data.crop_cycle_id) },
+          });
+        } else if (data?.farm_id) {
+          router.push({
+            pathname: '/farm-view',
+            params: { id: String(data.farm_id) },
+          });
+        }
+      });
+
+      // Handle deep linking custom schemes (e.g. myfarmsapp://)
+      const cleanupLinking = setupDeepLinking();
+
+      return () => {
+        responseSub.remove();
+        cleanupLinking();
+      };
+    }
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return (

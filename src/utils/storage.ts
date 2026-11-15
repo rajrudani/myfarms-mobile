@@ -43,6 +43,14 @@ export const storage = {
     return await SecureStore.getItemAsync(LOCALE_KEY);
   },
 
+  async setPushToken(token: string): Promise<void> {
+    await SecureStore.setItemAsync('push_token', token);
+  },
+
+  async getPushToken(): Promise<string | null> {
+    return await SecureStore.getItemAsync('push_token');
+  },
+
   async clearSession(): Promise<void> {
     await Promise.all([
       SecureStore.deleteItemAsync(TOKEN_KEY),

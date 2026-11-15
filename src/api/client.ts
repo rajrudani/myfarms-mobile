@@ -1,6 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import Constants from 'expo-constants';
 import { storage } from '../utils/storage';
+import { offlineCache } from '../utils/offlineCache';
 
 // Network status listeners
 type NetworkListener = (isOnline: boolean) => void;
@@ -88,11 +89,18 @@ interface RetryableConfig extends InternalAxiosRequestConfig {
   __isRetry?: boolean;
 }
 
-// Global response error handler with automatic retry on transient read failures
+// Global response error handler with automatic retry and offline cache fallback
 apiClient.interceptors.response.use(
   (response) => {
     // Notify network listeners that we are online
     notifyNetworkStatus(true);
+
+    // Asynchronously cache successful GET responses for offline field access
+    if (response.config.method?.toLowerCase() === 'get' && response.config.url) {
+      const cacheKey = `api_${response.config.url}_${JSON.stringify(response.config.params || {})}`;
+      offlineCache.set(cacheKey, response.data).catch(() => {});
+    }
+
     return response;
   },
   async (error: AxiosError) => {
@@ -106,6 +114,22 @@ apiClient.interceptors.response.use(
 
     if (isNetworkError) {
       notifyNetworkStatus(false);
+
+      // Check if we have an offline cached response for GET requests
+      if (config && config.method?.toLowerCase() === 'get' && config.url) {
+        const cacheKey = `api_${config.url}_${JSON.stringify(config.params || {})}`;
+        const cachedData = await offlineCache.get(cacheKey);
+        if (cachedData) {
+          console.log(`[OfflineCache] Serving cached fallback for ${config.url}`);
+          return {
+            data: cachedData,
+            status: 200,
+            statusText: 'OK (Offline Cache)',
+            headers: { 'x-from-offline-cache': 'true' },
+            config,
+          } as any;
+        }
+      }
 
       // Auto-retry once for idempotent GET requests after a 1.2s delay
       if (config && config.method?.toLowerCase() === 'get' && !config.__isRetry) {
