@@ -24,6 +24,7 @@ import { cropCyclesApi } from '../../src/api/cropCycles';
 import { FarmExpense, Farm, CropCycle } from '../../src/types';
 import { useAuth } from '../../src/hooks/useAuth';
 import { extractErrorMessage } from '../../src/api/client';
+import { permissions } from '../../src/utils/permissions';
 import { colors, radius, spacing, shadows } from '../../src/theme/tokens';
 import {
   BentoCard,
@@ -55,7 +56,7 @@ const PAYMENT_METHODS: ChipOption<string>[] = [
 ];
 
 export default function ExpensesScreen() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [expenses, setExpenses] = useState<FarmExpense[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
   const [cycles, setCycles] = useState<CropCycle[]>([]);
@@ -509,22 +510,24 @@ export default function ExpensesScreen() {
       </View>
 
       {/* Live Total Spend Bento Banner */}
-      <View style={styles.summaryBannerWrap}>
-        <BentoCard variant="tinted" style={styles.summaryBanner}>
-          <View>
-            <Text style={styles.summaryBannerLabel}>TOTAL FILTERED SPEND</Text>
-            <Text style={styles.summaryBannerAmount}>
-              ₹{totalExpenseSum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-            </Text>
-          </View>
-          <View style={styles.summaryCountBox}>
-            <Ionicons name="receipt-outline" size={16} color={colors.primary} />
-            <Text style={styles.summaryCountText}>
-              {filteredExpenses.length} records
-            </Text>
-          </View>
-        </BentoCard>
-      </View>
+      {permissions.canViewFinancials(user) && (
+        <View style={styles.summaryBannerWrap}>
+          <BentoCard variant="tinted" style={styles.summaryBanner}>
+            <View>
+              <Text style={styles.summaryBannerLabel}>TOTAL FILTERED SPEND</Text>
+              <Text style={styles.summaryBannerAmount}>
+                ₹{totalExpenseSum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </Text>
+            </View>
+            <View style={styles.summaryCountBox}>
+              <Ionicons name="receipt-outline" size={16} color={colors.primary} />
+              <Text style={styles.summaryCountText}>
+                {filteredExpenses.length} records
+              </Text>
+            </View>
+          </BentoCard>
+        </View>
+      )}
 
       <FlatList
         data={filteredExpenses}
@@ -553,13 +556,15 @@ export default function ExpensesScreen() {
         }
       />
 
-      <TouchableOpacity
-        style={styles.floatingActionBtn}
-        onPress={() => setCreateModalVisible(true)}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={28} color={colors.white} />
-      </TouchableOpacity>
+      {permissions.canManageCommercials(user) && (
+        <TouchableOpacity
+          style={styles.floatingActionBtn}
+          onPress={() => setCreateModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={28} color={colors.white} />
+        </TouchableOpacity>
+      )}
 
       {/* Record Expense Modal */}
       <Modal

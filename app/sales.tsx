@@ -25,6 +25,8 @@ import { cropCyclesApi } from '../src/api/cropCycles';
 import { mastersApi } from '../src/api/masters';
 import { Sale, Farm, CropCycle, CreateSalePayload, Buyer, SaleGradeItem } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
+import { useAuth } from '../src/hooks/useAuth';
+import { permissions } from '../src/utils/permissions';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
 import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar } from '../src/components/ui';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
@@ -42,6 +44,7 @@ const GRADE_OPTIONS = [
 ];
 
 export default function SalesScreen() {
+  const { user } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
   const [cropCycles, setCropCycles] = useState<CropCycle[]>([]);
@@ -406,25 +409,35 @@ export default function SalesScreen() {
   }, 0);
   const calcFinal = Math.max(0, calcGross - calcCharges);
 
-  // Overall summary metrics across currently filtered sales
+  // Accessible farms for user
+  const accessibleFarms = useMemo(() => {
+    return farms.filter((f) => permissions.canAccessFarm(user, f.id));
+  }, [farms, user]);
+
+  // Accessible sales for user
+  const accessibleSales = useMemo(() => {
+    return sales.filter((s) => permissions.canAccessFarm(user, s.farm_id));
+  }, [sales, user]);
+
+  // Overall summary metrics across currently accessible sales
   const salesSummary = useMemo(() => {
-    const gross = sales.reduce((acc, s) => acc + (parseFloat(s.gross_total as any) || 0), 0);
-    const deductions = sales.reduce((acc, s) => acc + (parseFloat(s.charges_total as any) || 0), 0);
-    const net = sales.reduce((acc, s) => acc + (parseFloat(s.final_amount as any) || 0), 0);
+    const gross = accessibleSales.reduce((acc, s) => acc + (parseFloat(s.gross_total as any) || 0), 0);
+    const deductions = accessibleSales.reduce((acc, s) => acc + (parseFloat(s.charges_total as any) || 0), 0);
+    const net = accessibleSales.reduce((acc, s) => acc + (parseFloat(s.final_amount as any) || 0), 0);
     return { gross, deductions, net };
-  }, [sales]);
+  }, [accessibleSales]);
 
   // Farm filter options for QuickChipGroup
   const farmFilterOptions = useMemo(() => {
     const opts = [{ label: 'All Farms', value: 'all' as string | number }];
-    farms.forEach((f) => {
+    accessibleFarms.forEach((f) => {
       opts.push({
         label: f.name,
         value: f.id ?? '',
       });
     });
     return opts;
-  }, [farms]);
+  }, [accessibleFarms]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -463,35 +476,37 @@ export default function SalesScreen() {
       </View>
 
       {/* Live Sales Realization Bento Tiles */}
-      <View style={styles.summaryGrid}>
-        <View style={styles.summaryTile}>
-          <MetricTile
-            label="GROSS SALES"
-            value={`₹${salesSummary.gross.toFixed(0)}`}
-            iconName="trending-up"
-            iconColor={colors.slate700}
-            iconBg={colors.slate100}
-          />
+      {permissions.canViewFinancials(user) && (
+        <View style={styles.summaryGrid}>
+          <View style={styles.summaryTile}>
+            <MetricTile
+              label="GROSS SALES"
+              value={`₹${salesSummary.gross.toFixed(0)}`}
+              iconName="trending-up"
+              iconColor={colors.slate700}
+              iconBg={colors.slate100}
+            />
+          </View>
+          <View style={styles.summaryTile}>
+            <MetricTile
+              label="DEDUCTIONS"
+              value={`-₹${salesSummary.deductions.toFixed(0)}`}
+              iconName="tag-outline"
+              iconColor={colors.dangerText}
+              iconBg={colors.dangerSurface}
+            />
+          </View>
+          <View style={styles.summaryTile}>
+            <MetricTile
+              label="NET REALIZED"
+              value={`₹${salesSummary.net.toFixed(0)}`}
+              iconName="cash-multiple"
+              iconColor={colors.successText}
+              iconBg={colors.successSurface}
+            />
+          </View>
         </View>
-        <View style={styles.summaryTile}>
-          <MetricTile
-            label="DEDUCTIONS"
-            value={`-₹${salesSummary.deductions.toFixed(0)}`}
-            iconName="tag-outline"
-            iconColor={colors.dangerText}
-            iconBg={colors.dangerSurface}
-          />
-        </View>
-        <View style={styles.summaryTile}>
-          <MetricTile
-            label="NET REALIZED"
-            value={`₹${salesSummary.net.toFixed(0)}`}
-            iconName="cash-multiple"
-            iconColor={colors.successText}
-            iconBg={colors.successSurface}
-          />
-        </View>
-      </View>
+      )}
 
       {/* Sales List */}
       {loading ? (
@@ -501,7 +516,7 @@ export default function SalesScreen() {
         </View>
       ) : (
         <FlatList
-          data={sales}
+          data={accessibleSales}
           keyExtractor={(item) => item.ulid}
           contentContainerStyle={styles.listContent}
           refreshControl={
@@ -585,13 +600,13 @@ export default function SalesScreen() {
                   <View style={styles.gridCell}>
                     <Text style={styles.gridLabel}>UNIT RATE</Text>
                     <Text style={styles.gridVal}>
-                      ₹{item.rate} / {item.quantity_unit}
+                      {permissions.canViewFinancials(user) ? `₹${item.rate} / ${item.quantity_unit}` : '—'}
                     </Text>
                   </View>
                 </View>
 
                 {/* Deductions if any */}
-                {item.charges && item.charges.length > 0 ? (
+                {item.charges && item.charges.length > 0 && permissions.canViewFinancials(user) ? (
                   <View style={styles.chargesWrapper}>
                     {item.charges.map((c, idx) => (
                       <View key={c.id || idx} style={styles.chargeBadge}>
@@ -628,16 +643,20 @@ export default function SalesScreen() {
 
                 {/* Footer amounts & View action */}
                 <View style={styles.cardFooter}>
-                  <View style={styles.amountsRow}>
-                    <View style={styles.amountBlock}>
-                      <Text style={styles.amountLabel}>GROSS</Text>
-                      <Text style={styles.amountVal}>₹{item.gross_total}</Text>
+                  {permissions.canViewFinancials(user) ? (
+                    <View style={styles.amountsRow}>
+                      <View style={styles.amountBlock}>
+                        <Text style={styles.amountLabel}>GROSS</Text>
+                        <Text style={styles.amountVal}>₹{item.gross_total}</Text>
+                      </View>
+                      <View style={styles.finalAmountBlock}>
+                        <Text style={styles.amountLabel}>FINAL</Text>
+                        <Text style={styles.finalVal}>₹{item.final_amount}</Text>
+                      </View>
                     </View>
-                    <View style={styles.finalAmountBlock}>
-                      <Text style={styles.amountLabel}>FINAL</Text>
-                      <Text style={styles.finalVal}>₹{item.final_amount}</Text>
-                    </View>
-                  </View>
+                  ) : (
+                    <View style={styles.amountsRow} />
+                  )}
 
                   <View style={styles.actionsGroup}>
                     <TouchableOpacity
@@ -662,13 +681,15 @@ export default function SalesScreen() {
       )}
 
       {/* Futuristic FAB */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={openRecordModal}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="add" size={28} color={colors.white} />
-      </TouchableOpacity>
+      {permissions.canManageCommercials(user) && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={openRecordModal}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="add" size={28} color={colors.white} />
+        </TouchableOpacity>
+      )}
 
       {/* Record/Edit Modal */}
       <Modal

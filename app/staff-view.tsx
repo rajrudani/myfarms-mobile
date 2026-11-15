@@ -25,6 +25,7 @@ import { farmsApi } from '../src/api/farms';
 import { Farm, StaffMember, StaffPayment, StaffAttendance, StaffRoleValue } from '../src/types';
 import { useAuth } from '../src/hooks/useAuth';
 import { extractErrorMessage, getAbsoluteImageUrl } from '../src/api/client';
+import { permissions } from '../src/utils/permissions';
 
 export default function StaffViewScreen() {
   const { id } = useLocalSearchParams();
@@ -431,9 +432,13 @@ export default function StaffViewScreen() {
           <Ionicons name="chevron-back" size={22} color="#475569" />
         </TouchableOpacity>
         <Text style={styles.navbarTitle}>Staff Overview</Text>
-        <TouchableOpacity style={styles.navEditBtn} onPress={() => setEditModalVisible(true)} activeOpacity={0.7}>
-          <Ionicons name="create-outline" size={20} color="#166534" />
-        </TouchableOpacity>
+        {permissions.canManageStaff(user) ? (
+          <TouchableOpacity style={styles.navEditBtn} onPress={() => setEditModalVisible(true)} activeOpacity={0.7}>
+            <Ionicons name="create-outline" size={20} color="#166534" />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 36 }} />
+        )}
       </View>
 
       <ScrollView
@@ -486,7 +491,7 @@ export default function StaffViewScreen() {
 
         {/* 3. Quick Action Buttons */}
         <View style={styles.quickActionsRow}>
-          {isWorkerOrConsultant && (
+          {isWorkerOrConsultant && permissions.canManageStaff(user) && (
             <TouchableOpacity
               style={styles.quickActionBtnPayment}
               onPress={() => setPaymentModalVisible(true)}
@@ -716,13 +721,15 @@ export default function StaffViewScreen() {
                 <Ionicons name="cash-outline" size={18} color="#0f172a" style={{ marginRight: 8 }} />
                 <Text style={styles.cardSectionTitle}>Payment History</Text>
               </View>
-              <TouchableOpacity
-                style={styles.addInlineBtn}
-                onPress={() => setPaymentModalVisible(true)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.addInlineBtnText}>+ Record Payment</Text>
-              </TouchableOpacity>
+              {permissions.canManageStaff(user) && (
+                <TouchableOpacity
+                  style={styles.addInlineBtn}
+                  onPress={() => setPaymentModalVisible(true)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.addInlineBtnText}>+ Record Payment</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {payments.length === 0 ? (
@@ -815,7 +822,7 @@ export default function StaffViewScreen() {
               </Text>
             )}
 
-            {staff.payment_stats?.current_paid && staff.payment_stats.current_paid > 0 ? (
+            {staff.payment_stats?.current_paid && staff.payment_stats.current_paid > 0 && permissions.canManageStaff(user) ? (
               <TouchableOpacity
                 style={styles.settleBtn}
                 onPress={() => setSettleModalVisible(true)}
@@ -828,40 +835,42 @@ export default function StaffViewScreen() {
         )}
 
         {/* 10. Danger Zone */}
-        <View style={[styles.card, styles.dangerZoneCard]}>
-          <TouchableOpacity
-            style={styles.dangerZoneHeader}
-            onPress={() => setShowDangerZone(!showDangerZone)}
-          >
-            <Ionicons name="warning-outline" size={18} color="#dc2626" style={{ marginRight: 8 }} />
-            <Text style={styles.dangerZoneTitle}>Danger Zone</Text>
-            <Ionicons name={showDangerZone ? "chevron-up" : "chevron-down"} size={16} color="#dc2626" style={{ marginLeft: 'auto' }} />
-          </TouchableOpacity>
+        {permissions.canAccessDangerZone(user) && (
+          <View style={[styles.card, styles.dangerZoneCard]}>
+            <TouchableOpacity
+              style={styles.dangerZoneHeader}
+              onPress={() => setShowDangerZone(!showDangerZone)}
+            >
+              <Ionicons name="warning-outline" size={18} color="#dc2626" style={{ marginRight: 8 }} />
+              <Text style={styles.dangerZoneTitle}>Danger Zone</Text>
+              <Ionicons name={showDangerZone ? "chevron-up" : "chevron-down"} size={16} color="#dc2626" style={{ marginLeft: 'auto' }} />
+            </TouchableOpacity>
 
-          {showDangerZone && (
-            <View style={styles.dangerZoneContent}>
-              <Text style={styles.dangerZoneDesc}>
-                Actions here can affect this staff member's active status and portal access.
-              </Text>
-
-              <TouchableOpacity
-                style={[styles.dangerZoneBtn, { backgroundColor: staff.is_active ? '#ffebd9' : '#dcfce7' }]}
-                onPress={handleToggleStatus}
-              >
-                <Text style={[styles.dangerZoneBtnText, { color: staff.is_active ? '#d97706' : '#15803d' }]}>
-                  {staff.is_active ? 'Deactivate Staff' : 'Activate Staff'}
+            {showDangerZone && (
+              <View style={styles.dangerZoneContent}>
+                <Text style={styles.dangerZoneDesc}>
+                  Actions here can affect this staff member's active status and portal access.
                 </Text>
-              </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.dangerZoneBtn, { backgroundColor: '#fee2e2', marginTop: 10 }]}
-                onPress={handleDeleteStaff}
-              >
-                <Text style={[styles.dangerZoneBtnText, { color: '#b91c1c' }]}>Delete Staff Member</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+                <TouchableOpacity
+                  style={[styles.dangerZoneBtn, { backgroundColor: staff.is_active ? '#ffebd9' : '#dcfce7' }]}
+                  onPress={handleToggleStatus}
+                >
+                  <Text style={[styles.dangerZoneBtnText, { color: staff.is_active ? '#d97706' : '#15803d' }]}>
+                    {staff.is_active ? 'Deactivate Staff' : 'Activate Staff'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.dangerZoneBtn, { backgroundColor: '#fee2e2', marginTop: 10 }]}
+                  onPress={handleDeleteStaff}
+                >
+                  <Text style={[styles.dangerZoneBtnText, { color: '#b91c1c' }]}>Delete Staff Member</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
       </ScrollView>
 
       {/* Edit Staff Modal */}

@@ -21,6 +21,7 @@ import { farmsApi } from '../../src/api/farms';
 import { Farm } from '../../src/types';
 import { useAuth } from '../../src/hooks/useAuth';
 import { extractErrorMessage } from '../../src/api/client';
+import { permissions } from '../../src/utils/permissions';
 import { colors, radius, spacing, shadows } from '../../src/theme/tokens';
 import {
   StatusBadge,
@@ -36,7 +37,7 @@ const AREA_UNIT_OPTIONS: ChipOption<string>[] = [
 ];
 
 export default function FarmsScreen() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [farms, setFarms] = useState<Farm[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -257,6 +258,11 @@ export default function FarmsScreen() {
   // Filter farms client-side
   const getFilteredFarms = () => {
     return farms.filter((farm) => {
+      // Role-based access: workers can only see assigned farms
+      if (!permissions.canAccessFarm(user, farm.id)) {
+        return false;
+      }
+
       const matchesSearch =
         farm.name.toLowerCase().includes(search.toLowerCase()) ||
         (farm.location && farm.location.toLowerCase().includes(search.toLowerCase()));
@@ -465,18 +471,20 @@ export default function FarmsScreen() {
       />
 
       {/* Floating Action Button */}
-      <TouchableOpacity
-        style={styles.floatingActionBtn}
-        onPress={() => {
-          setNameError('');
-          setAreaError('');
-          setCreateModalVisible(true);
-        }}
-        activeOpacity={0.8}
-        accessibilityLabel="Add farm"
-      >
-        <Ionicons name="add" size={30} color={colors.white} />
-      </TouchableOpacity>
+      {permissions.canManageFarms(user) && (
+        <TouchableOpacity
+          style={styles.floatingActionBtn}
+          onPress={() => {
+            setNameError('');
+            setAreaError('');
+            setCreateModalVisible(true);
+          }}
+          activeOpacity={0.8}
+          accessibilityLabel="Add farm"
+        >
+          <Ionicons name="add" size={30} color={colors.white} />
+        </TouchableOpacity>
+      )}
 
       {/* Filter Bottom Sheet Modal */}
       <Modal

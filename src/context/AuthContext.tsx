@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Alert } from 'react-native';
 import { User } from '../types';
 import { storage } from '../utils/storage';
 import { authApi } from '../api/auth';
+import { setUnauthorizedHandler } from '../api/client';
 import { router } from 'expo-router';
 
 interface AuthContextType {
@@ -22,6 +24,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Set 401 unauthorized handler to automatically reset session and redirect
+    setUnauthorizedHandler(() => {
+      setToken(null);
+      setUser(null);
+      Alert.alert('Session Expired', 'Your session has expired. Please log in again.');
+      router.replace('/(auth)/login');
+    });
+
     // Load persisted session on app startup
     async function loadSession() {
       try {
@@ -38,6 +48,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     loadSession();
+
+    return () => {
+      setUnauthorizedHandler(null);
+    };
   }, []);
 
   const login = async (login: string, password: string, userType: 'admin' | 'farm_group' | 'farm_staff') => {
@@ -49,8 +63,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(response.token);
       setUser(response.user);
       
-      // Navigate to tabs layout home screen
-      router.replace('/(tabs)');
+      // Navigate to preferred landing page or default to home dashboard
+      const landingPage = response.user?.default_landing_page;
+      if (landingPage === 'farms') {
+        router.replace('/(tabs)/farm');
+      } else if (landingPage === 'staff') {
+        router.replace('/(tabs)/staff');
+      } else {
+        router.replace('/(tabs)');
+      }
     } catch (error) {
       console.error('Login failed:', error);
       throw error;

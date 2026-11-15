@@ -23,6 +23,14 @@ export const notifyNetworkStatus = (isOnline: boolean) => {
   });
 };
 
+// 401 Unauthorized Session Expiration Handler
+type UnauthorizedHandler = () => void;
+let unauthorizedHandler: UnauthorizedHandler | null = null;
+
+export const setUnauthorizedHandler = (handler: UnauthorizedHandler | null) => {
+  unauthorizedHandler = handler;
+};
+
 // Dynamically resolve base URL to point to Laravel server in development
 const getBaseUrl = () => {
   // If defined in environment, use it
@@ -95,6 +103,9 @@ apiClient.interceptors.response.use(
     // Handle 401 Unauthorized: token expired or revoked
     if (error.response && error.response.status === 401) {
       await storage.clearSession();
+      if (unauthorizedHandler) {
+        unauthorizedHandler();
+      }
     }
 
     return Promise.reject(error);

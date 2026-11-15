@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/hooks/useAuth';
+import { authApi } from '../../src/api/auth';
 import { extractErrorMessage } from '../../src/api/client';
 
 export default function LoginScreen() {
@@ -24,6 +25,25 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [supportPhone, setSupportPhone] = useState<string | null>(null);
+  const [whatsappMsg, setWhatsappMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadPublicSettings() {
+      try {
+        const settings = await authApi.getPublicSettings();
+        if (settings?.contact_number_1) {
+          setSupportPhone(settings.contact_number_1);
+        }
+        if (settings?.register_request_whatsapp_message) {
+          setWhatsappMsg(settings.register_request_whatsapp_message);
+        }
+      } catch (err) {
+        // Fallback gracefully
+      }
+    }
+    loadPublicSettings();
+  }, []);
 
   const handleLogin = async () => {
     if (!username || !password) {
@@ -45,18 +65,25 @@ export default function LoginScreen() {
   };
 
   const handleWhatsAppSupport = () => {
-    const message = 'Hello, I would like to request a new account.';
-    // Standard WhatsApp helper link (users can replace phone numbers in setup)
-    const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    const message = whatsappMsg || 'Hello, I would like to request a new account.';
+    const cleanPhone = (supportPhone || '').replace(/[^0-9]/g, '');
+    const url = cleanPhone
+      ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
+      : `https://wa.me/?text=${encodeURIComponent(message)}`;
     Linking.openURL(url).catch(() => {
       Alert.alert('Error', 'WhatsApp is not installed on this device.');
     });
   };
 
   const handlePhoneSupport = () => {
-    Linking.openURL('tel:+1234567890').catch(() => {
-      Alert.alert('Error', 'Phone call failed.');
-    });
+    const cleanPhone = (supportPhone || '').replace(/[^0-9]/g, '');
+    if (cleanPhone) {
+      Linking.openURL(`tel:+${cleanPhone}`).catch(() => {
+        Alert.alert('Error', 'Could not open phone dialer.');
+      });
+    } else {
+      Alert.alert('Support Helpline', 'Support contact is currently unavailable. Please reach out to your farm administrator.');
+    }
   };
 
   return (

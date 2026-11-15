@@ -26,7 +26,22 @@ export const authApi = {
     await apiClient.post('/logout');
   },
 
-  async updateProfile(payload: { name: string; email?: string; username?: string }): Promise<User> {
+  async getPublicSettings(): Promise<{
+    contact_number_1?: string | null;
+    contact_number_2?: string | null;
+    support_email?: string | null;
+    register_request_whatsapp_message?: string | null;
+  }> {
+    const response = await apiClient.get('/settings/public');
+    return response.data;
+  },
+
+  async updateProfile(payload: {
+    name: string;
+    email?: string;
+    username?: string;
+    default_landing_page?: string | null;
+  }): Promise<User> {
     const response = await apiClient.put<{ message: string; user: User }>('/profile', payload);
     return response.data.user;
   },

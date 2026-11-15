@@ -22,6 +22,8 @@ import { router } from 'expo-router';
 import { agroShopsApi } from '../src/api/agroShops';
 import { AgroShop, AgroShopPurchase, AgroShopPayment, AgroInputProduct } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
+import { useAuth } from '../src/hooks/useAuth';
+import { permissions } from '../src/utils/permissions';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
 import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar } from '../src/components/ui';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
@@ -48,6 +50,7 @@ const PAYMENT_METHODS = [
 ];
 
 export default function AgroShopScreen() {
+  const { user } = useAuth();
   const [shops, setShops] = useState<AgroShop[]>([]);
   const [selectedShopId, setSelectedShopId] = useState<number | string | null>(null);
   const [summary, setSummary] = useState<{ total_purchase: number; total_paid: number; balance: number }>({
@@ -441,31 +444,33 @@ export default function AgroShopScreen() {
                 </View>
 
                 {/* 3-Cell Metric Grid */}
-                <View style={styles.cardGrid}>
-                  <View style={styles.gridCell}>
-                    <Text style={styles.gridCellLabel}>Total Bill</Text>
-                    <Text style={styles.gridCellValue}>₹{item.total_amount}</Text>
+                {permissions.canViewFinancials(user) && (
+                  <View style={styles.cardGrid}>
+                    <View style={styles.gridCell}>
+                      <Text style={styles.gridCellLabel}>Total Bill</Text>
+                      <Text style={styles.gridCellValue}>₹{item.total_amount}</Text>
+                    </View>
+                    <View style={styles.gridDivider} />
+                    <View style={styles.gridCell}>
+                      <Text style={styles.gridCellLabel}>Paid</Text>
+                      <Text style={[styles.gridCellValue, { color: colors.primary }]}>
+                        ₹{item.paid_amount || 0}
+                      </Text>
+                    </View>
+                    <View style={styles.gridDivider} />
+                    <View style={styles.gridCell}>
+                      <Text style={styles.gridCellLabel}>Due</Text>
+                      <Text
+                        style={[
+                          styles.gridCellValue,
+                          { color: item.balance > 0 ? colors.danger : colors.slate600 },
+                        ]}
+                      >
+                        ₹{item.balance}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.gridDivider} />
-                  <View style={styles.gridCell}>
-                    <Text style={styles.gridCellLabel}>Paid</Text>
-                    <Text style={[styles.gridCellValue, { color: colors.primary }]}>
-                      ₹{item.paid_amount || 0}
-                    </Text>
-                  </View>
-                  <View style={styles.gridDivider} />
-                  <View style={styles.gridCell}>
-                    <Text style={styles.gridCellLabel}>Due</Text>
-                    <Text
-                      style={[
-                        styles.gridCellValue,
-                        { color: item.balance > 0 ? colors.danger : colors.slate600 },
-                      ]}
-                    >
-                      ₹{item.balance}
-                    </Text>
-                  </View>
-                </View>
+                )}
 
                 {/* Items Purchased List */}
                 <View style={styles.itemsListContainer}>
@@ -478,12 +483,15 @@ export default function AgroShopScreen() {
                       <View style={{ flex: 1, paddingRight: spacing.sm }}>
                         <Text style={styles.itemNameText}>{pItem.product_name}</Text>
                         <Text style={styles.itemQtyText}>
-                          {pItem.quantity} {pItem.unit} × ₹{pItem.unit_price}
+                          {pItem.quantity} {pItem.unit}
+                          {permissions.canViewFinancials(user) ? ` × ₹${pItem.unit_price}` : ''}
                         </Text>
                       </View>
-                      <View style={styles.itemAmountBadge}>
-                        <Text style={styles.itemAmountText}>₹{pItem.amount}</Text>
-                      </View>
+                      {permissions.canViewFinancials(user) && (
+                        <View style={styles.itemAmountBadge}>
+                          <Text style={styles.itemAmountText}>₹{pItem.amount}</Text>
+                        </View>
+                      )}
                     </View>
                   ))}
                 </View>
@@ -512,13 +520,15 @@ export default function AgroShopScreen() {
                     <View />
                   )}
 
-                  <TouchableOpacity
-                    style={styles.deleteCardBtn}
-                    onPress={() => handleDeletePurchase(item)}
-                  >
-                    <Ionicons name="trash-outline" size={14} color={colors.danger} />
-                    <Text style={styles.deleteCardBtnText}>Delete</Text>
-                  </TouchableOpacity>
+                  {permissions.canAccessDangerZone(user) && (
+                    <TouchableOpacity
+                      style={styles.deleteCardBtn}
+                      onPress={() => handleDeletePurchase(item)}
+                    >
+                      <Ionicons name="trash-outline" size={14} color={colors.danger} />
+                      <Text style={styles.deleteCardBtnText}>Delete</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </BentoCard>
             );
@@ -597,13 +607,15 @@ export default function AgroShopScreen() {
 
                 <View style={styles.paymentFooter}>
                   <View />
-                  <TouchableOpacity
-                    style={styles.deleteCardBtn}
-                    onPress={() => handleDeletePayment(item)}
-                  >
-                    <Ionicons name="trash-outline" size={14} color={colors.danger} />
-                    <Text style={styles.deleteCardBtnText}>Delete</Text>
-                  </TouchableOpacity>
+                  {permissions.canAccessDangerZone(user) && (
+                    <TouchableOpacity
+                      style={styles.deleteCardBtn}
+                      onPress={() => handleDeletePayment(item)}
+                    >
+                      <Ionicons name="trash-outline" size={14} color={colors.danger} />
+                      <Text style={styles.deleteCardBtnText}>Delete</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </BentoCard>
             );
@@ -674,18 +686,20 @@ export default function AgroShopScreen() {
             </View>
           </View>
 
-          <View style={styles.profileStatusToggleRow}>
-            <View>
-              <Text style={styles.statusToggleLabel}>Active Status</Text>
-              <Text style={styles.statusToggleSubLabel}>Enable or disable this shop for entries</Text>
+          {permissions.canManageCommercials(user) && (
+            <View style={styles.profileStatusToggleRow}>
+              <View>
+                <Text style={styles.statusToggleLabel}>Active Status</Text>
+                <Text style={styles.statusToggleSubLabel}>Enable or disable this shop for entries</Text>
+              </View>
+              <Switch
+                value={selectedShop.is_active}
+                onValueChange={() => handleToggleShopStatus(selectedShop)}
+                trackColor={{ false: colors.slate300, true: colors.primaryLight }}
+                thumbColor={selectedShop.is_active ? colors.primary : colors.slate100}
+              />
             </View>
-            <Switch
-              value={selectedShop.is_active}
-              onValueChange={() => handleToggleShopStatus(selectedShop)}
-              trackColor={{ false: colors.slate300, true: colors.primaryLight }}
-              thumbColor={selectedShop.is_active ? colors.primary : colors.slate100}
-            />
-          </View>
+          )}
         </BentoCard>
       </ScrollView>
     );
@@ -733,7 +747,7 @@ export default function AgroShopScreen() {
                 <Text style={[styles.shopPillText, isSelected && styles.shopPillTextActive]}>
                   {shop.name}
                 </Text>
-                {hasDue ? (
+                {hasDue && permissions.canViewFinancials(user) ? (
                   <View
                     style={[
                       styles.duePill,
@@ -760,7 +774,7 @@ export default function AgroShopScreen() {
       </View>
 
       {/* Summary Bento Stats */}
-      {selectedShopId && (
+      {selectedShopId && permissions.canViewFinancials(user) && (
         <View style={styles.summaryGrid}>
           <View style={styles.summaryTile}>
             <MetricTile
@@ -799,7 +813,7 @@ export default function AgroShopScreen() {
             {(
               [
                 { key: 'purchases', label: 'Purchases', icon: 'cart-outline', count: purchases.length as number | undefined },
-                { key: 'payments', label: 'Payments', icon: 'card-outline', count: payments.length as number | undefined },
+                ...(permissions.canViewFinancials(user) ? [{ key: 'payments', label: 'Payments', icon: 'card-outline', count: payments.length as number | undefined }] : []),
                 { key: 'info', label: 'Shop Info', icon: 'information-circle-outline', count: undefined as number | undefined },
               ]
             ).map((tab) => {
@@ -854,13 +868,15 @@ export default function AgroShopScreen() {
       )}
 
       {/* Futuristic FAB */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => setActionChoiceVisible(true)}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="add" size={28} color={colors.white} />
-      </TouchableOpacity>
+      {permissions.canManageCommercials(user) && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => setActionChoiceVisible(true)}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="add" size={28} color={colors.white} />
+        </TouchableOpacity>
+      )}
 
       {/* Action choices dialog */}
       <Modal
@@ -902,23 +918,25 @@ export default function AgroShopScreen() {
                   <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.choiceItem}
-                  onPress={() => {
-                    setActionChoiceVisible(false);
-                    setPaymentDate(new Date().toISOString().split('T')[0]);
-                    setPaymentModalVisible(true);
-                  }}
-                >
-                  <View style={[styles.choiceIconCircle, { backgroundColor: colors.successSurface }]}>
-                    <Ionicons name="card-outline" size={20} color={colors.successText} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.choiceText}>Record Payment</Text>
-                    <Text style={styles.choiceSubtext}>Log cash, UPI or bank payment against dues</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
-                </TouchableOpacity>
+                {permissions.canViewFinancials(user) && (
+                  <TouchableOpacity
+                    style={styles.choiceItem}
+                    onPress={() => {
+                      setActionChoiceVisible(false);
+                      setPaymentDate(new Date().toISOString().split('T')[0]);
+                      setPaymentModalVisible(true);
+                    }}
+                  >
+                    <View style={[styles.choiceIconCircle, { backgroundColor: colors.successSurface }]}>
+                      <Ionicons name="card-outline" size={20} color={colors.successText} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.choiceText}>Record Payment</Text>
+                      <Text style={styles.choiceSubtext}>Log cash, UPI or bank payment against dues</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
+                  </TouchableOpacity>
+                )}
               </>
             )}
 

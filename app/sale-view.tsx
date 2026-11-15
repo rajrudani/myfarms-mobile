@@ -21,6 +21,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { salesApi } from '../src/api/sales';
 import { Sale } from '../src/types';
 import { extractErrorMessage, getBaseUrl } from '../src/api/client';
+import { useAuth } from '../src/hooks/useAuth';
+import { permissions } from '../src/utils/permissions';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
 
 export const getAbsoluteImageUrl = (urlPath?: string | null) => {
@@ -33,6 +35,7 @@ export const getAbsoluteImageUrl = (urlPath?: string | null) => {
 };
 
 export default function SaleViewScreen() {
+  const { user } = useAuth();
   const params = useLocalSearchParams();
   const saleIdentifier = (params.sale_ulid as string) || (params.sale_id as string);
 
@@ -186,14 +189,18 @@ export default function SaleViewScreen() {
 
         <Text style={styles.topBarTitle}>Sale Details</Text>
 
-        <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() => setEditModalVisible(true)}
-          activeOpacity={0.7}
-          accessibilityLabel="Edit Sale"
-        >
-          <Ionicons name="create-outline" size={20} color="#166534" />
-        </TouchableOpacity>
+        {permissions.canManageCommercials(user) ? (
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => setEditModalVisible(true)}
+            activeOpacity={0.7}
+            accessibilityLabel="Edit Sale"
+          >
+            <Ionicons name="create-outline" size={20} color="#166534" />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 36 }} />
+        )}
       </View>
 
       <ScrollView
@@ -210,8 +217,12 @@ export default function SaleViewScreen() {
       >
         {/* 1. Hero Card */}
         <View style={[styles.card, styles.heroCard]}>
-          <Text style={styles.heroLabel}>FINAL SALE VALUE</Text>
-          <Text style={styles.heroAmount}>₹{finalAmount.toFixed(2)}</Text>
+          <Text style={styles.heroLabel}>
+            {permissions.canViewFinancials(user) ? 'FINAL SALE VALUE' : 'SALE RECORD'}
+          </Text>
+          <Text style={styles.heroAmount}>
+            {permissions.canViewFinancials(user) ? `₹${finalAmount.toFixed(2)}` : `${totalQuantity.toFixed(2)} ${unit}`}
+          </Text>
 
           <View style={styles.heroChipsRow}>
             <View style={styles.heroChip}>
@@ -264,10 +275,13 @@ export default function SaleViewScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.produceTitle}>Total Produce</Text>
               <Text style={styles.produceSub}>
-                {totalQuantity.toFixed(2)} {unit} @ ₹{rate.toFixed(2)}/{unit}
+                {totalQuantity.toFixed(2)} {unit}
+                {permissions.canViewFinancials(user) ? ` @ ₹${rate.toFixed(2)}/${unit}` : ''}
               </Text>
             </View>
-            <Text style={styles.produceAmount}>₹{grossAmount.toFixed(2)}</Text>
+            {permissions.canViewFinancials(user) && (
+              <Text style={styles.produceAmount}>₹{grossAmount.toFixed(2)}</Text>
+            )}
           </View>
 
           <View style={styles.metricsGrid}>
@@ -275,14 +289,18 @@ export default function SaleViewScreen() {
               <Text style={styles.metricLabel}>QUANTITY</Text>
               <Text style={styles.metricVal}>{totalQuantity.toFixed(2)} {unit}</Text>
             </View>
-            <View style={styles.metricCell}>
-              <Text style={styles.metricLabel}>AVG RATE</Text>
-              <Text style={styles.metricVal}>₹{rate.toFixed(2)}</Text>
-            </View>
-            <View style={styles.metricCell}>
-              <Text style={styles.metricLabel}>GROSS AMOUNT</Text>
-              <Text style={[styles.metricVal, { color: '#166534' }]}>₹{grossAmount.toFixed(2)}</Text>
-            </View>
+            {permissions.canViewFinancials(user) && (
+              <>
+                <View style={styles.metricCell}>
+                  <Text style={styles.metricLabel}>AVG RATE</Text>
+                  <Text style={styles.metricVal}>₹{rate.toFixed(2)}</Text>
+                </View>
+                <View style={styles.metricCell}>
+                  <Text style={styles.metricLabel}>GROSS AMOUNT</Text>
+                  <Text style={[styles.metricVal, { color: '#166534' }]}>₹{grossAmount.toFixed(2)}</Text>
+                </View>
+              </>
+            )}
           </View>
         </View>
 
@@ -302,12 +320,15 @@ export default function SaleViewScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.deductionName}>Grade {gradeLabel}</Text>
                       <Text style={styles.produceSub}>
-                        {g.quantity} {unit} @ ₹{g.rate}/{unit}
+                        {g.quantity} {unit}
+                        {permissions.canViewFinancials(user) ? ` @ ₹${g.rate}/${unit}` : ''}
                       </Text>
                     </View>
-                    <Text style={[styles.deductionVal, { color: '#0f172a' }]}>
-                      ₹{(g.amount ? parseFloat(g.amount.toString()) : (g.quantity * g.rate)).toFixed(2)}
-                    </Text>
+                    {permissions.canViewFinancials(user) && (
+                      <Text style={[styles.deductionVal, { color: '#0f172a' }]}>
+                        ₹{(g.amount ? parseFloat(g.amount.toString()) : (g.quantity * g.rate)).toFixed(2)}
+                      </Text>
+                    )}
                   </View>
                 );
               })}
@@ -316,7 +337,7 @@ export default function SaleViewScreen() {
         ) : null}
 
         {/* 4. Deductions Card (if any) */}
-        {charges.length > 0 ? (
+        {charges.length > 0 && permissions.canViewFinancials(user) ? (
           <View style={styles.card}>
             <View style={styles.sectionHeader}>
               <Ionicons name="alert-circle-outline" size={18} color="#dc2626" />
@@ -340,29 +361,31 @@ export default function SaleViewScreen() {
         ) : null}
 
         {/* 5. Final Summary Card */}
-        <View style={[styles.card, styles.finalSummaryCard]}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="calculator-outline" size={18} color="#14532d" />
-            <Text style={[styles.sectionTitle, { color: '#14532d' }]}>Final Summary</Text>
-          </View>
-
-          <View style={styles.finalRow}>
-            <Text style={styles.finalKey}>Total Sale Amount</Text>
-            <Text style={styles.finalVal}>₹{grossAmount.toFixed(2)}</Text>
-          </View>
-
-          {deductionsTotal > 0 ? (
-            <View style={styles.finalRow}>
-              <Text style={[styles.finalKey, { color: '#ef4444' }]}>Total Deductions</Text>
-              <Text style={[styles.finalVal, { color: '#ef4444' }]}>- ₹{deductionsTotal.toFixed(2)}</Text>
+        {permissions.canViewFinancials(user) && (
+          <View style={[styles.card, styles.finalSummaryCard]}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="calculator-outline" size={18} color="#14532d" />
+              <Text style={[styles.sectionTitle, { color: '#14532d' }]}>Final Summary</Text>
             </View>
-          ) : null}
 
-          <View style={styles.finalTotalRow}>
-            <Text style={styles.finalTotalKey}>Final Amount</Text>
-            <Text style={styles.finalTotalVal}>₹{finalAmount.toFixed(2)}</Text>
+            <View style={styles.finalRow}>
+              <Text style={styles.finalKey}>Total Sale Amount</Text>
+              <Text style={styles.finalVal}>₹{grossAmount.toFixed(2)}</Text>
+            </View>
+
+            {deductionsTotal > 0 ? (
+              <View style={styles.finalRow}>
+                <Text style={[styles.finalKey, { color: '#ef4444' }]}>Total Deductions</Text>
+                <Text style={[styles.finalVal, { color: '#ef4444' }]}>- ₹{deductionsTotal.toFixed(2)}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.finalTotalRow}>
+              <Text style={styles.finalTotalKey}>Final Amount</Text>
+              <Text style={styles.finalTotalVal}>₹{finalAmount.toFixed(2)}</Text>
+            </View>
           </View>
-        </View>
+        )}
 
         {/* 6. Notes Card */}
         {sale.notes ? (
@@ -388,25 +411,31 @@ export default function SaleViewScreen() {
         ) : null}
 
         {/* Bottom Actions */}
-        <View style={styles.bottomActions}>
-          <TouchableOpacity
-            style={styles.outlineActionBtn}
-            onPress={() => setEditModalVisible(true)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="create-outline" size={18} color="#166534" />
-            <Text style={styles.outlineActionText}>Edit Sale</Text>
-          </TouchableOpacity>
+        {(permissions.canManageCommercials(user) || permissions.canAccessDangerZone(user)) && (
+          <View style={styles.bottomActions}>
+            {permissions.canManageCommercials(user) && (
+              <TouchableOpacity
+                style={styles.outlineActionBtn}
+                onPress={() => setEditModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="create-outline" size={18} color="#166534" />
+                <Text style={styles.outlineActionText}>Edit Sale</Text>
+              </TouchableOpacity>
+            )}
 
-          <TouchableOpacity
-            style={styles.dangerActionBtn}
-            onPress={handleDeleteSale}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="trash-outline" size={18} color="#dc2626" />
-            <Text style={styles.dangerActionText}>Delete Record</Text>
-          </TouchableOpacity>
-        </View>
+            {permissions.canAccessDangerZone(user) && (
+              <TouchableOpacity
+                style={styles.dangerActionBtn}
+                onPress={handleDeleteSale}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="trash-outline" size={18} color="#dc2626" />
+                <Text style={styles.dangerActionText}>Delete Record</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </ScrollView>
 
       {/* Edit Sale Modal */}

@@ -26,6 +26,7 @@ import { farmsApi } from '../../src/api/farms';
 import { Farm, StaffMember, StaffPayment, StaffRoleValue } from '../../src/types';
 import { useAuth } from '../../src/hooks/useAuth';
 import { extractErrorMessage, getAbsoluteImageUrl } from '../../src/api/client';
+import { permissions } from '../../src/utils/permissions';
 import { colors, radius, spacing, shadows } from '../../src/theme/tokens';
 import {
   BentoCard,
@@ -774,15 +775,17 @@ export default function StaffScreen() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.segmentedTab, activeTab === 'payments' && styles.segmentedTabActive]}
-            onPress={() => setActiveTab('payments')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.segmentedTabText, activeTab === 'payments' && styles.segmentedTabTextActive]}>
-              Payment
-            </Text>
-          </TouchableOpacity>
+          {permissions.canManageStaff(user) && (
+            <TouchableOpacity
+              style={[styles.segmentedTab, activeTab === 'payments' && styles.segmentedTabActive]}
+              onPress={() => setActiveTab('payments')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.segmentedTabText, activeTab === 'payments' && styles.segmentedTabTextActive]}>
+                Payment
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -913,13 +916,15 @@ export default function StaffScreen() {
             />
           )}
 
-          <TouchableOpacity
-            style={styles.fab}
-            onPress={() => setAddStaffModalVisible(true)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="person-add" size={22} color={colors.white} />
-          </TouchableOpacity>
+          {permissions.canManageStaff(user) && (
+            <TouchableOpacity
+              style={styles.fab}
+              onPress={() => setAddStaffModalVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="person-add" size={22} color={colors.white} />
+            </TouchableOpacity>
+          )}
         </View>
       )}
 

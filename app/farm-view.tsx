@@ -23,6 +23,8 @@ import { expensesApi } from '../src/api/expenses';
 import { staffApi } from '../src/api/staff';
 import { Farm, FarmActivity, FarmExpense, StaffMember, PaginationMeta } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
+import { useAuth } from '../src/hooks/useAuth';
+import { permissions } from '../src/utils/permissions';
 
 const AREA_UNITS = ['ACRE', 'HECTARE', 'BIGHAS', 'GUNTHAS'];
 
@@ -90,6 +92,7 @@ const formatActivityDetails = (details: any) => {
 export default function FarmViewScreen() {
   const { farm_id, farm_ulid } = useLocalSearchParams();
   const farmIdentifier = (farm_ulid as string) || (farm_id as string);
+  const { user } = useAuth();
 
   const [farm, setFarm] = useState<Farm | null>(null);
   const [loading, setLoading] = useState(true);
@@ -531,14 +534,16 @@ export default function FarmViewScreen() {
           </View>
 
           <View style={styles.heroBadges}>
-            <TouchableOpacity
-              style={styles.heroEditBtn}
-              onPress={() => setEditModalVisible(true)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="pencil-sharp" size={15} color="#166534" />
-              <Text style={styles.heroEditBtnText}>Edit</Text>
-            </TouchableOpacity>
+            {permissions.canManageFarms(user) && (
+              <TouchableOpacity
+                style={styles.heroEditBtn}
+                onPress={() => setEditModalVisible(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="pencil-sharp" size={15} color="#166534" />
+                <Text style={styles.heroEditBtnText}>Edit</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={styles.heroManageBtn}
@@ -910,67 +915,69 @@ export default function FarmViewScreen() {
         </View>
 
         {/* Section 4: Danger Zone matching PWA vf-danger-zone */}
-        <View style={styles.dangerZoneCard}>
-          <TouchableOpacity
-            style={styles.dangerZoneHeader}
-            onPress={() => setDangerZoneExpanded(!dangerZoneExpanded)}
-            activeOpacity={0.7}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={styles.dangerZoneTitle}>Danger Zone</Text>
-              <Text style={styles.dangerZoneSubtitle}>Deactivate or delete this farm</Text>
-            </View>
-            <Ionicons
-              name={dangerZoneExpanded ? 'chevron-up' : 'chevron-down'}
-              size={18}
-              color="#b91c1c"
-            />
-          </TouchableOpacity>
-
-          {dangerZoneExpanded && (
-            <View style={styles.dangerZoneContent}>
-              <View style={styles.dangerActionSection}>
-                <View style={{ flex: 1, marginRight: 10 }}>
-                  <Text style={styles.dangerSectionHeading}>
-                    {farm.is_active ? 'Deactivate Farm' : 'Activate Farm'}
-                  </Text>
-                  <Text style={styles.dangerSectionText}>
-                    Current status: {farm.is_active ? 'Active' : 'Inactive'}.
-                  </Text>
-                  <Text style={styles.dangerSectionText}>
-                    {farm.is_active
-                      ? 'This will make the farm inactive, but keep all old records.'
-                      : 'This will make the farm active again.'}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={[styles.dangerBtn, farm.is_active ? styles.dangerBtnWarning : styles.dangerBtnSuccess]}
-                  onPress={handleToggleStatus}
-                  disabled={updatingFarm}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.dangerBtnText, farm.is_active ? { color: '#b45309' } : { color: '#15803d' }]}>
-                    {farm.is_active ? 'Deactivate' : 'Activate'}
-                  </Text>
-                </TouchableOpacity>
+        {permissions.canAccessDangerZone(user) && (
+          <View style={styles.dangerZoneCard}>
+            <TouchableOpacity
+              style={styles.dangerZoneHeader}
+              onPress={() => setDangerZoneExpanded(!dangerZoneExpanded)}
+              activeOpacity={0.7}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.dangerZoneTitle}>Danger Zone</Text>
+                <Text style={styles.dangerZoneSubtitle}>Deactivate or delete this farm</Text>
               </View>
+              <Ionicons
+                name={dangerZoneExpanded ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color="#b91c1c"
+              />
+            </TouchableOpacity>
 
-              <View style={styles.dangerDivider} />
-
-              <View style={styles.dangerActionSection}>
-                <View style={{ flex: 1, marginRight: 10 }}>
-                  <Text style={styles.dangerSectionHeading}>Delete Farm</Text>
-                  <Text style={styles.dangerSectionText}>
-                    This will remove the farm, but keep all old records.
-                  </Text>
+            {dangerZoneExpanded && (
+              <View style={styles.dangerZoneContent}>
+                <View style={styles.dangerActionSection}>
+                  <View style={{ flex: 1, marginRight: 10 }}>
+                    <Text style={styles.dangerSectionHeading}>
+                      {farm.is_active ? 'Deactivate Farm' : 'Activate Farm'}
+                    </Text>
+                    <Text style={styles.dangerSectionText}>
+                      Current status: {farm.is_active ? 'Active' : 'Inactive'}.
+                    </Text>
+                    <Text style={styles.dangerSectionText}>
+                      {farm.is_active
+                        ? 'This will make the farm inactive, but keep all old records.'
+                        : 'This will make the farm active again.'}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.dangerBtn, farm.is_active ? styles.dangerBtnWarning : styles.dangerBtnSuccess]}
+                    onPress={handleToggleStatus}
+                    disabled={updatingFarm}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.dangerBtnText, farm.is_active ? { color: '#b45309' } : { color: '#15803d' }]}>
+                      {farm.is_active ? 'Deactivate' : 'Activate'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity style={styles.dangerBtnDanger} onPress={handleDeleteFarm} activeOpacity={0.7}>
-                  <Text style={[styles.dangerBtnText, { color: '#b91c1c' }]}>Delete Farm</Text>
-                </TouchableOpacity>
+
+                <View style={styles.dangerDivider} />
+
+                <View style={styles.dangerActionSection}>
+                  <View style={{ flex: 1, marginRight: 10 }}>
+                    <Text style={styles.dangerSectionHeading}>Delete Farm</Text>
+                    <Text style={styles.dangerSectionText}>
+                      This will remove the farm, but keep all old records.
+                    </Text>
+                  </View>
+                  <TouchableOpacity style={styles.dangerBtnDanger} onPress={handleDeleteFarm} activeOpacity={0.7}>
+                    <Text style={[styles.dangerBtnText, { color: '#b91c1c' }]}>Delete Farm</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          )}
-        </View>
+            )}
+          </View>
+        )}
       </ScrollView>
 
       {/* Edit Farm Modal */}
