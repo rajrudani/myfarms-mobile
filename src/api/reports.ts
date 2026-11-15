@@ -1,4 +1,5 @@
 import apiClient from './client';
+import { buildExportUrl, ReportExportType, ReportExportFormat, ExportReportParams } from '../utils/exportReport';
 import {
   ReportFiltersData,
   AttendanceReportResponse,
@@ -11,6 +12,14 @@ export const reportsApi = {
   async getFilters(): Promise<ReportFiltersData> {
     const response = await apiClient.get<ReportFiltersData>('/reports/filters');
     return response.data;
+  },
+
+  getExportUrl(
+    reportType: ReportExportType,
+    format: ReportExportFormat,
+    params: ExportReportParams
+  ): string {
+    return buildExportUrl(reportType, format, params);
   },
 
   async getAttendanceReport(params: {

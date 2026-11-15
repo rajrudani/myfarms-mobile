@@ -28,6 +28,7 @@ import { extractErrorMessage } from '../src/api/client';
 import { BentoCard, MetricTile, StatusBadge, QuickChipGroup } from '../src/components/ui';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
 import { useTranslation } from '../src/i18n/I18nContext';
+import { downloadAndShareReport, ReportExportFormat } from '../src/utils/exportReport';
 
 type ReportType = 'attendance' | 'payment' | 'activity' | 'expense' | null;
 
@@ -52,6 +53,11 @@ export default function ReportsScreen() {
   const [filtersData, setFiltersData] = useState<ReportFiltersData | null>(null);
   const [loadingFilters, setLoadingFilters] = useState(true);
   const [reportLoading, setReportLoading] = useState(false);
+
+  // Export States
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportingFormat, setExportingFormat] = useState<ReportExportFormat | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   // Filter States
   const [selectedFarm, setSelectedFarm] = useState<string>('');
@@ -257,6 +263,103 @@ export default function ReportsScreen() {
     []
   );
 
+  // Trigger report export and sharing sheet
+  const handleExport = async (format: ReportExportFormat) => {
+    if (!activeReport) return;
+
+    if (activeReport === 'attendance' && !selectedFarm && !selectedWorker) {
+      Alert.alert(t('Filter Required'), t('Please select a Farm or Staff member before exporting.'));
+      return;
+    }
+    if (activeReport === 'payment' && !selectedWorker) {
+      Alert.alert(t('Filter Required'), t('Please select a Staff member before exporting.'));
+      return;
+    }
+    if ((activeReport === 'activity' || activeReport === 'expense') && !selectedFarm) {
+      Alert.alert(t('Filter Required'), t('Please select a Farm before exporting.'));
+      return;
+    }
+
+    setExportLoading(true);
+    setExportingFormat(format);
+    setShowExportModal(false);
+
+    try {
+      const params = {
+        farm_id: selectedFarm || undefined,
+        farm_staff_id: selectedWorker || undefined,
+        crop_cycle_id: selectedCycle || undefined,
+        from_date: fromDate || undefined,
+        to_date: toDate || undefined,
+        month: selectedMonth || undefined,
+        year: selectedYear || undefined,
+      };
+
+      const titleName =
+        activeReport === 'attendance'
+          ? t('Attendance Report')
+          : activeReport === 'payment'
+          ? t('Payment Report')
+          : activeReport === 'activity'
+          ? t('Activities Report')
+          : t('Expenses Report');
+
+      await downloadAndShareReport(activeReport, format, params, {
+        dialogTitle: `${titleName} (${format.toUpperCase()})`,
+      });
+    } finally {
+      setExportLoading(false);
+      setExportingFormat(null);
+    }
+  };
+
+  // Reusable export action bar rendered in each report screen
+  const renderExportToolbar = () => (
+    <View style={styles.exportToolbar}>
+      <TouchableOpacity
+        style={[styles.exportActionBtn, styles.exportPdfBtn]}
+        onPress={() => handleExport('pdf')}
+        disabled={exportLoading}
+        activeOpacity={0.7}
+      >
+        {exportLoading && exportingFormat === 'pdf' ? (
+          <ActivityIndicator size="small" color="#dc2626" />
+        ) : (
+          <>
+            <Ionicons name="document-text" size={15} color="#dc2626" />
+            <Text style={styles.exportPdfText}>{t('Export PDF')}</Text>
+          </>
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.exportActionBtn, styles.exportExcelBtn]}
+        onPress={() => handleExport('xlsx')}
+        disabled={exportLoading}
+        activeOpacity={0.7}
+      >
+        {exportLoading && exportingFormat === 'xlsx' ? (
+          <ActivityIndicator size="small" color="#15803d" />
+        ) : (
+          <>
+            <Ionicons name="grid" size={15} color="#15803d" />
+            <Text style={styles.exportExcelText}>{t('Export Excel')}</Text>
+          </>
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.exportActionBtn, styles.shareWhatsappBtn]}
+        onPress={() => handleExport('pdf')}
+        disabled={exportLoading}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="logo-whatsapp" size={15} color="#16a34a" />
+        <Text style={styles.shareWhatsappText}>{t('WhatsApp')}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   // Render Sub-Views based on activeReport
   const renderContent = () => {
     if (loadingFilters) {
@@ -454,34 +557,37 @@ export default function ReportsScreen() {
               contentContainerStyle={styles.reportListContent}
               ListHeaderComponent={
                 attendanceData ? (
-                  <View style={styles.metricsGrid}>
-                    <View style={styles.summaryTile}>
-                      <MetricTile
-                        label={t('PRESENT')}
-                        value={attendanceData.summary.present}
-                        iconName="check-circle"
-                        iconColor={colors.successText}
-                        iconBg={colors.successSurface}
-                      />
+                  <View style={{ marginBottom: spacing.md }}>
+                    <View style={styles.metricsGrid}>
+                      <View style={styles.summaryTile}>
+                        <MetricTile
+                          label={t('PRESENT')}
+                          value={attendanceData.summary.present}
+                          iconName="check-circle"
+                          iconColor={colors.successText}
+                          iconBg={colors.successSurface}
+                        />
+                      </View>
+                      <View style={styles.summaryTile}>
+                        <MetricTile
+                          label={t('HALF DAYS')}
+                          value={attendanceData.summary.half_day}
+                          iconName="circle-half-full"
+                          iconColor={colors.warningText}
+                          iconBg={colors.warningSurface}
+                        />
+                      </View>
+                      <View style={styles.summaryTile}>
+                        <MetricTile
+                          label={t('TOTAL')}
+                          value={attendanceData.summary.total_attendance}
+                          iconName="calendar-check"
+                          iconColor={colors.infoText}
+                          iconBg={colors.infoSurface}
+                        />
+                      </View>
                     </View>
-                    <View style={styles.summaryTile}>
-                      <MetricTile
-                        label={t('HALF DAYS')}
-                        value={attendanceData.summary.half_day}
-                        iconName="circle-half-full"
-                        iconColor={colors.warningText}
-                        iconBg={colors.warningSurface}
-                      />
-                    </View>
-                    <View style={styles.summaryTile}>
-                      <MetricTile
-                        label={t('TOTAL')}
-                        value={attendanceData.summary.total_attendance}
-                        iconName="calendar-check"
-                        iconColor={colors.infoText}
-                        iconBg={colors.infoSurface}
-                      />
-                    </View>
+                    {renderExportToolbar()}
                   </View>
                 ) : null
               }
@@ -643,16 +749,19 @@ export default function ReportsScreen() {
               contentContainerStyle={styles.reportListContent}
               ListHeaderComponent={
                 paymentData ? (
-                  <View style={styles.metricsGrid}>
-                    <View style={{ flex: 1 }}>
-                      <MetricTile
-                        label={t('TOTAL SALARY PAID')}
-                        value={formatCurrency(paymentData.summary.total_amount)}
-                        iconName="cash-check"
-                        iconColor={colors.successText}
-                        iconBg={colors.successSurface}
-                      />
+                  <View style={{ marginBottom: spacing.md }}>
+                    <View style={styles.metricsGrid}>
+                      <View style={{ flex: 1 }}>
+                        <MetricTile
+                          label={t('TOTAL SALARY PAID')}
+                          value={formatCurrency(paymentData.summary.total_amount)}
+                          iconName="cash-check"
+                          iconColor={colors.successText}
+                          iconBg={colors.successSurface}
+                        />
+                      </View>
                     </View>
+                    {renderExportToolbar()}
                   </View>
                 ) : null
               }
@@ -826,34 +935,37 @@ export default function ReportsScreen() {
               contentContainerStyle={styles.reportListContent}
               ListHeaderComponent={
                 activityData ? (
-                  <View style={styles.metricsGrid}>
-                    <View style={styles.summaryTile}>
-                      <MetricTile
-                        label={t('ACTIVITIES')}
-                        value={activityData.summary.total}
-                        iconName="clipboard-list-outline"
-                        iconColor={colors.slate700}
-                        iconBg={colors.slate100}
-                      />
+                  <View style={{ marginBottom: spacing.md }}>
+                    <View style={styles.metricsGrid}>
+                      <View style={styles.summaryTile}>
+                        <MetricTile
+                          label={t('ACTIVITIES')}
+                          value={activityData.summary.total}
+                          iconName="clipboard-list-outline"
+                          iconColor={colors.slate700}
+                          iconBg={colors.slate100}
+                        />
+                      </View>
+                      <View style={styles.summaryTile}>
+                        <MetricTile
+                          label={t('COMPLETED')}
+                          value={activityData.summary.completed}
+                          iconName="check-circle"
+                          iconColor={colors.successText}
+                          iconBg={colors.successSurface}
+                        />
+                      </View>
+                      <View style={styles.summaryTile}>
+                        <MetricTile
+                          label={t('PENDING')}
+                          value={activityData.summary.open}
+                          iconName="clock-outline"
+                          iconColor={colors.warningText}
+                          iconBg={colors.warningSurface}
+                        />
+                      </View>
                     </View>
-                    <View style={styles.summaryTile}>
-                      <MetricTile
-                        label={t('COMPLETED')}
-                        value={activityData.summary.completed}
-                        iconName="check-circle"
-                        iconColor={colors.successText}
-                        iconBg={colors.successSurface}
-                      />
-                    </View>
-                    <View style={styles.summaryTile}>
-                      <MetricTile
-                        label={t('PENDING')}
-                        value={activityData.summary.open}
-                        iconName="clock-outline"
-                        iconColor={colors.warningText}
-                        iconBg={colors.warningSurface}
-                      />
-                    </View>
+                    {renderExportToolbar()}
                   </View>
                 ) : null
               }
@@ -1035,34 +1147,37 @@ export default function ReportsScreen() {
               contentContainerStyle={styles.reportListContent}
               ListHeaderComponent={
                 expenseData ? (
-                  <View style={styles.metricsGrid}>
-                    <View style={styles.summaryTile}>
-                      <MetricTile
-                        label={t('TOTAL SPEND')}
-                        value={formatCurrency(expenseData.summary.total_spend)}
-                        iconName="cash-multiple"
-                        iconColor={colors.dangerText}
-                        iconBg={colors.dangerSurface}
-                      />
+                  <View style={{ marginBottom: spacing.md }}>
+                    <View style={styles.metricsGrid}>
+                      <View style={styles.summaryTile}>
+                        <MetricTile
+                          label={t('TOTAL SPEND')}
+                          value={formatCurrency(expenseData.summary.total_spend)}
+                          iconName="cash-multiple"
+                          iconColor={colors.dangerText}
+                          iconBg={colors.dangerSurface}
+                        />
+                      </View>
+                      <View style={styles.summaryTile}>
+                        <MetricTile
+                          label={t('ENTRIES')}
+                          value={expenseData.summary.entries_count}
+                          iconName="receipt"
+                          iconColor={colors.slate700}
+                          iconBg={colors.slate100}
+                        />
+                      </View>
+                      <View style={styles.summaryTile}>
+                        <MetricTile
+                          label={t('CLEARED')}
+                          value={formatCurrency(expenseData.summary.completed_amount)}
+                          iconName="check-decagram"
+                          iconColor={colors.successText}
+                          iconBg={colors.successSurface}
+                        />
+                      </View>
                     </View>
-                    <View style={styles.summaryTile}>
-                      <MetricTile
-                        label={t('ENTRIES')}
-                        value={expenseData.summary.entries_count}
-                        iconName="receipt"
-                        iconColor={colors.slate700}
-                        iconBg={colors.slate100}
-                      />
-                    </View>
-                    <View style={styles.summaryTile}>
-                      <MetricTile
-                        label={t('CLEARED')}
-                        value={formatCurrency(expenseData.summary.completed_amount)}
-                        iconName="check-decagram"
-                        iconColor={colors.successText}
-                        iconBg={colors.successSurface}
-                      />
-                    </View>
+                    {renderExportToolbar()}
                   </View>
                 ) : null
               }
@@ -1148,10 +1263,106 @@ export default function ReportsScreen() {
             ? t('Expenses Report')
             : t('Reports')}
         </Text>
-        <View style={styles.headerSpacer} />
+        {activeReport ? (
+          <TouchableOpacity
+            style={styles.exportHeaderBtn}
+            onPress={() => setShowExportModal(true)}
+            disabled={exportLoading}
+            accessibilityLabel="Export options"
+          >
+            {exportLoading ? (
+              <ActivityIndicator size="small" color="#166534" />
+            ) : (
+              <Ionicons name="share-outline" size={20} color="#166534" />
+            )}
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
       </View>
 
       {renderContent()}
+
+      {/* Export Options Bottom Modal */}
+      <Modal
+        visible={showExportModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowExportModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowExportModal(false)}
+        >
+          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+            <View style={styles.modalDragIndicator} />
+            <Text style={styles.modalTitle}>{t('Export & Share Report')}</Text>
+            <Text style={styles.modalSubtitle}>
+              {t('Download reports or share directly to WhatsApp and other apps.')}
+            </Text>
+
+            <TouchableOpacity
+              style={styles.exportModalOption}
+              onPress={() => handleExport('pdf')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.modalOptionIcon, { backgroundColor: '#fee2e2' }]}>
+                <Ionicons name="document-text" size={24} color="#dc2626" />
+              </View>
+              <View style={styles.modalOptionInfo}>
+                <Text style={styles.modalOptionTitle}>{t('Export as PDF')}</Text>
+                <Text style={styles.modalOptionDesc}>
+                  {t('Formatted PDF report ready for printing, archiving, or sharing.')}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.exportModalOption}
+              onPress={() => handleExport('xlsx')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.modalOptionIcon, { backgroundColor: '#dcfce7' }]}>
+                <Ionicons name="grid" size={24} color="#15803d" />
+              </View>
+              <View style={styles.modalOptionInfo}>
+                <Text style={styles.modalOptionTitle}>{t('Export as Excel (.xlsx)')}</Text>
+                <Text style={styles.modalOptionDesc}>
+                  {t('Structured spreadsheet data compatible with Excel and Google Sheets.')}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.exportModalOption}
+              onPress={() => handleExport('pdf')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.modalOptionIcon, { backgroundColor: '#dcfce7' }]}>
+                <Ionicons name="logo-whatsapp" size={24} color="#16a34a" />
+              </View>
+              <View style={styles.modalOptionInfo}>
+                <Text style={styles.modalOptionTitle}>{t('Share on WhatsApp')}</Text>
+                <Text style={styles.modalOptionDesc}>
+                  {t('Instantly send PDF report summary to workers, partners, or accountant.')}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalCancelBtn}
+              onPress={() => setShowExportModal(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1458,5 +1669,134 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.slate600,
     flex: 1,
+  },
+  exportHeaderBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: '#dcfce7',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exportToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: spacing.xs,
+  },
+  exportActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: radius.md,
+    gap: 6,
+    borderWidth: 1,
+  },
+  exportPdfBtn: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
+  },
+  exportPdfText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#dc2626',
+  },
+  exportExcelBtn: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#bbf7d0',
+  },
+  exportExcelText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#15803d',
+  },
+  shareWhatsappBtn: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#86efac',
+  },
+  shareWhatsappText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#16a34a',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: spacing.lg,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+  },
+  modalDragIndicator: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#cbd5e1',
+    alignSelf: 'center',
+    marginBottom: spacing.md,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: '#64748b',
+    marginBottom: spacing.lg,
+  },
+  exportModalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    backgroundColor: '#f8fafc',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginBottom: spacing.sm,
+    gap: spacing.md,
+  },
+  modalOptionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalOptionInfo: {
+    flex: 1,
+  },
+  modalOptionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: 2,
+  },
+  modalOptionDesc: {
+    fontSize: 12,
+    color: '#64748b',
+    lineHeight: 16,
+  },
+  modalCancelBtn: {
+    marginTop: spacing.sm,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+  },
+  modalCancelText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#475569',
   },
 });

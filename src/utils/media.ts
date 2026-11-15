@@ -126,7 +126,77 @@ export async function pickImage(): Promise<PickedMediaResult | null> {
 }
 
 /**
- * Upload a local image asset to the server via the multi-tenant upload endpoint.
+ * Safely load expo-document-picker module without crashing on startup.
+ */
+function getDocumentPickerModule(): typeof import('expo-document-picker') | null {
+  try {
+    return require('expo-document-picker');
+  } catch (err) {
+    console.warn("Native module 'expo-document-picker' is not available in the current runtime:", err);
+    return null;
+  }
+}
+
+/**
+ * Open native system document picker to select PDF or document file (up to 15MB).
+ */
+export async function pickDocument(): Promise<PickedMediaResult | null> {
+  const DocumentPicker = getDocumentPickerModule();
+  if (!DocumentPicker) {
+    Alert.alert(
+      'Native Module Required',
+      'The document picker module is not linked in this build. Please rebuild the app natively.'
+    );
+    return null;
+  }
+
+  try {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ['application/pdf', 'image/*'],
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+
+    if (result.canceled || !result.assets || result.assets.length === 0) {
+      return null;
+    }
+
+    const asset = result.assets[0];
+    const maxSizeBytes = 15 * 1024 * 1024; // 15MB limit
+    if (asset.size && asset.size > maxSizeBytes) {
+      Alert.alert('File Too Large', 'Please select a document or image smaller than 15MB.');
+      return null;
+    }
+
+    return {
+      uri: asset.uri,
+      fileName: asset.name || `document_${Date.now()}.pdf`,
+      fileSize: asset.size,
+      mimeType: asset.mimeType || (asset.name?.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'),
+    };
+  } catch (err: any) {
+    console.error('Document picker error:', err);
+    Alert.alert('Document Error', err?.message || 'Failed to select document.');
+    return null;
+  }
+}
+
+/**
+ * Open attached file in in-app browser or native system document viewer.
+ */
+export async function openAttachment(url?: string | null): Promise<void> {
+  if (!url) return;
+  try {
+    const WebBrowser = require('expo-web-browser');
+    await WebBrowser.openBrowserAsync(url);
+  } catch (err: any) {
+    console.error('Failed to open document:', err);
+    Alert.alert('Unable to open attachment', err?.message || 'Could not open the file.');
+  }
+}
+
+/**
+ * Upload a local image or document asset to the server via the multi-tenant upload endpoint.
  */
 export async function uploadMedia(
   uri: string,
@@ -137,7 +207,15 @@ export async function uploadMedia(
   const formData = new FormData();
   const ext = uri.split('.').pop()?.toLowerCase() || 'jpg';
   const name = fileName || `attachment_${Date.now()}.${ext}`;
-  const computedMime = mimeType || (ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg');
+  const computedMime =
+    mimeType ||
+    (ext === 'pdf'
+      ? 'application/pdf'
+      : ext === 'png'
+      ? 'image/png'
+      : ext === 'webp'
+      ? 'image/webp'
+      : 'image/jpeg');
 
   formData.append('file', {
     uri,

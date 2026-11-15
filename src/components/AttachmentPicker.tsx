@@ -9,8 +9,16 @@ import {
   Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { takePhoto, pickImage, uploadMedia, UploadCategory } from '../utils/media';
+import {
+  takePhoto,
+  pickImage,
+  pickDocument,
+  uploadMedia,
+  openAttachment,
+  UploadCategory,
+} from '../utils/media';
 import { extractErrorMessage } from '../api/client';
+import { useTranslation } from '../i18n/I18nContext';
 
 interface AttachmentPickerProps {
   label?: string;
@@ -21,18 +29,29 @@ interface AttachmentPickerProps {
 }
 
 export const AttachmentPicker: React.FC<AttachmentPickerProps> = ({
-  label = 'Bill / Document Attachment',
+  label,
   category,
   currentPath,
   currentUrl,
   onAttachmentChange,
 }) => {
+  const { t } = useTranslation();
   const [uploading, setUploading] = useState(false);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
 
-  const handlePick = async (fromCamera: boolean) => {
+  const displayLabel = label ?? t('Bill / Document Attachment');
+
+  const handlePick = async (mode: 'camera' | 'gallery' | 'document') => {
     try {
-      const result = fromCamera ? await takePhoto() : await pickImage();
+      let result;
+      if (mode === 'camera') {
+        result = await takePhoto();
+      } else if (mode === 'gallery') {
+        result = await pickImage();
+      } else {
+        result = await pickDocument();
+      }
+
       if (!result) return;
 
       setUploading(true);
@@ -42,19 +61,19 @@ export const AttachmentPicker: React.FC<AttachmentPickerProps> = ({
       const uploaded = await uploadMedia(result.uri, category, result.fileName, result.mimeType);
       onAttachmentChange(uploaded.path, uploaded.url);
     } catch (error) {
-      console.error('Failed to attach image:', error);
+      console.error('Failed to attach document/image:', error);
       setLocalPreview(null);
-      Alert.alert('Upload Failed', extractErrorMessage(error, 'Could not upload attachment. Please try again.'));
+      Alert.alert(t('Upload Failed'), extractErrorMessage(error, t('Could not upload attachment. Please try again.')));
     } finally {
       setUploading(false);
     }
   };
 
   const handleRemove = () => {
-    Alert.alert('Remove Attachment', 'Are you sure you want to remove this attached file?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('Remove Attachment'), t('Are you sure you want to remove this attached file?'), [
+      { text: t('Cancel'), style: 'cancel' },
       {
-        text: 'Remove',
+        text: t('Remove'),
         style: 'destructive',
         onPress: () => {
           setLocalPreview(null);
@@ -66,19 +85,27 @@ export const AttachmentPicker: React.FC<AttachmentPickerProps> = ({
 
   const displayUri = localPreview || currentUrl;
   const hasAttachment = Boolean(displayUri || currentPath);
+  const isPdf =
+    displayUri?.toLowerCase().includes('.pdf') ||
+    currentPath?.toLowerCase().includes('.pdf') ||
+    displayUri?.toLowerCase().includes('document');
 
   return (
     <View style={styles.container}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+      {displayLabel ? <Text style={styles.label}>{displayLabel}</Text> : null}
 
       {uploading ? (
         <View style={styles.uploadingBox}>
           <ActivityIndicator size="small" color="#15803d" />
-          <Text style={styles.uploadingText}>Compressing & uploading photo...</Text>
+          <Text style={styles.uploadingText}>{t('Compressing & uploading attachment...')}</Text>
         </View>
       ) : hasAttachment ? (
         <View style={styles.previewCard}>
-          {displayUri ? (
+          {isPdf ? (
+            <View style={styles.pdfIconBox}>
+              <MaterialCommunityIcons name="file-pdf-box" size={32} color="#dc2626" />
+            </View>
+          ) : displayUri ? (
             <Image source={{ uri: displayUri }} style={styles.previewImage} resizeMode="cover" />
           ) : (
             <View style={styles.placeholderIconBox}>
@@ -86,38 +113,74 @@ export const AttachmentPicker: React.FC<AttachmentPickerProps> = ({
             </View>
           )}
 
-          <View style={styles.previewInfo}>
+          <TouchableOpacity
+            style={styles.previewInfo}
+            onPress={() => openAttachment(currentUrl || displayUri)}
+            activeOpacity={0.7}
+          >
             <View style={styles.badgeRow}>
-              <MaterialCommunityIcons name="check-circle" size={14} color="#15803d" />
-              <Text style={styles.badgeText}>Attached</Text>
+              <MaterialCommunityIcons
+                name={isPdf ? 'file-pdf-box' : 'check-circle'}
+                size={14}
+                color={isPdf ? '#dc2626' : '#15803d'}
+              />
+              <Text style={[styles.badgeText, isPdf && { color: '#dc2626' }]}>
+                {isPdf ? 'PDF Document' : t('Attached')}
+              </Text>
             </View>
             <Text style={styles.filenameText} numberOfLines={1}>
-              {currentPath ? currentPath.split('/').pop() : 'Photo attached'}
+              {currentPath ? currentPath.split('/').pop() : isPdf ? 'document.pdf' : 'Photo attached'}
             </Text>
-          </View>
-
-          <TouchableOpacity style={styles.removeButton} onPress={handleRemove} activeOpacity={0.7}>
-            <MaterialCommunityIcons name="trash-can-outline" size={20} color="#ef4444" />
+            <Text style={styles.tapToViewText}>{t('Tap to view')}</Text>
           </TouchableOpacity>
+
+          <View style={styles.cardActions}>
+            <TouchableOpacity
+              style={styles.viewButton}
+              onPress={() => openAttachment(currentUrl || displayUri)}
+              activeOpacity={0.7}
+              accessibilityLabel="View document"
+            >
+              <MaterialCommunityIcons name="eye-outline" size={18} color="#2563eb" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.removeButton}
+              onPress={handleRemove}
+              activeOpacity={0.7}
+              accessibilityLabel="Remove document"
+            >
+              <MaterialCommunityIcons name="trash-can-outline" size={18} color="#ef4444" />
+            </TouchableOpacity>
+          </View>
         </View>
       ) : (
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => handlePick(true)}
+            onPress={() => handlePick('camera')}
             activeOpacity={0.7}
           >
-            <MaterialCommunityIcons name="camera" size={20} color="#15803d" />
-            <Text style={styles.actionButtonText}>Camera</Text>
+            <MaterialCommunityIcons name="camera" size={18} color="#15803d" />
+            <Text style={styles.actionButtonText}>{t('Camera')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => handlePick(false)}
+            onPress={() => handlePick('gallery')}
             activeOpacity={0.7}
           >
-            <MaterialCommunityIcons name="image" size={20} color="#15803d" />
-            <Text style={styles.actionButtonText}>Gallery</Text>
+            <MaterialCommunityIcons name="image" size={18} color="#15803d" />
+            <Text style={styles.actionButtonText}>{t('Photos')}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.documentButton]}
+            onPress={() => handlePick('document')}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="file-document-outline" size={18} color="#2563eb" />
+            <Text style={[styles.actionButtonText, { color: '#2563eb' }]}>{t('PDF / Doc')}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -137,7 +200,7 @@ const styles = StyleSheet.create({
   },
   actionRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
   },
   actionButton: {
     flex: 1,
@@ -148,11 +211,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#bbf7d0',
     borderRadius: 10,
-    paddingVertical: 12,
-    gap: 8,
+    paddingVertical: 10,
+    gap: 6,
+  },
+  documentButton: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#bfdbfe',
   },
   actionButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#15803d',
   },
@@ -179,17 +246,25 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
     borderRadius: 12,
     padding: 10,
-    gap: 12,
+    gap: 10,
   },
   previewImage: {
-    width: 52,
-    height: 52,
+    width: 48,
+    height: 48,
     borderRadius: 8,
     backgroundColor: '#e2e8f0',
   },
+  pdfIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: '#fee2e2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   placeholderIconBox: {
-    width: 52,
-    height: 52,
+    width: 48,
+    height: 48,
     borderRadius: 8,
     backgroundColor: '#dcfce7',
     alignItems: 'center',
@@ -205,17 +280,38 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   badgeText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#15803d',
+    textTransform: 'uppercase',
   },
   filenameText: {
     fontSize: 12,
-    color: '#64748b',
+    fontWeight: '500',
+    color: '#334155',
+  },
+  tapToViewText: {
+    fontSize: 11,
+    color: '#2563eb',
+    marginTop: 2,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  viewButton: {
+    padding: 8,
+    backgroundColor: '#eff6ff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
   },
   removeButton: {
     padding: 8,
     backgroundColor: '#fee2e2',
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#fecaca',
   },
 });

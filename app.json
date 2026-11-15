@@ -54,7 +54,8 @@
           "cameraPermission": "The app accesses your camera to capture receipts and field observations."
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true
