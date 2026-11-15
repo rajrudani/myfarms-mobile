@@ -21,22 +21,24 @@ import { router } from 'expo-router';
 import { mastersApi } from '../src/api/masters';
 import { AgroInputProduct } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
-
-const TYPE_OPTIONS = [
-  { key: 'ALL', label: 'All' },
-  { key: 'FERTILIZER', label: 'Fertilizers' },
-  { key: 'PESTICIDE', label: 'Pesticides' },
-  { key: 'SEED', label: 'Seeds' },
-  { key: 'TOOL', label: 'Tools' },
-  { key: 'OTHER', label: 'Other' },
-];
+import { useTranslation } from '../src/i18n/I18nContext';
 
 export default function AgroInputProductsScreen() {
+  const { t } = useTranslation();
   const [products, setProducts] = useState<AgroInputProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
+
+  const TYPE_OPTIONS = [
+    { key: 'ALL', label: t('All') },
+    { key: 'FERTILIZER', label: t('Fertilizers') },
+    { key: 'PESTICIDE', label: t('Pesticides') },
+    { key: 'SEED', label: t('Seeds') },
+    { key: 'TOOL', label: t('Tools') },
+    { key: 'OTHER', label: t('Other') },
+  ];
 
   // Form Modals
   const [modalVisible, setModalVisible] = useState(false);
@@ -60,12 +62,12 @@ export default function AgroInputProductsScreen() {
       setProducts(data);
     } catch (error) {
       console.error('Error fetching products:', error);
-      Alert.alert('Error', 'Failed to load input products.');
+      Alert.alert(t('Error'), t('Failed to load input products.'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchProducts(true);
@@ -82,7 +84,7 @@ export default function AgroInputProductsScreen() {
       fetchProducts(false);
     } catch (error) {
       console.error('Error toggling status:', error);
-      Alert.alert('Error', 'Failed to update status.');
+      Alert.alert(t('Error'), t('Failed to update status.'));
     }
   };
 
@@ -116,7 +118,7 @@ export default function AgroInputProductsScreen() {
 
   const handleSave = async () => {
     if (!name.trim() || !type) {
-      Alert.alert('Validation Error', 'Product name and type are required.');
+      Alert.alert(t('Validation Error'), t('Product name and type are required.'));
       return;
     }
 
@@ -135,17 +137,17 @@ export default function AgroInputProductsScreen() {
     try {
       if (editingProduct) {
         await mastersApi.updateInputProduct(editingProduct.id, payload);
-        Alert.alert('Success', 'Product updated successfully.');
+        Alert.alert(t('Success'), t('Product updated successfully.'));
       } else {
         await mastersApi.createInputProduct(payload);
-        Alert.alert('Success', 'Product added successfully.');
+        Alert.alert(t('Success'), t('Product added successfully.'));
       }
       setModalVisible(false);
       fetchProducts(false);
     } catch (error: any) {
       console.error('Error saving product:', error);
-      const msg = extractErrorMessage(error, 'Failed to save product.');
-      Alert.alert('Error', msg);
+      const msg = extractErrorMessage(error, t('Failed to save product.'));
+      Alert.alert(t('Error'), msg);
     }
   };
 
@@ -170,8 +172,8 @@ export default function AgroInputProductsScreen() {
             <Ionicons name="arrow-back" size={20} color="#334155" />
           </TouchableOpacity>
           <View style={styles.headerTitleCol}>
-            <Text style={styles.headerTitle}>Agro Inputs</Text>
-            <Text style={styles.headerSubtitle}>Manage farm input masters</Text>
+            <Text style={styles.headerTitle}>{t('Agro Inputs')}</Text>
+            <Text style={styles.headerSubtitle}>{t('Manage farm input masters')}</Text>
           </View>
         </View>
       </View>
@@ -182,7 +184,7 @@ export default function AgroInputProductsScreen() {
           <Ionicons name="search-outline" size={18} color="#94a3b8" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search by name, brand or type..."
+            placeholder={t('Search by name, brand or type...')}
             placeholderTextColor="#94a3b8"
             value={search}
             onChangeText={setSearch}
@@ -227,7 +229,7 @@ export default function AgroInputProductsScreen() {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="cube-outline" size={48} color="#94a3b8" />
-              <Text style={styles.emptyText}>No agro input products found.</Text>
+              <Text style={styles.emptyText}>{t('No agro input products found.')}</Text>
             </View>
           }
           renderItem={({ item }) => (
@@ -236,14 +238,14 @@ export default function AgroInputProductsScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.prodNameText}>{item.name}</Text>
                   {item.brand ? (
-                    <Text style={styles.brandText}>Brand: {item.brand}</Text>
+                    <Text style={styles.brandText}>{t('Brand')}: {item.brand}</Text>
                   ) : null}
                 </View>
                 
                 <View style={[styles.statusPill, item.is_active ? styles.statusPillActive : styles.statusPillInactive]}>
                   <View style={[styles.pillDot, { backgroundColor: item.is_active ? '#14815f' : '#64748b' }]} />
                   <Text style={[styles.statusPillText, { color: item.is_active ? '#14815f' : '#64748b' }]}>
-                    {item.is_active ? 'Active' : 'Inactive'}
+                    {item.is_active ? t('Active') : t('Inactive')}
                   </Text>
                 </View>
               </View>
@@ -255,12 +257,12 @@ export default function AgroInputProductsScreen() {
               {/* Specs Grid */}
               <View style={styles.specsGrid}>
                 <View style={styles.specCell}>
-                  <Text style={styles.specLabel}>CATEGORY</Text>
+                  <Text style={styles.specLabel}>{t('CATEGORY')}</Text>
                   <Text style={styles.specValue}>{item.category || item.type || '-'}</Text>
                 </View>
                 <View style={styles.specDivider} />
                 <View style={styles.specCell}>
-                  <Text style={styles.specLabel}>FORMULATION</Text>
+                  <Text style={styles.specLabel}>{t('FORMULATION')}</Text>
                   <Text style={styles.specValue}>{item.formulation || '-'}</Text>
                 </View>
               </View>
@@ -270,13 +272,13 @@ export default function AgroInputProductsScreen() {
                 <View style={styles.localesRow}>
                   {item.name_gu ? (
                     <View style={styles.localeBlock}>
-                      <Text style={styles.localeLabel}>GUJARATI</Text>
+                      <Text style={styles.localeLabel}>{t('GUJARATI')}</Text>
                       <Text style={styles.localeValue}>{item.name_gu}</Text>
                     </View>
                   ) : null}
                   {item.name_hi ? (
                     <View style={styles.localeBlock}>
-                      <Text style={styles.localeLabel}>HINDI</Text>
+                      <Text style={styles.localeLabel}>{t('HINDI')}</Text>
                       <Text style={styles.localeValue}>{item.name_hi}</Text>
                     </View>
                   ) : null}
@@ -285,7 +287,7 @@ export default function AgroInputProductsScreen() {
 
               <View style={styles.cardFooter}>
                 <View style={styles.statusToggleRow}>
-                  <Text style={styles.statusLabel}>Active</Text>
+                  <Text style={styles.statusLabel}>{t('Active')}</Text>
                   <Switch
                     value={item.is_active}
                     onValueChange={() => handleToggleStatus(item)}
@@ -296,7 +298,7 @@ export default function AgroInputProductsScreen() {
 
                 <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(item)} activeOpacity={0.7}>
                   <Ionicons name="pencil-outline" size={15} color="#475569" />
-                  <Text style={styles.editBtnText}>Edit</Text>
+                  <Text style={styles.editBtnText}>{t('Edit')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -319,29 +321,29 @@ export default function AgroInputProductsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{editingProduct ? 'Edit Product' : 'Add Product'}</Text>
+              <Text style={styles.modalTitle}>{editingProduct ? t('Edit Product') : t('Add Product')}</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <Ionicons name="close-outline" size={24} color="#64748b" />
               </TouchableOpacity>
             </View>
 
             <ScrollView contentContainerStyle={styles.modalScroll}>
-              <Text style={styles.inputLabel}>Product Type*</Text>
+              <Text style={styles.inputLabel}>{t('Product Type')}*</Text>
               <View style={styles.pickerContainer}>
-                {['FERTILIZER', 'PESTICIDE', 'SEED', 'EQUIPMENT', 'OTHER'].map((t) => (
+                {['FERTILIZER', 'PESTICIDE', 'SEED', 'EQUIPMENT', 'OTHER'].map((tVal) => (
                   <TouchableOpacity
-                    key={t}
-                    style={[styles.pickerItem, type === t && styles.pickerItemActive]}
-                    onPress={() => setType(t)}
+                    key={tVal}
+                    style={[styles.pickerItem, type === tVal && styles.pickerItemActive]}
+                    onPress={() => setType(tVal)}
                   >
-                    <Text style={[styles.pickerItemText, type === t && styles.pickerItemTextActive]}>
-                      {t}
+                    <Text style={[styles.pickerItemText, type === tVal && styles.pickerItemTextActive]}>
+                      {tVal}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <Text style={styles.inputLabel}>Product Name*</Text>
+              <Text style={styles.inputLabel}>{t('Product Name')}*</Text>
               <TextInput
                 style={styles.input}
                 placeholder="e.g. Urea"
@@ -349,7 +351,7 @@ export default function AgroInputProductsScreen() {
                 onChangeText={setName}
               />
 
-              <Text style={styles.inputLabel}>Brand / Manufacturer</Text>
+              <Text style={styles.inputLabel}>{t('Brand / Manufacturer')}</Text>
               <TextInput
                 style={styles.input}
                 placeholder="e.g. IFFCO"
@@ -357,7 +359,7 @@ export default function AgroInputProductsScreen() {
                 onChangeText={setBrand}
               />
 
-              <Text style={styles.inputLabel}>Category</Text>
+              <Text style={styles.inputLabel}>{t('Category')}</Text>
               <TextInput
                 style={styles.input}
                 placeholder="e.g. Nitrogenous"
@@ -365,7 +367,7 @@ export default function AgroInputProductsScreen() {
                 onChangeText={setCategory}
               />
 
-              <Text style={styles.inputLabel}>Formulation / Form</Text>
+              <Text style={styles.inputLabel}>{t('Formulation / Form')}</Text>
               <TextInput
                 style={styles.input}
                 placeholder="e.g. Granular, Liquid"
@@ -373,7 +375,7 @@ export default function AgroInputProductsScreen() {
                 onChangeText={setFormulation}
               />
 
-              <Text style={styles.inputLabel}>Notes</Text>
+              <Text style={styles.inputLabel}>{t('Notes')}</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Specifications, instructions, or notes..."
@@ -385,10 +387,10 @@ export default function AgroInputProductsScreen() {
 
               <View style={styles.modalActions}>
                 <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setModalVisible(false)}>
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.modalBtn, styles.saveBtn]} onPress={handleSave}>
-                  <Text style={styles.saveBtnText}>Save</Text>
+                  <Text style={styles.saveBtnText}>{t('Save')}</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>

@@ -24,6 +24,7 @@ import { extractErrorMessage, getBaseUrl } from '../src/api/client';
 import { useAuth } from '../src/hooks/useAuth';
 import { permissions } from '../src/utils/permissions';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
+import { useTranslation } from '../src/i18n/I18nContext';
 
 export const getAbsoluteImageUrl = (urlPath?: string | null) => {
   if (!urlPath) return undefined;
@@ -35,6 +36,7 @@ export const getAbsoluteImageUrl = (urlPath?: string | null) => {
 };
 
 export default function SaleViewScreen() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const params = useLocalSearchParams();
   const saleIdentifier = (params.sale_ulid as string) || (params.sale_id as string);
@@ -62,12 +64,12 @@ export default function SaleViewScreen() {
       setEditNotes(data.notes || '');
     } catch (error) {
       console.error('Error fetching sale:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to load sale details.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to load sale details.')));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [saleIdentifier]);
+  }, [saleIdentifier, t]);
 
   useEffect(() => {
     fetchSale();
@@ -81,11 +83,11 @@ export default function SaleViewScreen() {
   const handleSaveEdit = async () => {
     if (!sale) return;
     if (!editQuantity || isNaN(parseFloat(editQuantity))) {
-      Alert.alert('Validation Error', 'Please enter a valid quantity.');
+      Alert.alert(t('Validation Error'), t('Please enter a valid quantity.'));
       return;
     }
     if (!editRate || isNaN(parseFloat(editRate))) {
-      Alert.alert('Validation Error', 'Please enter a valid rate.');
+      Alert.alert(t('Validation Error'), t('Please enter a valid rate.'));
       return;
     }
 
@@ -100,10 +102,10 @@ export default function SaleViewScreen() {
       });
       setSale(updated);
       setEditModalVisible(false);
-      Alert.alert('Success', 'Sale updated successfully!');
+      Alert.alert(t('Success'), t('Sale updated successfully!'));
     } catch (error) {
       console.error('Error updating sale:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to update sale.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to update sale.')));
     } finally {
       setSaving(false);
     }
@@ -113,22 +115,22 @@ export default function SaleViewScreen() {
     if (!sale) return;
     const identifier = sale.ulid || sale.id!;
     Alert.alert(
-      'Delete Sale Record',
-      'Are you sure you want to delete this sale record? This action cannot be undone.',
+      t('Delete Sale Record'),
+      t('Are you sure you want to delete this sale record? This action cannot be undone.'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('Cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('Delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               setLoading(true);
               await salesApi.deleteSale(identifier);
-              Alert.alert('Deleted', 'Sale record has been deleted.');
+              Alert.alert(t('Deleted'), t('Sale record has been deleted.'));
               router.back();
             } catch (error) {
               console.error('Error deleting sale:', error);
-              Alert.alert('Error', extractErrorMessage(error, 'Failed to delete sale.'));
+              Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to delete sale.')));
               setLoading(false);
             }
           },
@@ -141,7 +143,7 @@ export default function SaleViewScreen() {
     return (
       <View style={styles.centerBox}>
         <ActivityIndicator size="large" color="#16a34a" />
-        <Text style={styles.loadingText}>Loading sale details...</Text>
+        <Text style={styles.loadingText}>{t('Loading sale details...')}</Text>
       </View>
     );
   }
@@ -150,9 +152,9 @@ export default function SaleViewScreen() {
     return (
       <View style={styles.centerBox}>
         <Ionicons name="alert-circle-outline" size={48} color="#94a3b8" />
-        <Text style={styles.notFoundText}>Sale record not found.</Text>
+        <Text style={styles.notFoundText}>{t('Sale record not found.')}</Text>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backBtnText}>Go Back</Text>
+          <Text style={styles.backBtnText}>{t('Go Back')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -166,8 +168,8 @@ export default function SaleViewScreen() {
   const unit = sale.quantity_unit || 'kg';
   const charges = sale.charges || [];
 
-  const farmName = (sale as any).farm?.name || 'Farm';
-  const cropName = (sale as any).crop?.name || 'Produce';
+  const farmName = (sale as any).farm?.name || t('Farm');
+  const cropName = (sale as any).crop?.name || t('Produce');
   const cycleName = (sale as any).crop_cycle?.season_name || (sale as any).crop_cycle?.crop_name || '';
 
   const billUrl = getAbsoluteImageUrl((sale as any).bill_photo_url || sale.bill_photo_path);
@@ -182,19 +184,19 @@ export default function SaleViewScreen() {
           style={styles.iconBtn}
           onPress={() => router.back()}
           activeOpacity={0.7}
-          accessibilityLabel="Back"
+          accessibilityLabel={t('Back')}
         >
           <Ionicons name="arrow-back" size={20} color="#166534" />
         </TouchableOpacity>
 
-        <Text style={styles.topBarTitle}>Sale Details</Text>
+        <Text style={styles.topBarTitle}>{t('Sale Details')}</Text>
 
         {permissions.canManageCommercials(user) ? (
           <TouchableOpacity
             style={styles.iconBtn}
             onPress={() => setEditModalVisible(true)}
             activeOpacity={0.7}
-            accessibilityLabel="Edit Sale"
+            accessibilityLabel={t('Edit Sale')}
           >
             <Ionicons name="create-outline" size={20} color="#166534" />
           </TouchableOpacity>
@@ -218,7 +220,7 @@ export default function SaleViewScreen() {
         {/* 1. Hero Card */}
         <View style={[styles.card, styles.heroCard]}>
           <Text style={styles.heroLabel}>
-            {permissions.canViewFinancials(user) ? 'FINAL SALE VALUE' : 'SALE RECORD'}
+            {permissions.canViewFinancials(user) ? t('FINAL SALE VALUE') : t('SALE RECORD')}
           </Text>
           <Text style={styles.heroAmount}>
             {permissions.canViewFinancials(user) ? `₹${finalAmount.toFixed(2)}` : `${totalQuantity.toFixed(2)} ${unit}`}
@@ -232,7 +234,7 @@ export default function SaleViewScreen() {
 
             <View style={styles.heroChip}>
               <Ionicons name="person-outline" size={13} color="#166534" />
-              <Text style={styles.heroChipText}>{sale.buyer_name || 'Buyer'}</Text>
+              <Text style={styles.heroChipText}>{sale.buyer_name || t('Buyer')}</Text>
             </View>
           </View>
         </View>
@@ -244,7 +246,7 @@ export default function SaleViewScreen() {
               <Ionicons name="location-outline" size={18} color="#166534" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.infoLinkLabel}>FARM</Text>
+              <Text style={styles.infoLinkLabel}>{t('FARM')}</Text>
               <Text style={styles.infoLinkValue}>{farmName}</Text>
             </View>
           </View>
@@ -256,7 +258,7 @@ export default function SaleViewScreen() {
               <Ionicons name="sparkles-outline" size={18} color="#166534" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.infoLinkLabel}>CROP (SEASON)</Text>
+              <Text style={styles.infoLinkLabel}>{t('CROP (SEASON)')}</Text>
               <Text style={styles.infoLinkValue}>
                 {cropName} {cycleName ? `(${cycleName})` : ''}
               </Text>
@@ -268,12 +270,12 @@ export default function SaleViewScreen() {
         <View style={styles.card}>
           <View style={styles.sectionHeader}>
             <Ionicons name="archive-outline" size={18} color="#166534" />
-            <Text style={styles.sectionTitle}>Sale Details</Text>
+            <Text style={styles.sectionTitle}>{t('Sale Details')}</Text>
           </View>
 
           <View style={styles.produceRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.produceTitle}>Total Produce</Text>
+              <Text style={styles.produceTitle}>{t('Total Produce')}</Text>
               <Text style={styles.produceSub}>
                 {totalQuantity.toFixed(2)} {unit}
                 {permissions.canViewFinancials(user) ? ` @ ₹${rate.toFixed(2)}/${unit}` : ''}
@@ -286,17 +288,17 @@ export default function SaleViewScreen() {
 
           <View style={styles.metricsGrid}>
             <View style={styles.metricCell}>
-              <Text style={styles.metricLabel}>QUANTITY</Text>
+              <Text style={styles.metricLabel}>{t('QUANTITY')}</Text>
               <Text style={styles.metricVal}>{totalQuantity.toFixed(2)} {unit}</Text>
             </View>
             {permissions.canViewFinancials(user) && (
               <>
                 <View style={styles.metricCell}>
-                  <Text style={styles.metricLabel}>AVG RATE</Text>
+                  <Text style={styles.metricLabel}>{t('AVG RATE')}</Text>
                   <Text style={styles.metricVal}>₹{rate.toFixed(2)}</Text>
                 </View>
                 <View style={styles.metricCell}>
-                  <Text style={styles.metricLabel}>GROSS AMOUNT</Text>
+                  <Text style={styles.metricLabel}>{t('GROSS AMOUNT')}</Text>
                   <Text style={[styles.metricVal, { color: '#166534' }]}>₹{grossAmount.toFixed(2)}</Text>
                 </View>
               </>
@@ -309,16 +311,16 @@ export default function SaleViewScreen() {
           <View style={styles.card}>
             <View style={styles.sectionHeader}>
               <Ionicons name="ribbon-outline" size={18} color="#059669" />
-              <Text style={[styles.sectionTitle, { color: '#059669' }]}>Quality Grades Breakdown</Text>
+              <Text style={[styles.sectionTitle, { color: '#059669' }]}>{t('Quality Grades Breakdown')}</Text>
             </View>
 
             <View style={styles.deductionList}>
               {sale.grades.map((g, idx) => {
-                const gradeLabel = g.grade_name ? g.grade_name.toUpperCase().replace('_', '+') : `Grade #${idx + 1}`;
+                const gradeLabel = g.grade_name ? g.grade_name.toUpperCase().replace('_', '+') : `#${idx + 1}`;
                 return (
                   <View key={g.id || idx} style={styles.deductionRow}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.deductionName}>Grade {gradeLabel}</Text>
+                      <Text style={styles.deductionName}>{t('Grade')} {gradeLabel}</Text>
                       <Text style={styles.produceSub}>
                         {g.quantity} {unit}
                         {permissions.canViewFinancials(user) ? ` @ ₹${g.rate}/${unit}` : ''}
@@ -341,7 +343,7 @@ export default function SaleViewScreen() {
           <View style={styles.card}>
             <View style={styles.sectionHeader}>
               <Ionicons name="alert-circle-outline" size={18} color="#dc2626" />
-              <Text style={[styles.sectionTitle, { color: '#dc2626' }]}>Deductions</Text>
+              <Text style={[styles.sectionTitle, { color: '#dc2626' }]}>{t('Deductions')}</Text>
             </View>
 
             <View style={styles.deductionList}>
@@ -353,7 +355,7 @@ export default function SaleViewScreen() {
               ))}
 
               <View style={styles.deductionSummaryRow}>
-                <Text style={styles.deductionSummaryLabel}>Total Deductions</Text>
+                <Text style={styles.deductionSummaryLabel}>{t('Total Deductions')}</Text>
                 <Text style={styles.deductionSummaryVal}>- ₹{deductionsTotal.toFixed(2)}</Text>
               </View>
             </View>
@@ -365,23 +367,23 @@ export default function SaleViewScreen() {
           <View style={[styles.card, styles.finalSummaryCard]}>
             <View style={styles.sectionHeader}>
               <Ionicons name="calculator-outline" size={18} color="#14532d" />
-              <Text style={[styles.sectionTitle, { color: '#14532d' }]}>Final Summary</Text>
+              <Text style={[styles.sectionTitle, { color: '#14532d' }]}>{t('Final Summary')}</Text>
             </View>
 
             <View style={styles.finalRow}>
-              <Text style={styles.finalKey}>Total Sale Amount</Text>
+              <Text style={styles.finalKey}>{t('Total Sale Amount')}</Text>
               <Text style={styles.finalVal}>₹{grossAmount.toFixed(2)}</Text>
             </View>
 
             {deductionsTotal > 0 ? (
               <View style={styles.finalRow}>
-                <Text style={[styles.finalKey, { color: '#ef4444' }]}>Total Deductions</Text>
+                <Text style={[styles.finalKey, { color: '#ef4444' }]}>{t('Total Deductions')}</Text>
                 <Text style={[styles.finalVal, { color: '#ef4444' }]}>- ₹{deductionsTotal.toFixed(2)}</Text>
               </View>
             ) : null}
 
             <View style={styles.finalTotalRow}>
-              <Text style={styles.finalTotalKey}>Final Amount</Text>
+              <Text style={styles.finalTotalKey}>{t('Final Amount')}</Text>
               <Text style={styles.finalTotalVal}>₹{finalAmount.toFixed(2)}</Text>
             </View>
           </View>
@@ -402,7 +404,7 @@ export default function SaleViewScreen() {
           <View style={styles.card}>
             <View style={styles.sectionHeader}>
               <Ionicons name="attach-outline" size={18} color="#166534" />
-              <Text style={styles.sectionTitle}>Original Bill / Receipt</Text>
+              <Text style={styles.sectionTitle}>{t('Original Bill / Receipt')}</Text>
             </View>
             <View style={styles.billImageContainer}>
               <Image source={{ uri: billUrl }} style={styles.billImage} resizeMode="cover" />
@@ -420,7 +422,7 @@ export default function SaleViewScreen() {
                 activeOpacity={0.8}
               >
                 <Ionicons name="create-outline" size={18} color="#166534" />
-                <Text style={styles.outlineActionText}>Edit Sale</Text>
+                <Text style={styles.outlineActionText}>{t('Edit Sale')}</Text>
               </TouchableOpacity>
             )}
 
@@ -431,7 +433,7 @@ export default function SaleViewScreen() {
                 activeOpacity={0.8}
               >
                 <Ionicons name="trash-outline" size={18} color="#dc2626" />
-                <Text style={styles.dangerActionText}>Delete Record</Text>
+                <Text style={styles.dangerActionText}>{t('Delete Record')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -443,23 +445,23 @@ export default function SaleViewScreen() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Sale</Text>
+              <Text style={styles.modalTitle}>{t('Edit Sale')}</Text>
               <TouchableOpacity onPress={() => setEditModalVisible(false)}>
                 <Ionicons name="close" size={22} color="#64748b" />
               </TouchableOpacity>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.inputLabel}>Buyer Name</Text>
+              <Text style={styles.inputLabel}>{t('Buyer Name')}</Text>
               <TextInput
                 style={styles.input}
                 value={editBuyerName}
                 onChangeText={setEditBuyerName}
-                placeholder="Buyer Name or APMC Mandi"
+                placeholder={t('Buyer Name or APMC Mandi')}
                 placeholderTextColor="#94a3b8"
               />
 
-              <Text style={styles.inputLabel}>Total Quantity ({unit})</Text>
+              <Text style={styles.inputLabel}>{t('Total Quantity')} ({unit})</Text>
               <TextInput
                 style={styles.input}
                 value={editQuantity}
@@ -469,7 +471,7 @@ export default function SaleViewScreen() {
                 placeholderTextColor="#94a3b8"
               />
 
-              <Text style={styles.inputLabel}>Rate (₹ / {unit})</Text>
+              <Text style={styles.inputLabel}>{t('Rate')} (₹ / {unit})</Text>
               <TextInput
                 style={styles.input}
                 value={editRate}
@@ -479,12 +481,12 @@ export default function SaleViewScreen() {
                 placeholderTextColor="#94a3b8"
               />
 
-              <Text style={styles.inputLabel}>Notes</Text>
+              <Text style={styles.inputLabel}>{t('Notes')}</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 value={editNotes}
                 onChangeText={setEditNotes}
-                placeholder="Remarks, invoice details..."
+                placeholder={t('Remarks, invoice details...')}
                 placeholderTextColor="#94a3b8"
                 multiline
                 numberOfLines={3}
@@ -495,7 +497,7 @@ export default function SaleViewScreen() {
                   style={styles.modalCancelBtn}
                   onPress={() => setEditModalVisible(false)}
                 >
-                  <Text style={styles.modalCancelText}>Cancel</Text>
+                  <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -506,7 +508,7 @@ export default function SaleViewScreen() {
                   {saving ? (
                     <ActivityIndicator size="small" color="#ffffff" />
                   ) : (
-                    <Text style={styles.modalSaveText}>Save Changes</Text>
+                    <Text style={styles.modalSaveText}>{t('Save Changes')}</Text>
                   )}
                 </TouchableOpacity>
               </View>

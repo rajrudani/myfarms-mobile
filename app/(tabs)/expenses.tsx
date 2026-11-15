@@ -25,6 +25,7 @@ import { FarmExpense, Farm, CropCycle } from '../../src/types';
 import { useAuth } from '../../src/hooks/useAuth';
 import { extractErrorMessage } from '../../src/api/client';
 import { permissions } from '../../src/utils/permissions';
+import { useTranslation } from '../../src/i18n/I18nContext';
 import { colors, radius, spacing, shadows } from '../../src/theme/tokens';
 import {
   BentoCard,
@@ -57,6 +58,7 @@ const PAYMENT_METHODS: ChipOption<string>[] = [
 
 export default function ExpensesScreen() {
   const { isAuthenticated, user } = useAuth();
+  const { t } = useTranslation();
   const [expenses, setExpenses] = useState<FarmExpense[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
   const [cycles, setCycles] = useState<CropCycle[]>([]);
@@ -405,7 +407,7 @@ export default function ExpensesScreen() {
               ₹{parseFloat(item.amount as string).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </Text>
             <StatusBadge
-              label={paid ? 'PAID' : 'UNPAID'}
+              label={paid ? (t('Paid') || 'PAID') : (t('Unpaid') || 'UNPAID')}
               variant={paid ? 'success' : 'danger'}
               dot={paid}
             />
@@ -473,8 +475,8 @@ export default function ExpensesScreen() {
       <View style={styles.stickyHeader}>
         <View style={styles.headerTitleRow}>
           <View>
-            <Text style={styles.headerTitle}>Farm Expenses</Text>
-            <Text style={styles.headerSubtitle}>Operational disbursements & inputs</Text>
+            <Text style={styles.headerTitle}>{t('Expenses')}</Text>
+            <Text style={styles.headerSubtitle}>{t('Operational disbursements & inputs') || 'Operational disbursements & inputs'}</Text>
           </View>
           <View style={styles.headerBadge}>
             <Text style={styles.headerBadgeText}>{filteredExpenses.length}</Text>
@@ -484,7 +486,7 @@ export default function ExpensesScreen() {
         <SearchFilterBar
           query={search}
           onChangeQuery={setSearch}
-          placeholder="Search by category, farm, or crop..."
+          placeholder={t('Search by category, farm, or crop...') || 'Search by category, farm, or crop...'}
         />
 
         {/* Status Filter Chips */}
@@ -514,7 +516,7 @@ export default function ExpensesScreen() {
         <View style={styles.summaryBannerWrap}>
           <BentoCard variant="tinted" style={styles.summaryBanner}>
             <View>
-              <Text style={styles.summaryBannerLabel}>TOTAL FILTERED SPEND</Text>
+              <Text style={styles.summaryBannerLabel}>{t('Total Expense') || 'TOTAL FILTERED SPEND'}</Text>
               <Text style={styles.summaryBannerAmount}>
                 ₹{totalExpenseSum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </Text>
@@ -522,7 +524,7 @@ export default function ExpensesScreen() {
             <View style={styles.summaryCountBox}>
               <Ionicons name="receipt-outline" size={16} color={colors.primary} />
               <Text style={styles.summaryCountText}>
-                {filteredExpenses.length} records
+                {filteredExpenses.length} {t('Records') || 'records'}
               </Text>
             </View>
           </BentoCard>

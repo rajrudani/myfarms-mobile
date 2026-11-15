@@ -2,6 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_user';
+const LOCALE_KEY = 'app_locale';
 
 export const storage = {
   async setToken(token: string): Promise<void> {
@@ -32,6 +33,14 @@ export const storage = {
 
   async removeUser(): Promise<void> {
     await SecureStore.deleteItemAsync(USER_KEY);
+  },
+
+  async setLocale(locale: string): Promise<void> {
+    await SecureStore.setItemAsync(LOCALE_KEY, locale);
+  },
+
+  async getLocale(): Promise<string | null> {
+    return await SecureStore.getItemAsync(LOCALE_KEY);
   },
 
   async clearSession(): Promise<void> {

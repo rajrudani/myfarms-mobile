@@ -22,8 +22,10 @@ import { router } from 'expo-router';
 import { mastersApi } from '../src/api/masters';
 import { Buyer } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
+import { useTranslation } from '../src/i18n/I18nContext';
 
 export default function BuyersScreen() {
+  const { t } = useTranslation();
   const [buyers, setBuyers] = useState<Buyer[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -48,12 +50,12 @@ export default function BuyersScreen() {
       setBuyers(data);
     } catch (error) {
       console.error('Error fetching buyers:', error);
-      Alert.alert('Error', 'Failed to load buyers list.');
+      Alert.alert(t('Error'), t('Failed to load buyers list.'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchBuyers(true);
@@ -70,7 +72,7 @@ export default function BuyersScreen() {
       fetchBuyers(false);
     } catch (error) {
       console.error('Error toggling status:', error);
-      Alert.alert('Error', 'Failed to update status.');
+      Alert.alert(t('Error'), t('Failed to update status.'));
     }
   };
 
@@ -98,7 +100,7 @@ export default function BuyersScreen() {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert('Validation Error', 'Buyer name is required.');
+      Alert.alert(t('Validation Error'), t('Buyer name is required.'));
       return;
     }
 
@@ -114,17 +116,17 @@ export default function BuyersScreen() {
     try {
       if (editingBuyer) {
         await mastersApi.updateBuyer(editingBuyer.id, payload);
-        Alert.alert('Success', 'Buyer updated successfully.');
+        Alert.alert(t('Success'), t('Buyer updated successfully.'));
       } else {
         await mastersApi.createBuyer(payload);
-        Alert.alert('Success', 'Buyer added successfully.');
+        Alert.alert(t('Success'), t('Buyer added successfully.'));
       }
       setModalVisible(false);
       fetchBuyers(false);
     } catch (error: any) {
       console.error('Error saving buyer:', error);
-      const msg = extractErrorMessage(error, 'Failed to save buyer.');
-      Alert.alert('Error', msg);
+      const msg = extractErrorMessage(error, t('Failed to save buyer.'));
+      Alert.alert(t('Error'), msg);
     }
   };
 
@@ -147,8 +149,8 @@ export default function BuyersScreen() {
             <Ionicons name="arrow-back" size={20} color="#334155" />
           </TouchableOpacity>
           <View style={styles.headerTitleCol}>
-            <Text style={styles.headerTitle}>Buyers</Text>
-            <Text style={styles.headerSubtitle}>Manage buyers for your farm group.</Text>
+            <Text style={styles.headerTitle}>{t('Buyers')}</Text>
+            <Text style={styles.headerSubtitle}>{t('Manage buyers for your farm group.')}</Text>
           </View>
         </View>
       </View>
@@ -159,7 +161,7 @@ export default function BuyersScreen() {
           <Ionicons name="search-outline" size={18} color="#94a3b8" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search for buyers..."
+            placeholder={t('Search for buyers...')}
             placeholderTextColor="#94a3b8"
             value={search}
             onChangeText={setSearch}
@@ -186,7 +188,7 @@ export default function BuyersScreen() {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="briefcase-outline" size={48} color="#94a3b8" />
-              <Text style={styles.emptyText}>No buyers found.</Text>
+              <Text style={styles.emptyText}>{t('No buyers found.')}</Text>
             </View>
           }
           renderItem={({ item }) => {
@@ -217,7 +219,7 @@ export default function BuyersScreen() {
                   <View style={[styles.statusPill, item.is_active ? styles.statusPillActive : styles.statusPillInactive]}>
                     <View style={[styles.pillDot, { backgroundColor: item.is_active ? '#14815f' : '#64748b' }]} />
                     <Text style={[styles.statusPillText, { color: item.is_active ? '#14815f' : '#64748b' }]}>
-                      {item.is_active ? 'Active' : 'Inactive'}
+                      {item.is_active ? t('Active') : t('Inactive')}
                     </Text>
                   </View>
                 </View>
@@ -229,7 +231,7 @@ export default function BuyersScreen() {
                       <View style={[styles.infoPill, styles.salesPill]}>
                         <Ionicons name="bag-handle-outline" size={12} color="#4338ca" />
                         <Text style={[styles.infoPillText, { color: '#4338ca' }]}>
-                          {salesCount} {salesCount === 1 ? 'Sale' : 'Sales'}
+                          {salesCount} {salesCount === 1 ? t('Sale') : t('Sales')}
                         </Text>
                       </View>
                     ) : null}
@@ -260,7 +262,7 @@ export default function BuyersScreen() {
 
                 <View style={styles.cardFooter}>
                   <View style={styles.statusToggleRow}>
-                    <Text style={styles.statusLabel}>Active</Text>
+                    <Text style={styles.statusLabel}>{t('Active')}</Text>
                     <Switch
                       value={item.is_active}
                       onValueChange={() => handleToggleStatus(item)}
@@ -271,7 +273,7 @@ export default function BuyersScreen() {
 
                   <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(item)} activeOpacity={0.7}>
                     <Ionicons name="pencil-outline" size={15} color="#475569" />
-                    <Text style={styles.editBtnText}>Edit</Text>
+                    <Text style={styles.editBtnText}>{t('Edit')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -295,14 +297,14 @@ export default function BuyersScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{editingBuyer ? 'Edit Buyer' : 'Add Buyer'}</Text>
+              <Text style={styles.modalTitle}>{editingBuyer ? t('Edit Buyer') : t('Add Buyer')}</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <Ionicons name="close-outline" size={24} color="#64748b" />
               </TouchableOpacity>
             </View>
 
             <ScrollView contentContainerStyle={styles.modalScroll}>
-              <Text style={styles.inputLabel}>Buyer Name*</Text>
+              <Text style={styles.inputLabel}>{t('Buyer Name')}*</Text>
               <TextInput
                 style={styles.input}
                 placeholder="e.g. Reliance Retail"
@@ -310,7 +312,7 @@ export default function BuyersScreen() {
                 onChangeText={setName}
               />
 
-              <Text style={styles.inputLabel}>Company Name</Text>
+              <Text style={styles.inputLabel}>{t('Company Name')}</Text>
               <TextInput
                 style={styles.input}
                 placeholder="e.g. Reliance Industries"
@@ -318,7 +320,7 @@ export default function BuyersScreen() {
                 onChangeText={setCompanyName}
               />
 
-              <Text style={styles.inputLabel}>Phone Number</Text>
+              <Text style={styles.inputLabel}>{t('Phone Number')}</Text>
               <TextInput
                 style={styles.input}
                 placeholder="e.g. +91 99887 76655"
@@ -327,7 +329,7 @@ export default function BuyersScreen() {
                 onChangeText={setPhone}
               />
 
-              <Text style={styles.inputLabel}>Address</Text>
+              <Text style={styles.inputLabel}>{t('Address')}</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Buyer address..."
@@ -337,7 +339,7 @@ export default function BuyersScreen() {
                 onChangeText={setAddress}
               />
 
-              <Text style={styles.inputLabel}>Notes</Text>
+              <Text style={styles.inputLabel}>{t('Notes')}</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Specifications, payment terms, or notes..."
@@ -349,10 +351,10 @@ export default function BuyersScreen() {
 
               <View style={styles.modalActions}>
                 <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setModalVisible(false)}>
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.modalBtn, styles.saveBtn]} onPress={handleSave}>
-                  <Text style={styles.saveBtnText}>Save</Text>
+                  <Text style={styles.saveBtnText}>{t('Save')}</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>

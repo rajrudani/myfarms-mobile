@@ -25,8 +25,9 @@ import { extractErrorMessage } from '../src/api/client';
 import { useAuth } from '../src/hooks/useAuth';
 import { permissions } from '../src/utils/permissions';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
-import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar } from '../src/components/ui';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
+import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar } from '../src/components/ui';
+import { useTranslation } from '../src/i18n/I18nContext';
 
 type ActiveTab = 'purchases' | 'payments' | 'info';
 
@@ -50,6 +51,7 @@ const PAYMENT_METHODS = [
 ];
 
 export default function AgroShopScreen() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [shops, setShops] = useState<AgroShop[]>([]);
   const [selectedShopId, setSelectedShopId] = useState<number | string | null>(null);
@@ -375,8 +377,8 @@ export default function AgroShopScreen() {
           <View style={styles.emptyIconCircle}>
             <Ionicons name="storefront-outline" size={36} color={colors.slate400} />
           </View>
-          <Text style={styles.emptyTitle}>No Agro Shop Selected</Text>
-          <Text style={styles.emptySubtitle}>Create or choose a shop to manage ledger & purchases</Text>
+          <Text style={styles.emptyTitle}>{t('No Agro Shop Selected')}</Text>
+          <Text style={styles.emptySubtitle}>{t('Create or choose a shop to manage ledger & purchases')}</Text>
         </View>
       );
     }
@@ -400,7 +402,7 @@ export default function AgroShopScreen() {
               <SearchFilterBar
                 query={searchQuery}
                 onChangeQuery={setSearchQuery}
-                placeholder="Search items, notes or date..."
+                placeholder={t('Search items, notes or date...')}
               />
             </View>
           }
@@ -409,9 +411,9 @@ export default function AgroShopScreen() {
               <View style={styles.emptyIconCircle}>
                 <Ionicons name="cart-outline" size={32} color={colors.slate400} />
               </View>
-              <Text style={styles.emptyTitle}>No Purchases Found</Text>
+              <Text style={styles.emptyTitle}>{t('No Purchases Found')}</Text>
               <Text style={styles.emptySubtitle}>
-                {searchQuery ? 'Try matching another search keyword' : 'Record your first purchase for this shop'}
+                {searchQuery ? t('Try matching another search keyword') : t('Record your first purchase for this shop')}
               </Text>
             </View>
           }
@@ -437,7 +439,7 @@ export default function AgroShopScreen() {
                     <Text style={styles.cardDate}>{dateStr}</Text>
                   </View>
                   <StatusBadge
-                    label={item.status.toUpperCase()}
+                    label={t(item.status.charAt(0).toUpperCase() + item.status.slice(1).toLowerCase()).toUpperCase()}
                     variant={statusVariant}
                     dot={item.status === 'partial'}
                   />
@@ -447,19 +449,19 @@ export default function AgroShopScreen() {
                 {permissions.canViewFinancials(user) && (
                   <View style={styles.cardGrid}>
                     <View style={styles.gridCell}>
-                      <Text style={styles.gridCellLabel}>Total Bill</Text>
+                      <Text style={styles.gridCellLabel}>{t('Total Bill')}</Text>
                       <Text style={styles.gridCellValue}>₹{item.total_amount}</Text>
                     </View>
                     <View style={styles.gridDivider} />
                     <View style={styles.gridCell}>
-                      <Text style={styles.gridCellLabel}>Paid</Text>
+                      <Text style={styles.gridCellLabel}>{t('Paid')}</Text>
                       <Text style={[styles.gridCellValue, { color: colors.primary }]}>
                         ₹{item.paid_amount || 0}
                       </Text>
                     </View>
                     <View style={styles.gridDivider} />
                     <View style={styles.gridCell}>
-                      <Text style={styles.gridCellLabel}>Due</Text>
+                      <Text style={styles.gridCellLabel}>{t('Due')}</Text>
                       <Text
                         style={[
                           styles.gridCellValue,
@@ -476,7 +478,7 @@ export default function AgroShopScreen() {
                 <View style={styles.itemsListContainer}>
                   <View style={styles.itemsSectionHeader}>
                     <Ionicons name="cube-outline" size={14} color={colors.slate600} />
-                    <Text style={styles.itemsListHeader}>Items Purchased</Text>
+                    <Text style={styles.itemsListHeader}>{t('Items Purchased')}</Text>
                   </View>
                   {item.items?.map((pItem) => (
                     <View key={pItem.id} style={styles.itemRow}>
@@ -513,7 +515,7 @@ export default function AgroShopScreen() {
                       activeOpacity={0.7}
                     >
                       <Ionicons name="receipt-outline" size={14} color={colors.primary} />
-                      <Text style={styles.attachmentBadgeText}>View Bill</Text>
+                      <Text style={styles.attachmentBadgeText}>{t('View Bill')}</Text>
                       <Ionicons name="arrow-forward" size={12} color={colors.primary} />
                     </TouchableOpacity>
                   ) : (
@@ -526,7 +528,7 @@ export default function AgroShopScreen() {
                       onPress={() => handleDeletePurchase(item)}
                     >
                       <Ionicons name="trash-outline" size={14} color={colors.danger} />
-                      <Text style={styles.deleteCardBtnText}>Delete</Text>
+                      <Text style={styles.deleteCardBtnText}>{t('Delete')}</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -556,7 +558,7 @@ export default function AgroShopScreen() {
               <SearchFilterBar
                 query={searchQuery}
                 onChangeQuery={setSearchQuery}
-                placeholder="Search payment method, notes..."
+                placeholder={t('Search payment method, notes...')}
               />
             </View>
           }
@@ -565,9 +567,9 @@ export default function AgroShopScreen() {
               <View style={styles.emptyIconCircle}>
                 <Ionicons name="card-outline" size={32} color={colors.slate400} />
               </View>
-              <Text style={styles.emptyTitle}>No Payments Found</Text>
+              <Text style={styles.emptyTitle}>{t('No Payments Found')}</Text>
               <Text style={styles.emptySubtitle}>
-                {searchQuery ? 'Try matching another search keyword' : 'Record payments to settle shop dues'}
+                {searchQuery ? t('Try matching another search keyword') : t('Record payments to settle shop dues')}
               </Text>
             </View>
           }
@@ -613,7 +615,7 @@ export default function AgroShopScreen() {
                       onPress={() => handleDeletePayment(item)}
                     >
                       <Ionicons name="trash-outline" size={14} color={colors.danger} />
-                      <Text style={styles.deleteCardBtnText}>Delete</Text>
+                      <Text style={styles.deleteCardBtnText}>{t('Delete')}</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -642,12 +644,12 @@ export default function AgroShopScreen() {
             <View style={{ flex: 1 }}>
               <View style={styles.profileKickerRow}>
                 <Ionicons name="storefront-outline" size={14} color={colors.primary} />
-                <Text style={styles.profileKicker}>AGRO SHOP PROFILE</Text>
+                <Text style={styles.profileKicker}>{t('AGRO SHOP PROFILE')}</Text>
               </View>
               <Text style={styles.profileName}>{selectedShop.name}</Text>
             </View>
             <StatusBadge
-              label={selectedShop.is_active ? 'ACTIVE' : 'INACTIVE'}
+              label={selectedShop.is_active ? t('ACTIVE') : t('INACTIVE')}
               variant={selectedShop.is_active ? 'success' : 'neutral'}
             />
           </View>
@@ -656,7 +658,7 @@ export default function AgroShopScreen() {
             <View style={styles.profileRow}>
               <View style={styles.profileKeyCol}>
                 <Ionicons name="person-outline" size={14} color={colors.slate500} />
-                <Text style={styles.profileKey}>Contact</Text>
+                <Text style={styles.profileKey}>{t('Contact')}</Text>
               </View>
               <Text style={styles.profileValue}>{selectedShop.contact_name || '-'}</Text>
             </View>
@@ -664,7 +666,7 @@ export default function AgroShopScreen() {
             <View style={styles.profileRow}>
               <View style={styles.profileKeyCol}>
                 <Ionicons name="call-outline" size={14} color={colors.slate500} />
-                <Text style={styles.profileKey}>Phone</Text>
+                <Text style={styles.profileKey}>{t('Phone')}</Text>
               </View>
               <Text style={styles.profileValue}>{selectedShop.phone || '-'}</Text>
             </View>
@@ -672,7 +674,7 @@ export default function AgroShopScreen() {
             <View style={styles.profileRow}>
               <View style={styles.profileKeyCol}>
                 <Ionicons name="location-outline" size={14} color={colors.slate500} />
-                <Text style={styles.profileKey}>Address</Text>
+                <Text style={styles.profileKey}>{t('Address')}</Text>
               </View>
               <Text style={styles.profileValue}>{selectedShop.address || '-'}</Text>
             </View>
@@ -680,7 +682,7 @@ export default function AgroShopScreen() {
             <View style={styles.profileRow}>
               <View style={styles.profileKeyCol}>
                 <Ionicons name="document-text-outline" size={14} color={colors.slate500} />
-                <Text style={styles.profileKey}>Notes</Text>
+                <Text style={styles.profileKey}>{t('Notes')}</Text>
               </View>
               <Text style={styles.profileValue}>{selectedShop.notes || '-'}</Text>
             </View>
@@ -689,8 +691,8 @@ export default function AgroShopScreen() {
           {permissions.canManageCommercials(user) && (
             <View style={styles.profileStatusToggleRow}>
               <View>
-                <Text style={styles.statusToggleLabel}>Active Status</Text>
-                <Text style={styles.statusToggleSubLabel}>Enable or disable this shop for entries</Text>
+                <Text style={styles.statusToggleLabel}>{t('Active Status')}</Text>
+                <Text style={styles.statusToggleSubLabel}>{t('Enable or disable this shop for entries')}</Text>
               </View>
               <Switch
                 value={selectedShop.is_active}
@@ -716,8 +718,8 @@ export default function AgroShopScreen() {
             <Ionicons name="arrow-back" size={20} color={colors.slate700} />
           </TouchableOpacity>
           <View style={styles.headerTitleCol}>
-            <Text style={styles.headerTitle}>Agro Shops & Purchases</Text>
-            <Text style={styles.headerSubtitle}>Track agricultural supplies, itemized bills, and payments</Text>
+            <Text style={styles.headerTitle}>{t('Agro Shops & Purchases')}</Text>
+            <Text style={styles.headerSubtitle}>{t('Track agricultural supplies, itemized bills, and payments')}</Text>
           </View>
         </View>
       </View>
@@ -768,7 +770,7 @@ export default function AgroShopScreen() {
             );
           })}
           {shops.length === 0 && (
-            <Text style={styles.noShopsInfoText}>Please add a shop to begin ledger tracking.</Text>
+            <Text style={styles.noShopsInfoText}>{t('Please add a shop to begin ledger tracking.')}</Text>
           )}
         </ScrollView>
       </View>
@@ -778,7 +780,7 @@ export default function AgroShopScreen() {
         <View style={styles.summaryGrid}>
           <View style={styles.summaryTile}>
             <MetricTile
-              label="PURCHASES"
+              label={t('PURCHASES')}
               value={`₹${summary.total_purchase}`}
               iconName="cart-outline"
               iconColor={colors.slate700}
@@ -787,7 +789,7 @@ export default function AgroShopScreen() {
           </View>
           <View style={styles.summaryTile}>
             <MetricTile
-              label="PAID"
+              label={t('PAID')}
               value={`₹${summary.total_paid}`}
               iconName="check-circle-outline"
               iconColor={colors.successText}
@@ -796,7 +798,7 @@ export default function AgroShopScreen() {
           </View>
           <View style={styles.summaryTile}>
             <MetricTile
-              label="BALANCE DUE"
+              label={t('BALANCE DUE')}
               value={`₹${summary.balance}`}
               iconName="alert-circle-outline"
               iconColor={summary.balance > 0 ? colors.dangerText : colors.slate600}
@@ -812,9 +814,9 @@ export default function AgroShopScreen() {
           <View style={styles.tabRow}>
             {(
               [
-                { key: 'purchases', label: 'Purchases', icon: 'cart-outline', count: purchases.length as number | undefined },
-                ...(permissions.canViewFinancials(user) ? [{ key: 'payments', label: 'Payments', icon: 'card-outline', count: payments.length as number | undefined }] : []),
-                { key: 'info', label: 'Shop Info', icon: 'information-circle-outline', count: undefined as number | undefined },
+                { key: 'purchases', label: t('Purchases'), icon: 'cart-outline', count: purchases.length as number | undefined },
+                ...(permissions.canViewFinancials(user) ? [{ key: 'payments', label: t('Payments'), icon: 'card-outline', count: payments.length as number | undefined }] : []),
+                { key: 'info', label: t('Shop Info'), icon: 'information-circle-outline', count: undefined as number | undefined },
               ]
             ).map((tab) => {
               const active = activeTab === tab.key;

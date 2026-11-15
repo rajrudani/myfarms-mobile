@@ -19,10 +19,12 @@ import { authApi } from '../../src/api/auth';
 import { extractErrorMessage } from '../../src/api/client';
 import { router } from 'expo-router';
 import { BentoCard, StatusBadge } from '../../src/components/ui';
+import { useTranslation } from '../../src/i18n/I18nContext';
 import { colors, spacing, radius, typography, shadows } from '../../src/theme/tokens';
 
 export default function MoreScreen() {
   const { user, logout, updateUser } = useAuth();
+  const { t, locale, setLocale, locales } = useTranslation();
 
   // Profile Edit Modal State
   const [profileModalVisible, setProfileModalVisible] = useState(false);
@@ -148,7 +150,7 @@ export default function MoreScreen() {
         </BentoCard>
 
         {/* Masters Section (matching PWA) */}
-        <Text style={styles.sectionHeader}>MASTERS</Text>
+        <Text style={styles.sectionHeader}>{t('MASTERS') || 'MASTERS'}</Text>
         <BentoCard variant="elevated" style={styles.stackCard}>
           <TouchableOpacity
             style={styles.stackItem}
@@ -158,7 +160,7 @@ export default function MoreScreen() {
             <View style={[styles.stackIcon, { backgroundColor: colors.primarySurface }]}>
               <Ionicons name="grid-outline" size={17} color={colors.primary} />
             </View>
-            <Text style={styles.stackText}>Crops</Text>
+            <Text style={styles.stackText}>{t('Crops')}</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
           </TouchableOpacity>
 
@@ -170,7 +172,7 @@ export default function MoreScreen() {
             <View style={[styles.stackIcon, { backgroundColor: colors.infoSurface }]}>
               <Ionicons name="beaker-outline" size={17} color={colors.infoText} />
             </View>
-            <Text style={styles.stackText}>Agro Input Products</Text>
+            <Text style={styles.stackText}>{t('Agro Input Products')}</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
           </TouchableOpacity>
 
@@ -182,7 +184,7 @@ export default function MoreScreen() {
             <View style={[styles.stackIcon, { backgroundColor: colors.accentSurface }]}>
               <Ionicons name="clipboard-outline" size={17} color={colors.accentDark} />
             </View>
-            <Text style={styles.stackText}>Activities</Text>
+            <Text style={styles.stackText}>{t('Activities')}</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
           </TouchableOpacity>
 
@@ -194,13 +196,13 @@ export default function MoreScreen() {
             <View style={[styles.stackIcon, { backgroundColor: colors.purpleSurface }]}>
               <Ionicons name="business-outline" size={17} color={colors.purpleText} />
             </View>
-            <Text style={styles.stackText}>Buyers</Text>
+            <Text style={styles.stackText}>{t('Buyers')}</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
           </TouchableOpacity>
         </BentoCard>
 
         {/* Operations Section */}
-        <Text style={styles.sectionHeader}>OPERATIONS & TOOLS</Text>
+        <Text style={styles.sectionHeader}>{t('OPERATIONS & TOOLS') || 'OPERATIONS & TOOLS'}</Text>
         <View style={styles.gridContainer}>
           <TouchableOpacity
             style={styles.gridItem}
@@ -210,7 +212,7 @@ export default function MoreScreen() {
             <View style={[styles.gridIcon, { backgroundColor: colors.accentSurface }]}>
               <Ionicons name="cart-outline" size={20} color={colors.accentDark} />
             </View>
-            <Text style={styles.gridText}>Shop</Text>
+            <Text style={styles.gridText}>{t('Shop') || 'Shop'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -221,7 +223,7 @@ export default function MoreScreen() {
             <View style={[styles.gridIcon, { backgroundColor: colors.successSurface }]}>
               <Ionicons name="pricetag-outline" size={20} color={colors.successText} />
             </View>
-            <Text style={styles.gridText}>Sale</Text>
+            <Text style={styles.gridText}>{t('Sale') || 'Sale'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -232,7 +234,7 @@ export default function MoreScreen() {
             <View style={[styles.gridIcon, { backgroundColor: colors.infoSurface }]}>
               <Ionicons name="briefcase-outline" size={20} color={colors.infoText} />
             </View>
-            <Text style={styles.gridText}>Consultant</Text>
+            <Text style={styles.gridText}>{t('Consultant') || 'Consultant'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -243,7 +245,7 @@ export default function MoreScreen() {
             <View style={[styles.gridIcon, { backgroundColor: colors.purpleSurface }]}>
               <Ionicons name="bar-chart-outline" size={20} color={colors.purpleText} />
             </View>
-            <Text style={styles.gridText}>Reports</Text>
+            <Text style={styles.gridText}>{t('Reports') || 'Reports'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -254,23 +256,60 @@ export default function MoreScreen() {
             <View style={[styles.gridIcon, { backgroundColor: '#fdf2f8' }]}>
               <Ionicons name="trending-up-outline" size={20} color="#db2777" />
             </View>
-            <Text style={styles.gridText}>Mandi Ticker</Text>
+            <Text style={styles.gridText}>{t('Mandi Ticker') || 'Mandi Ticker'}</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Language Selection Section */}
+        <Text style={styles.sectionHeader}>{(t('Language') || 'LANGUAGE').toUpperCase()}</Text>
+        <BentoCard variant="elevated" style={styles.languageCard}>
+          <View style={styles.languageHeader}>
+            <View style={[styles.stackIcon, { backgroundColor: colors.primarySurface }]}>
+              <Ionicons name="language" size={17} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.languageTitle}>{t('Select Language') || 'Select Language'}</Text>
+              <Text style={styles.languageSubtitle}>
+                {locale === 'gu' ? 'ગુજરાતી સક્રિય છે' : locale === 'hi' ? 'हिन्दी सक्रिय है' : 'English is active'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.localeButtonsRow}>
+            {locales.map((loc) => {
+              const isSelected = locale === loc.code;
+              return (
+                <TouchableOpacity
+                  key={loc.code}
+                  style={[styles.localePill, isSelected && styles.localePillActive]}
+                  onPress={() => setLocale(loc.code)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.localePillNative, isSelected && styles.localePillNativeActive]}>
+                    {loc.nativeLabel}
+                  </Text>
+                  <Text style={[styles.localePillLabel, isSelected && styles.localePillLabelActive]}>
+                    {loc.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </BentoCard>
 
         {/* Sign Out Button */}
         <TouchableOpacity
           style={styles.logoutButton}
           onPress={() => {
-            Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Sign Out', style: 'destructive', onPress: logout },
+            Alert.alert(t('Sign Out'), t('Are you sure you want to sign out?') || 'Are you sure you want to sign out?', [
+              { text: t('Cancel') || 'Cancel', style: 'cancel' },
+              { text: t('Sign Out'), style: 'destructive', onPress: logout },
             ]);
           }}
           activeOpacity={0.8}
         >
           <Ionicons name="log-out-outline" size={18} color={colors.danger} style={{ marginRight: 8 }} />
-          <Text style={styles.logoutButtonText}>Sign Out</Text>
+          <Text style={styles.logoutButtonText}>{t('Sign Out')}</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -707,5 +746,63 @@ const styles = StyleSheet.create({
   saveBtnText: {
     ...typography.title3,
     color: colors.white,
+  },
+  languageCard: {
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    marginBottom: spacing.lg,
+  },
+  languageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  languageTitle: {
+    ...typography.title3,
+    fontSize: 15,
+    color: colors.slate900,
+  },
+  languageSubtitle: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.slate500,
+    marginTop: 1,
+  },
+  localeButtonsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  localePill: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.slate200,
+    backgroundColor: colors.slate50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  localePillActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySurface,
+  },
+  localePillNative: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.slate800,
+  },
+  localePillNativeActive: {
+    color: colors.primaryDark,
+  },
+  localePillLabel: {
+    fontSize: 11,
+    color: colors.slate500,
+    marginTop: 2,
+  },
+  localePillLabelActive: {
+    color: colors.primaryDark,
+    fontWeight: '600',
   },
 });

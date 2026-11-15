@@ -27,6 +27,7 @@ import {
 import { extractErrorMessage } from '../src/api/client';
 import { BentoCard, MetricTile, StatusBadge, QuickChipGroup } from '../src/components/ui';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
+import { useTranslation } from '../src/i18n/I18nContext';
 
 type ReportType = 'attendance' | 'payment' | 'activity' | 'expense' | null;
 
@@ -46,6 +47,7 @@ const MONTHS = [
 ];
 
 export default function ReportsScreen() {
+  const { t } = useTranslation();
   const [activeReport, setActiveReport] = useState<ReportType>(null);
   const [filtersData, setFiltersData] = useState<ReportFiltersData | null>(null);
   const [loadingFilters, setLoadingFilters] = useState(true);
@@ -93,13 +95,13 @@ export default function ReportsScreen() {
         setFiltersData(data);
       } catch (error) {
         console.error('Error loading report filters:', error);
-        Alert.alert('Error', extractErrorMessage(error, 'Failed to load filters data.'));
+        Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to load filters data.')));
       } finally {
         setLoadingFilters(false);
       }
     }
     loadFilters();
-  }, []);
+  }, [t]);
 
   // Clear selections when switching reports
   const selectReport = (type: ReportType) => {
@@ -132,7 +134,7 @@ export default function ReportsScreen() {
       setAttendanceData(data);
     } catch (error) {
       console.error(error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to fetch attendance report.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to fetch attendance report.')));
     } finally {
       setReportLoading(false);
     }
@@ -155,7 +157,7 @@ export default function ReportsScreen() {
       setPaymentData(data);
     } catch (error) {
       console.error(error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to fetch payment report.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to fetch payment report.')));
     } finally {
       setReportLoading(false);
     }
@@ -180,7 +182,7 @@ export default function ReportsScreen() {
       setActivityData(data);
     } catch (error) {
       console.error(error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to fetch activity report.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to fetch activity report.')));
     } finally {
       setReportLoading(false);
     }
@@ -205,7 +207,7 @@ export default function ReportsScreen() {
       setExpenseData(data);
     } catch (error) {
       console.error(error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to fetch expense report.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to fetch expense report.')));
     } finally {
       setReportLoading(false);
     }
@@ -261,7 +263,7 @@ export default function ReportsScreen() {
       return (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading analytics filters...</Text>
+          <Text style={styles.loadingText}>{t('Loading analytics filters...')}</Text>
         </View>
       );
     }
@@ -272,7 +274,7 @@ export default function ReportsScreen() {
         <ScrollView contentContainerStyle={styles.menuContainer} showsVerticalScrollIndicator={false}>
           {/* Staff Reports */}
           <View style={styles.reportsSection}>
-            <Text style={styles.sectionTitle}>Staff Reports</Text>
+            <Text style={styles.sectionTitle}>{t('Staff Reports')}</Text>
 
             <TouchableOpacity
               style={[styles.reportCard, styles.isAttendance]}
@@ -283,8 +285,8 @@ export default function ReportsScreen() {
                 <Ionicons name="clipboard-outline" size={24} color="#059669" />
               </View>
               <View style={styles.reportContent}>
-                <Text style={styles.reportTitle}>Attendance Report</Text>
-                <Text style={styles.reportDesc}>Track daily staff presence, work hours, and availability.</Text>
+                <Text style={styles.reportTitle}>{t('Attendance Report')}</Text>
+                <Text style={styles.reportDesc}>{t('Track daily staff presence, work hours, and availability.')}</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
             </TouchableOpacity>
@@ -298,8 +300,8 @@ export default function ReportsScreen() {
                 <Ionicons name="card-outline" size={24} color="#2563eb" />
               </View>
               <View style={styles.reportContent}>
-                <Text style={styles.reportTitle}>Payment Report</Text>
-                <Text style={styles.reportDesc}>View staff salary disbursements, advances, and settlements.</Text>
+                <Text style={styles.reportTitle}>{t('Payment Report')}</Text>
+                <Text style={styles.reportDesc}>{t('View staff salary disbursements, advances, and settlements.')}</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
             </TouchableOpacity>
@@ -309,7 +311,7 @@ export default function ReportsScreen() {
 
           {/* Farm Reports */}
           <View style={styles.reportsSection}>
-            <Text style={styles.sectionTitle}>Farm Reports</Text>
+            <Text style={styles.sectionTitle}>{t('Farm Reports')}</Text>
 
             <TouchableOpacity
               style={[styles.reportCard, styles.isActivity]}
@@ -320,8 +322,8 @@ export default function ReportsScreen() {
                 <Ionicons name="clipboard-outline" size={24} color="#ea580c" />
               </View>
               <View style={styles.reportContent}>
-                <Text style={styles.reportTitle}>Activities Report</Text>
-                <Text style={styles.reportDesc}>Review farm work logs by farm, cycle, and date range.</Text>
+                <Text style={styles.reportTitle}>{t('Activities Report')}</Text>
+                <Text style={styles.reportDesc}>{t('Review farm work logs by farm, cycle, and date range.')}</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
             </TouchableOpacity>
@@ -335,8 +337,8 @@ export default function ReportsScreen() {
                 <Ionicons name="cash-outline" size={24} color="#dc2626" />
               </View>
               <View style={styles.reportContent}>
-                <Text style={styles.reportTitle}>Expenses Report</Text>
-                <Text style={styles.reportDesc}>Track expense entries and spending by farm, cycle, and date range.</Text>
+                <Text style={styles.reportTitle}>{t('Expenses Report')}</Text>
+                <Text style={styles.reportDesc}>{t('Track expense entries and spending by farm, cycle, and date range.')}</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
             </TouchableOpacity>
@@ -344,9 +346,9 @@ export default function ReportsScreen() {
 
           {/* Coming Soon Card */}
           <View style={styles.soonCard}>
-            <Text style={styles.soonTitle}>More Reports Coming Soon</Text>
+            <Text style={styles.soonTitle}>{t('More Reports Coming Soon')}</Text>
             <Text style={styles.soonCopy}>
-              We are adding more useful reports soon to help you track your farm operations better.
+              {t('We are adding more useful reports soon to help you track your farm operations better.')}
             </Text>
           </View>
         </ScrollView>
@@ -358,16 +360,16 @@ export default function ReportsScreen() {
     // ----------------------------------------------------
     if (activeReport === 'attendance') {
       const farmOptions = [
-        { label: 'All Farms', value: '' },
+        { label: t('All Farms'), value: '' },
         ...(filtersData?.farms.map((f) => ({ label: f.name, value: f.id.toString() })) || []),
       ];
 
       const workerOptions = [
-        { label: 'All Staff', value: '' },
+        { label: t('All Staff'), value: '' },
         ...(filtersData?.workers.map((w) => ({ label: w.name, value: w.ulid })) || []),
       ];
 
-      const monthOptions = MONTHS.map((m) => ({ label: m.label, value: m.value }));
+      const monthOptions = MONTHS.map((m) => ({ label: t(m.label), value: m.value }));
       const yearOptions = years.map((y) => ({ label: y.toString(), value: y }));
 
       return (
@@ -375,7 +377,7 @@ export default function ReportsScreen() {
           {/* Quick Filter Dock */}
           <View style={styles.filterDock}>
             <View style={styles.filterRow}>
-              <Text style={styles.filterSectionLabel}>Farm:</Text>
+              <Text style={styles.filterSectionLabel}>{t('Farm')}:</Text>
               <QuickChipGroup
                 options={farmOptions}
                 selectedValue={selectedFarm}
@@ -389,7 +391,7 @@ export default function ReportsScreen() {
             </View>
 
             <View style={styles.filterRow}>
-              <Text style={styles.filterSectionLabel}>Staff:</Text>
+              <Text style={styles.filterSectionLabel}>{t('Staff')}:</Text>
               <QuickChipGroup
                 options={workerOptions}
                 selectedValue={selectedWorker}
@@ -403,7 +405,7 @@ export default function ReportsScreen() {
             </View>
 
             <View style={styles.filterRow}>
-              <Text style={styles.filterSectionLabel}>Month & Year:</Text>
+              <Text style={styles.filterSectionLabel}>{t('Month & Year')}:</Text>
               <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
                 <QuickChipGroup
                   options={monthOptions}
@@ -433,16 +435,16 @@ export default function ReportsScreen() {
           {reportLoading ? (
             <View style={styles.centered}>
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.loadingText}>Generating attendance report...</Text>
+              <Text style={styles.loadingText}>{t('Generating attendance report...')}</Text>
             </View>
           ) : !selectedFarm && !selectedWorker ? (
             <View style={styles.emptyView}>
               <View style={styles.emptyIconCircle}>
                 <Ionicons name="clipboard-outline" size={36} color={colors.slate400} />
               </View>
-              <Text style={styles.emptyTitle}>Select a Farm or Staff</Text>
+              <Text style={styles.emptyTitle}>{t('Select a Farm or Staff')}</Text>
               <Text style={styles.emptySubtitle}>
-                Choose a farm or worker from the filters above to generate the attendance summary.
+                {t('Choose a farm or worker from the filters above to generate the attendance summary.')}
               </Text>
             </View>
           ) : (
@@ -455,7 +457,7 @@ export default function ReportsScreen() {
                   <View style={styles.metricsGrid}>
                     <View style={styles.summaryTile}>
                       <MetricTile
-                        label="PRESENT"
+                        label={t('PRESENT')}
                         value={attendanceData.summary.present}
                         iconName="check-circle"
                         iconColor={colors.successText}
@@ -464,7 +466,7 @@ export default function ReportsScreen() {
                     </View>
                     <View style={styles.summaryTile}>
                       <MetricTile
-                        label="HALF DAYS"
+                        label={t('HALF DAYS')}
                         value={attendanceData.summary.half_day}
                         iconName="circle-half-full"
                         iconColor={colors.warningText}
@@ -473,7 +475,7 @@ export default function ReportsScreen() {
                     </View>
                     <View style={styles.summaryTile}>
                       <MetricTile
-                        label="TOTAL"
+                        label={t('TOTAL')}
                         value={attendanceData.summary.total_attendance}
                         iconName="calendar-check"
                         iconColor={colors.infoText}
@@ -485,7 +487,7 @@ export default function ReportsScreen() {
               }
               ListEmptyComponent={
                 <View style={styles.emptyView}>
-                  <Text style={styles.emptySubtitle}>No muster records found for this period.</Text>
+                  <Text style={styles.emptySubtitle}>{t('No muster records found for this period.')}</Text>
                 </View>
               }
               renderItem={({ item }) => {
@@ -495,6 +497,13 @@ export default function ReportsScreen() {
                     : item.status === 'HALF_DAY'
                     ? 'warning'
                     : 'danger';
+
+                const statusLabel =
+                  item.status === 'PRESENT'
+                    ? t('PRESENT')
+                    : item.status === 'HALF_DAY'
+                    ? t('HALF DAYS')
+                    : t('ABSENT');
 
                 return (
                   <BentoCard variant="elevated" style={styles.rowCard}>
@@ -509,7 +518,7 @@ export default function ReportsScreen() {
                           })}
                         </Text>
                       </View>
-                      <StatusBadge label={item.status} variant={statusVariant} dot />
+                      <StatusBadge label={statusLabel} variant={statusVariant} dot />
                     </View>
 
                     <Text style={styles.rowTitle}>{item.staff_name}</Text>
@@ -544,7 +553,7 @@ export default function ReportsScreen() {
         <View style={styles.reportContainer}>
           <View style={styles.filterDock}>
             <View style={styles.filterRow}>
-              <Text style={styles.filterSectionLabel}>Staff Member *:</Text>
+              <Text style={styles.filterSectionLabel}>{t('Staff')} *:</Text>
               <QuickChipGroup
                 options={workerOptions}
                 selectedValue={selectedWorker}
@@ -559,32 +568,32 @@ export default function ReportsScreen() {
 
             {/* Date range presets */}
             <View style={styles.filterRow}>
-              <Text style={styles.filterSectionLabel}>Window Presets:</Text>
+              <Text style={styles.filterSectionLabel}>{t('Window Presets:')}</Text>
               <View style={styles.datePresetsRow}>
                 <TouchableOpacity
                   style={styles.presetChip}
                   onPress={() => applyDatePreset('month')}
                 >
-                  <Text style={styles.presetChipText}>This Month</Text>
+                  <Text style={styles.presetChipText}>{t('This Month')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.presetChip}
                   onPress={() => applyDatePreset('30days')}
                 >
-                  <Text style={styles.presetChipText}>Last 30 Days</Text>
+                  <Text style={styles.presetChipText}>{t('Last 30 Days')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.presetChip}
                   onPress={() => applyDatePreset('quarter')}
                 >
-                  <Text style={styles.presetChipText}>Quarter</Text>
+                  <Text style={styles.presetChipText}>{t('Quarter')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
             <View style={styles.customDateRow}>
               <View style={{ flex: 1, marginRight: spacing.xs }}>
-                <Text style={styles.dateFieldLabel}>From Date</Text>
+                <Text style={styles.dateFieldLabel}>{t('From Date')}</Text>
                 <TextInput
                   style={styles.dateInput}
                   value={fromDate}
@@ -597,7 +606,7 @@ export default function ReportsScreen() {
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.dateFieldLabel}>To Date</Text>
+                <Text style={styles.dateFieldLabel}>{t('To Date')}</Text>
                 <TextInput
                   style={styles.dateInput}
                   value={toDate}
@@ -615,16 +624,16 @@ export default function ReportsScreen() {
           {reportLoading ? (
             <View style={styles.centered}>
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.loadingText}>Loading payment vouchers...</Text>
+              <Text style={styles.loadingText}>{t('Loading payment vouchers...')}</Text>
             </View>
           ) : !selectedWorker ? (
             <View style={styles.emptyView}>
               <View style={styles.emptyIconCircle}>
                 <Ionicons name="cash-outline" size={36} color={colors.slate400} />
               </View>
-              <Text style={styles.emptyTitle}>Select a Staff Member</Text>
+              <Text style={styles.emptyTitle}>{t('Select a Staff Member')}</Text>
               <Text style={styles.emptySubtitle}>
-                Choose a staff member above to audit salary advances, payments, and payouts.
+                {t('Choose a staff member above to audit salary advances, payments, and payouts.')}
               </Text>
             </View>
           ) : (
@@ -637,7 +646,7 @@ export default function ReportsScreen() {
                   <View style={styles.metricsGrid}>
                     <View style={{ flex: 1 }}>
                       <MetricTile
-                        label="TOTAL SALARY PAID"
+                        label={t('TOTAL SALARY PAID')}
                         value={formatCurrency(paymentData.summary.total_amount)}
                         iconName="cash-check"
                         iconColor={colors.successText}
@@ -649,7 +658,7 @@ export default function ReportsScreen() {
               }
               ListEmptyComponent={
                 <View style={styles.emptyView}>
-                  <Text style={styles.emptySubtitle}>No payment records found for this period.</Text>
+                  <Text style={styles.emptySubtitle}>{t('No payment records found for this period.')}</Text>
                 </View>
               }
               renderItem={({ item }) => (
@@ -673,7 +682,7 @@ export default function ReportsScreen() {
                       label={item.payment_method?.replace('_', ' ').toUpperCase() || 'CASH'}
                       variant="info"
                     />
-                    <Text style={styles.disbursedText}>Disbursed by: {item.given_by}</Text>
+                    <Text style={styles.disbursedText}>{t('Disbursed by:')} {item.given_by}</Text>
                   </View>
 
                   {item.notes ? (
@@ -698,7 +707,7 @@ export default function ReportsScreen() {
         filtersData?.farms.map((f) => ({ label: f.name, value: f.id.toString() })) || [];
 
       const cycleOptions = [
-        { label: 'All Cycles', value: '' },
+        { label: t('All Cycles'), value: '' },
         ...(filtersData?.crop_cycles
           .filter((c) => c.farm_id.toString() === selectedFarm)
           .map((c) => ({ label: c.label, value: c.id.toString() })) || []),
@@ -708,7 +717,7 @@ export default function ReportsScreen() {
         <View style={styles.reportContainer}>
           <View style={styles.filterDock}>
             <View style={styles.filterRow}>
-              <Text style={styles.filterSectionLabel}>Farm *:</Text>
+              <Text style={styles.filterSectionLabel}>{t('Farm')} *:</Text>
               <QuickChipGroup
                 options={farmOptions}
                 selectedValue={selectedFarm}
@@ -724,7 +733,7 @@ export default function ReportsScreen() {
 
             {selectedFarm ? (
               <View style={styles.filterRow}>
-                <Text style={styles.filterSectionLabel}>Crop Cycle:</Text>
+                <Text style={styles.filterSectionLabel}>{t('Crop Cycle')}:</Text>
                 <QuickChipGroup
                   options={cycleOptions}
                   selectedValue={selectedCycle}
@@ -740,32 +749,32 @@ export default function ReportsScreen() {
 
             {/* Presets */}
             <View style={styles.filterRow}>
-              <Text style={styles.filterSectionLabel}>Window Presets:</Text>
+              <Text style={styles.filterSectionLabel}>{t('Window Presets:')}</Text>
               <View style={styles.datePresetsRow}>
                 <TouchableOpacity
                   style={styles.presetChip}
                   onPress={() => applyDatePreset('month')}
                 >
-                  <Text style={styles.presetChipText}>This Month</Text>
+                  <Text style={styles.presetChipText}>{t('This Month')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.presetChip}
                   onPress={() => applyDatePreset('30days')}
                 >
-                  <Text style={styles.presetChipText}>Last 30 Days</Text>
+                  <Text style={styles.presetChipText}>{t('Last 30 Days')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.presetChip}
                   onPress={() => applyDatePreset('quarter')}
                 >
-                  <Text style={styles.presetChipText}>Quarter</Text>
+                  <Text style={styles.presetChipText}>{t('Quarter')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
             <View style={styles.customDateRow}>
               <View style={{ flex: 1, marginRight: spacing.xs }}>
-                <Text style={styles.dateFieldLabel}>From Date</Text>
+                <Text style={styles.dateFieldLabel}>{t('From Date')}</Text>
                 <TextInput
                   style={styles.dateInput}
                   value={fromDate}
@@ -779,7 +788,7 @@ export default function ReportsScreen() {
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.dateFieldLabel}>To Date</Text>
+                <Text style={styles.dateFieldLabel}>{t('To Date')}</Text>
                 <TextInput
                   style={styles.dateInput}
                   value={toDate}
@@ -798,16 +807,16 @@ export default function ReportsScreen() {
           {reportLoading ? (
             <View style={styles.centered}>
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.loadingText}>Fetching activity timeline...</Text>
+              <Text style={styles.loadingText}>{t('Fetching activity timeline...')}</Text>
             </View>
           ) : !selectedFarm ? (
             <View style={styles.emptyView}>
               <View style={styles.emptyIconCircle}>
                 <Ionicons name="construct-outline" size={36} color={colors.slate400} />
               </View>
-              <Text style={styles.emptyTitle}>Select a Farm</Text>
+              <Text style={styles.emptyTitle}>{t('Select a Farm')}</Text>
               <Text style={styles.emptySubtitle}>
-                Select a farm to audit agricultural tasks, operations, and status.
+                {t('Select a farm to audit agricultural tasks, operations, and status.')}
               </Text>
             </View>
           ) : (
@@ -820,7 +829,7 @@ export default function ReportsScreen() {
                   <View style={styles.metricsGrid}>
                     <View style={styles.summaryTile}>
                       <MetricTile
-                        label="ACTIVITIES"
+                        label={t('ACTIVITIES')}
                         value={activityData.summary.total}
                         iconName="clipboard-list-outline"
                         iconColor={colors.slate700}
@@ -829,7 +838,7 @@ export default function ReportsScreen() {
                     </View>
                     <View style={styles.summaryTile}>
                       <MetricTile
-                        label="COMPLETED"
+                        label={t('COMPLETED')}
                         value={activityData.summary.completed}
                         iconName="check-circle"
                         iconColor={colors.successText}
@@ -838,7 +847,7 @@ export default function ReportsScreen() {
                     </View>
                     <View style={styles.summaryTile}>
                       <MetricTile
-                        label="PENDING"
+                        label={t('PENDING')}
                         value={activityData.summary.open}
                         iconName="clock-outline"
                         iconColor={colors.warningText}
@@ -850,11 +859,12 @@ export default function ReportsScreen() {
               }
               ListEmptyComponent={
                 <View style={styles.emptyView}>
-                  <Text style={styles.emptySubtitle}>No activity logs recorded for this selection.</Text>
+                  <Text style={styles.emptySubtitle}>{t('No activity logs recorded for this selection.')}</Text>
                 </View>
               }
               renderItem={({ item }) => {
                 const isCompleted = item.status === 'COMPLETED';
+                const statusLabel = isCompleted ? t('COMPLETED') : t('PENDING');
                 return (
                   <BentoCard variant="elevated" style={styles.rowCard}>
                     <View style={styles.rowHeader}>
@@ -869,7 +879,7 @@ export default function ReportsScreen() {
                         </Text>
                       </View>
                       <StatusBadge
-                        label={item.status}
+                        label={statusLabel}
                         variant={isCompleted ? 'success' : 'warning'}
                         dot
                       />
@@ -906,7 +916,7 @@ export default function ReportsScreen() {
         filtersData?.farms.map((f) => ({ label: f.name, value: f.id.toString() })) || [];
 
       const cycleOptions = [
-        { label: 'All Cycles', value: '' },
+        { label: t('All Cycles'), value: '' },
         ...(filtersData?.crop_cycles
           .filter((c) => c.farm_id.toString() === selectedFarm)
           .map((c) => ({ label: c.label, value: c.id.toString() })) || []),
@@ -916,7 +926,7 @@ export default function ReportsScreen() {
         <View style={styles.reportContainer}>
           <View style={styles.filterDock}>
             <View style={styles.filterRow}>
-              <Text style={styles.filterSectionLabel}>Farm *:</Text>
+              <Text style={styles.filterSectionLabel}>{t('Farm')} *:</Text>
               <QuickChipGroup
                 options={farmOptions}
                 selectedValue={selectedFarm}
@@ -932,7 +942,7 @@ export default function ReportsScreen() {
 
             {selectedFarm ? (
               <View style={styles.filterRow}>
-                <Text style={styles.filterSectionLabel}>Crop Cycle:</Text>
+                <Text style={styles.filterSectionLabel}>{t('Crop Cycle')}:</Text>
                 <QuickChipGroup
                   options={cycleOptions}
                   selectedValue={selectedCycle}
@@ -948,32 +958,32 @@ export default function ReportsScreen() {
 
             {/* Presets */}
             <View style={styles.filterRow}>
-              <Text style={styles.filterSectionLabel}>Window Presets:</Text>
+              <Text style={styles.filterSectionLabel}>{t('Window Presets:')}</Text>
               <View style={styles.datePresetsRow}>
                 <TouchableOpacity
                   style={styles.presetChip}
                   onPress={() => applyDatePreset('month')}
                 >
-                  <Text style={styles.presetChipText}>This Month</Text>
+                  <Text style={styles.presetChipText}>{t('This Month')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.presetChip}
                   onPress={() => applyDatePreset('30days')}
                 >
-                  <Text style={styles.presetChipText}>Last 30 Days</Text>
+                  <Text style={styles.presetChipText}>{t('Last 30 Days')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.presetChip}
                   onPress={() => applyDatePreset('quarter')}
                 >
-                  <Text style={styles.presetChipText}>Quarter</Text>
+                  <Text style={styles.presetChipText}>{t('Quarter')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
             <View style={styles.customDateRow}>
               <View style={{ flex: 1, marginRight: spacing.xs }}>
-                <Text style={styles.dateFieldLabel}>From Date</Text>
+                <Text style={styles.dateFieldLabel}>{t('From Date')}</Text>
                 <TextInput
                   style={styles.dateInput}
                   value={fromDate}
@@ -987,7 +997,7 @@ export default function ReportsScreen() {
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.dateFieldLabel}>To Date</Text>
+                <Text style={styles.dateFieldLabel}>{t('To Date')}</Text>
                 <TextInput
                   style={styles.dateInput}
                   value={toDate}
@@ -1006,16 +1016,16 @@ export default function ReportsScreen() {
           {reportLoading ? (
             <View style={styles.centered}>
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.loadingText}>Compiling farm financial audit...</Text>
+              <Text style={styles.loadingText}>{t('Compiling farm financial audit...')}</Text>
             </View>
           ) : !selectedFarm ? (
             <View style={styles.emptyView}>
               <View style={styles.emptyIconCircle}>
                 <Ionicons name="receipt-outline" size={36} color={colors.slate400} />
               </View>
-              <Text style={styles.emptyTitle}>Select a Farm</Text>
+              <Text style={styles.emptyTitle}>{t('Select a Farm')}</Text>
               <Text style={styles.emptySubtitle}>
-                Select a farm and date window above to analyze spending and operational expenses.
+                {t('Select a farm and date window above to analyze spending and operational expenses.')}
               </Text>
             </View>
           ) : (
@@ -1028,7 +1038,7 @@ export default function ReportsScreen() {
                   <View style={styles.metricsGrid}>
                     <View style={styles.summaryTile}>
                       <MetricTile
-                        label="TOTAL SPEND"
+                        label={t('TOTAL SPEND')}
                         value={formatCurrency(expenseData.summary.total_spend)}
                         iconName="cash-multiple"
                         iconColor={colors.dangerText}
@@ -1037,7 +1047,7 @@ export default function ReportsScreen() {
                     </View>
                     <View style={styles.summaryTile}>
                       <MetricTile
-                        label="ENTRIES"
+                        label={t('ENTRIES')}
                         value={expenseData.summary.entries_count}
                         iconName="receipt"
                         iconColor={colors.slate700}
@@ -1046,7 +1056,7 @@ export default function ReportsScreen() {
                     </View>
                     <View style={styles.summaryTile}>
                       <MetricTile
-                        label="CLEARED"
+                        label={t('CLEARED')}
                         value={formatCurrency(expenseData.summary.completed_amount)}
                         iconName="check-decagram"
                         iconColor={colors.successText}
@@ -1058,7 +1068,7 @@ export default function ReportsScreen() {
               }
               ListEmptyComponent={
                 <View style={styles.emptyView}>
-                  <Text style={styles.emptySubtitle}>No expense records found for this period.</Text>
+                  <Text style={styles.emptySubtitle}>{t('No expense records found for this period.')}</Text>
                 </View>
               }
               renderItem={({ item }) => {
@@ -1088,7 +1098,7 @@ export default function ReportsScreen() {
                         dot
                       />
                       <Text style={styles.methodLabel}>
-                        Via: {item.payment_method?.replace('_', ' ').toUpperCase() || 'CASH'}
+                        {t('Via:')} {item.payment_method?.replace('_', ' ').toUpperCase() || 'CASH'}
                       </Text>
                     </View>
 
@@ -1128,9 +1138,15 @@ export default function ReportsScreen() {
           <Ionicons name="arrow-back" size={20} color="#475569" />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
-          {activeReport
-            ? `${activeReport.charAt(0).toUpperCase() + activeReport.slice(1)} Report`
-            : 'Reports'}
+          {activeReport === 'attendance'
+            ? t('Attendance Report')
+            : activeReport === 'payment'
+            ? t('Payment Report')
+            : activeReport === 'activity'
+            ? t('Activities Report')
+            : activeReport === 'expense'
+            ? t('Expenses Report')
+            : t('Reports')}
         </Text>
         <View style={styles.headerSpacer} />
       </View>

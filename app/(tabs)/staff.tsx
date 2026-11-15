@@ -27,6 +27,7 @@ import { Farm, StaffMember, StaffPayment, StaffRoleValue } from '../../src/types
 import { useAuth } from '../../src/hooks/useAuth';
 import { extractErrorMessage, getAbsoluteImageUrl } from '../../src/api/client';
 import { permissions } from '../../src/utils/permissions';
+import { useTranslation } from '../../src/i18n/I18nContext';
 import { colors, radius, spacing, shadows } from '../../src/theme/tokens';
 import {
   BentoCard,
@@ -53,6 +54,7 @@ const PAYMENT_METHOD_OPTIONS: ChipOption<'cash' | 'google_pay' | 'phonepe' | 'ot
 
 export default function StaffScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { tab } = useLocalSearchParams<{ tab?: 'staff' | 'attendance' | 'payments' }>();
   const { isAuthenticated, user } = useAuth();
 
@@ -749,8 +751,8 @@ export default function StaffScreen() {
       {/* Header Sticky */}
       <View style={styles.header}>
         <View style={styles.headerTitleWrap}>
-          <Text style={styles.headerTitle}>Manage Staff</Text>
-          <Text style={styles.headerSubtitle}>Manage staff, attendance, and payments with ease.</Text>
+          <Text style={styles.headerTitle}>{t('Manage Staff') || t('Staff')}</Text>
+          <Text style={styles.headerSubtitle}>{t('Manage staff, attendance, and payments with ease.')}</Text>
         </View>
 
         {/* PWA Segmented Tab Bar */}
@@ -761,7 +763,7 @@ export default function StaffScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.segmentedTabText, activeTab === 'staff' && styles.segmentedTabTextActive]}>
-              Staff
+              {t('Staff')}
             </Text>
           </TouchableOpacity>
 
@@ -771,7 +773,7 @@ export default function StaffScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.segmentedTabText, activeTab === 'attendance' && styles.segmentedTabTextActive]}>
-              Attendance
+              {t('Attendance')}
             </Text>
           </TouchableOpacity>
 
@@ -782,7 +784,7 @@ export default function StaffScreen() {
               activeOpacity={0.8}
             >
               <Text style={[styles.segmentedTabText, activeTab === 'payments' && styles.segmentedTabTextActive]}>
-                Payment
+                {t('Payment')}
               </Text>
             </TouchableOpacity>
           )}
@@ -796,7 +798,7 @@ export default function StaffScreen() {
             <SearchFilterBar
               query={searchQuery}
               onChangeQuery={setSearchQuery}
-              placeholder="Search by name, farm and role"
+              placeholder={t('Search by name, farm and role') || 'Search by name, farm and role'}
               hasFilter
               isFilterActive={showFilters}
               onToggleFilter={() => setShowFilters(!showFilters)}

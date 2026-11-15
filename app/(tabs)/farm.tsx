@@ -22,6 +22,7 @@ import { Farm } from '../../src/types';
 import { useAuth } from '../../src/hooks/useAuth';
 import { extractErrorMessage } from '../../src/api/client';
 import { permissions } from '../../src/utils/permissions';
+import { useTranslation } from '../../src/i18n/I18nContext';
 import { colors, radius, spacing, shadows } from '../../src/theme/tokens';
 import {
   StatusBadge,
@@ -38,6 +39,7 @@ const AREA_UNIT_OPTIONS: ChipOption<string>[] = [
 
 export default function FarmsScreen() {
   const { isAuthenticated, user } = useAuth();
+  const { t } = useTranslation();
   const [farms, setFarms] = useState<Farm[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -330,14 +332,14 @@ export default function FarmsScreen() {
         <View style={styles.pill}>
           <Ionicons name="people-outline" size={14} color="#15803d" style={styles.pillIcon} />
           <Text style={styles.pillValue} numberOfLines={1}>
-            {item.assigned_staff_count ?? 0} workers
+            {item.assigned_staff_count ?? 0} {t('Workers') || 'workers'}
           </Text>
         </View>
 
         <View style={styles.pill}>
           <Ionicons name="sparkles-outline" size={14} color="#15803d" style={styles.pillIcon} />
           <Text style={styles.pillValue} numberOfLines={1}>
-            {item.active_cycles_count ?? 0} crops
+            {item.active_cycles_count ?? 0} {t('Active Crops') || 'crops'}
           </Text>
         </View>
       </View>
@@ -350,7 +352,7 @@ export default function FarmsScreen() {
           activeOpacity={0.7}
         >
           <Ionicons name="eye-outline" size={18} color="#1b4332" />
-          <Text style={styles.actionBtnTextView}>View</Text>
+          <Text style={styles.actionBtnTextView}>{t('View')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -359,7 +361,7 @@ export default function FarmsScreen() {
           activeOpacity={0.7}
         >
           <Ionicons name="settings-sharp" size={16} color={colors.white} />
-          <Text style={styles.actionBtnTextManage}>Manage</Text>
+          <Text style={styles.actionBtnTextManage}>{t('Manage')}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -369,7 +371,7 @@ export default function FarmsScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#16a34a" />
-        <Text style={styles.loadingText}>Loading farms...</Text>
+        <Text style={styles.loadingText}>{t('Loading...') || 'Loading farms...'}</Text>
       </View>
     );
   }
@@ -382,8 +384,8 @@ export default function FarmsScreen() {
       <View style={styles.stickyHeader}>
         <View style={styles.headerTitleRow}>
           <View>
-            <Text style={styles.headerTitle}>Farm List</Text>
-            <Text style={styles.headerSubtitle}>Manage farms, activities, and expenses.</Text>
+            <Text style={styles.headerTitle}>{t('Farms')}</Text>
+            <Text style={styles.headerSubtitle}>{t('Manage farms, activities, and expenses.')}</Text>
           </View>
           <View style={styles.headerBadge}>
             <Text style={styles.headerBadgeText}>{filteredFarms.length}</Text>
@@ -398,7 +400,7 @@ export default function FarmsScreen() {
               style={styles.searchInput}
               value={search}
               onChangeText={setSearch}
-              placeholder="Search by name or location"
+              placeholder={t('Search by name or location')}
               placeholderTextColor="#94a3b8"
               autoCorrect={false}
               autoCapitalize="none"

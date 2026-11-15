@@ -22,13 +22,11 @@ import { mastersApi } from '../src/api/masters';
 import { FarmActivityMaster } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
-import {
-  BentoCard,
-  StatusBadge,
-  SearchFilterBar,
-} from '../src/components/ui';
+import { BentoCard, StatusBadge, SearchFilterBar } from '../src/components/ui';
+import { useTranslation } from '../src/i18n/I18nContext';
 
 export default function ActivitiesScreen() {
+  const { t } = useTranslation();
   const [activities, setActivities] = useState<FarmActivityMaster[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -52,12 +50,12 @@ export default function ActivitiesScreen() {
       setActivities(data);
     } catch (error) {
       console.error('Error fetching activities:', error);
-      Alert.alert('Error', 'Failed to load activity templates.');
+      Alert.alert(t('Error'), t('Failed to load activity templates.'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchActivities(true);
@@ -74,7 +72,7 @@ export default function ActivitiesScreen() {
       fetchActivities(false);
     } catch (error) {
       console.error('Error toggling status:', error);
-      Alert.alert('Error', 'Failed to update status.');
+      Alert.alert(t('Error'), t('Failed to update status.'));
     }
   };
 
@@ -100,7 +98,7 @@ export default function ActivitiesScreen() {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert('Validation Error', 'Activity name is required.');
+      Alert.alert(t('Validation Error'), t('Activity name is required.'));
       return;
     }
 
@@ -115,17 +113,17 @@ export default function ActivitiesScreen() {
     try {
       if (editingActivity) {
         await mastersApi.updateActivity(editingActivity.id, payload);
-        Alert.alert('Success', 'Activity template updated successfully.');
+        Alert.alert(t('Success'), t('Activity template updated successfully.'));
       } else {
         await mastersApi.createActivity(payload);
-        Alert.alert('Success', 'Activity template added successfully.');
+        Alert.alert(t('Success'), t('Activity template added successfully.'));
       }
       setModalVisible(false);
       fetchActivities(false);
     } catch (error: any) {
       console.error('Error saving activity:', error);
-      const msg = extractErrorMessage(error, 'Failed to save activity.');
-      Alert.alert('Error', msg);
+      const msg = extractErrorMessage(error, t('Failed to save activity.'));
+      Alert.alert(t('Error'), msg);
     }
   };
 
@@ -149,8 +147,8 @@ export default function ActivitiesScreen() {
             <Ionicons name="arrow-back" size={20} color="#334155" />
           </TouchableOpacity>
           <View style={styles.headerTitleCol}>
-            <Text style={styles.headerTitle}>Activity Master</Text>
-            <Text style={styles.headerSubtitle}>Manage agricultural tasks and operational activities.</Text>
+            <Text style={styles.headerTitle}>{t('Activity Master')}</Text>
+            <Text style={styles.headerSubtitle}>{t('Manage agricultural tasks and operational activities.')}</Text>
           </View>
         </View>
       </View>
@@ -160,7 +158,7 @@ export default function ActivitiesScreen() {
         <SearchFilterBar
           query={search}
           onChangeQuery={setSearch}
-          placeholder="Search activities..."
+          placeholder={t('Search activities...')}
         />
       </View>
 
@@ -168,7 +166,7 @@ export default function ActivitiesScreen() {
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading templates...</Text>
+          <Text style={styles.loadingText}>{t('Loading templates...')}</Text>
         </View>
       ) : (
         <FlatList
@@ -187,8 +185,8 @@ export default function ActivitiesScreen() {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <MaterialCommunityIcons name="clipboard-text-outline" size={40} color={colors.slate400} />
-              <Text style={styles.emptyText}>No activity templates found.</Text>
-              <Text style={styles.emptySubtext}>Tap "+" to add a new activity protocol.</Text>
+              <Text style={styles.emptyText}>{t('No activity templates found.')}</Text>
+              <Text style={styles.emptySubtext}>{t('Tap "+" to add a new activity protocol.')}</Text>
             </View>
           }
           renderItem={({ item }) => (
@@ -215,7 +213,7 @@ export default function ActivitiesScreen() {
                 </View>
 
                 <StatusBadge
-                  label={item.is_active ? 'Active' : 'Inactive'}
+                  label={item.is_active ? t('Active') : t('Inactive')}
                   variant={item.is_active ? 'success' : 'neutral'}
                   dot
                 />
@@ -229,7 +227,7 @@ export default function ActivitiesScreen() {
 
               <View style={styles.cardFooter}>
                 <View style={styles.statusToggleRow}>
-                  <Text style={styles.statusLabel}>Enabled</Text>
+                  <Text style={styles.statusLabel}>{t('Enabled')}</Text>
                   <Switch
                     value={item.is_active}
                     onValueChange={() => handleToggleStatus(item)}
@@ -244,7 +242,7 @@ export default function ActivitiesScreen() {
                   activeOpacity={0.7}
                 >
                   <Ionicons name="pencil-outline" size={15} color={colors.slate700} />
-                  <Text style={styles.editBtnText}>Edit</Text>
+                  <Text style={styles.editBtnText}>{t('Edit')}</Text>
                 </TouchableOpacity>
               </View>
             </BentoCard>
@@ -268,7 +266,7 @@ export default function ActivitiesScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                {editingActivity ? 'Edit Activity Template' : 'Add Activity Template'}
+                {editingActivity ? t('Edit Activity Template') : t('Add Activity Template')}
               </Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <Ionicons name="close" size={22} color={colors.slate600} />
@@ -280,7 +278,7 @@ export default function ActivitiesScreen() {
               showsVerticalScrollIndicator={false}
             >
               <Text style={styles.inputLabel}>
-                Activity Name (English) <Text style={{ color: colors.danger }}>*</Text>
+                {t('Activity Name (English)')} <Text style={{ color: colors.danger }}>*</Text>
               </Text>
               <TextInput
                 style={styles.input}
@@ -290,7 +288,7 @@ export default function ActivitiesScreen() {
                 onChangeText={setName}
               />
 
-              <Text style={styles.inputLabel}>Activity Name (Gujarati)</Text>
+              <Text style={styles.inputLabel}>{t('Activity Name (Gujarati)')}</Text>
               <TextInput
                 style={styles.input}
                 placeholder="e.g. વાવણી"
@@ -299,7 +297,7 @@ export default function ActivitiesScreen() {
                 onChangeText={setNameGu}
               />
 
-              <Text style={styles.inputLabel}>Activity Name (Hindi)</Text>
+              <Text style={styles.inputLabel}>{t('Activity Name (Hindi)')}</Text>
               <TextInput
                 style={styles.input}
                 placeholder="e.g. बुवाई"
@@ -308,7 +306,7 @@ export default function ActivitiesScreen() {
                 onChangeText={setNameHi}
               />
 
-              <Text style={styles.inputLabel}>Notes & Instructions</Text>
+              <Text style={styles.inputLabel}>{t('Notes & Instructions')}</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Standard operating instructions or protocol notes..."
@@ -324,13 +322,13 @@ export default function ActivitiesScreen() {
                   style={[styles.modalBtn, styles.cancelBtn]}
                   onPress={() => setModalVisible(false)}
                 >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.modalBtn, styles.saveBtn]}
                   onPress={handleSave}
                 >
-                  <Text style={styles.saveBtnText}>Save Template</Text>
+                  <Text style={styles.saveBtnText}>{t('Save')}</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>

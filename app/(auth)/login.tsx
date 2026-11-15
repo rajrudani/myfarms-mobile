@@ -18,9 +18,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/hooks/useAuth';
 import { authApi } from '../../src/api/auth';
 import { extractErrorMessage } from '../../src/api/client';
+import { useTranslation } from '../../src/i18n/I18nContext';
 
 export default function LoginScreen() {
   const { login } = useAuth();
+  const { t, locale, setLocale, locales } = useTranslation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -47,7 +49,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!username || !password) {
-      Alert.alert('Validation Error', 'Please fill in all fields.');
+      Alert.alert(t('Validation Error') || 'Validation Error', t('Please fill in all fields.') || 'Please fill in all fields.');
       return;
     }
 
@@ -58,7 +60,7 @@ export default function LoginScreen() {
     } catch (error: any) {
       console.error(error);
       const errorMsg = extractErrorMessage(error, 'The provided credentials are incorrect.');
-      Alert.alert('Login Failed', errorMsg);
+      Alert.alert(t('Login Failed') || 'Login Failed', errorMsg);
     } finally {
       setLoading(false);
     }
@@ -93,13 +95,30 @@ export default function LoginScreen() {
         style={styles.keyboardView}
       >
         <ScrollView contentContainerStyle={styles.scrollContent} bounces={false}>
-          {/* Header */}
+          {/* Header with Logo and Language Selector */}
           <View style={styles.header}>
             <Image
               source={require('../../assets/images/full-logo.png')}
               style={styles.logo}
               resizeMode="contain"
             />
+            <View style={styles.langPillsContainer}>
+              {locales.map((loc) => {
+                const isSelected = locale === loc.code;
+                return (
+                  <TouchableOpacity
+                    key={loc.code}
+                    style={[styles.langPill, isSelected && styles.langPillActive]}
+                    onPress={() => setLocale(loc.code)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.langPillText, isSelected && styles.langPillTextActive]}>
+                      {loc.code === 'gu' ? 'ગુજ' : loc.code === 'hi' ? 'हिन्दी' : 'EN'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
 
           {/* Form Card Body */}
@@ -109,17 +128,17 @@ export default function LoginScreen() {
               <View style={styles.heroIconCircle}>
                 <Ionicons name="lock-closed" size={30} color="#166534" />
               </View>
-              <Text style={styles.title}>Login</Text>
+              <Text style={styles.title}>{t('Login')}</Text>
             </View>
 
             {/* Fields */}
             <View style={styles.field}>
-              <Text style={styles.label}>Username</Text>
+              <Text style={styles.label}>{t('Username')}</Text>
               <View style={styles.inputContainer}>
                 <Ionicons name="person-outline" size={18} color="#91a3b4" />
                 <TextInput
                   style={styles.input}
-                  placeholder="Username"
+                  placeholder={t('Username')}
                   placeholderTextColor="#a1acc0"
                   value={username}
                   onChangeText={setUsername}
@@ -130,7 +149,7 @@ export default function LoginScreen() {
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Password</Text>
+              <Text style={styles.label}>{t('Password')}</Text>
               <View style={styles.inputContainer}>
                 <Ionicons name="key-outline" size={18} color="#91a3b4" />
                 <TextInput
@@ -167,14 +186,14 @@ export default function LoginScreen() {
               {loading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.buttonText}>Log In  →</Text>
+                <Text style={styles.buttonText}>{t('Log In')}  →</Text>
               )}
             </TouchableOpacity>
 
             {/* Divider */}
             <View style={styles.dividerContainer}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
+              <Text style={styles.dividerText}>{t('or') || 'or'}</Text>
               <View style={styles.dividerLine} />
             </View>
 
@@ -188,7 +207,7 @@ export default function LoginScreen() {
                 <View style={styles.supportCardIcon}>
                   <Ionicons name="chatbubble-outline" size={18} color="#15803d" />
                 </View>
-                <Text style={styles.supportCardText}>Get New Account</Text>
+                <Text style={styles.supportCardText}>{t('Get New Account') || 'Get New Account'}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -199,7 +218,7 @@ export default function LoginScreen() {
                 <View style={styles.supportCardIcon}>
                   <Ionicons name="call-outline" size={18} color="#15803d" />
                 </View>
-                <Text style={styles.supportCardText}>Support / Help Desk</Text>
+                <Text style={styles.supportCardText}>{t('Support / Help Desk') || 'Support / Help Desk'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -228,17 +247,41 @@ const styles = StyleSheet.create({
   },
   header: {
     display: 'flex',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 20,
-    paddingHorizontal: 22,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(16, 185, 129, 0.18)',
     backgroundColor: '#f7fbf8',
   },
   logo: {
-    height: 36,
-    width: 180,
+    height: 32,
+    width: 140,
+  },
+  langPillsContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#e2e8f0',
+    borderRadius: 20,
+    padding: 3,
+    gap: 2,
+  },
+  langPill: {
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+  },
+  langPillActive: {
+    backgroundColor: '#16a34a',
+  },
+  langPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  langPillTextActive: {
+    color: '#ffffff',
   },
   body: {
     paddingVertical: 28,

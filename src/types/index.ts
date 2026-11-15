@@ -32,6 +32,7 @@ export interface User {
   farm_group_id?: string | number;
   farm_group_name?: string | null;
   default_landing_page?: 'dashboard' | 'farms' | 'staff' | string | null;
+  preferred_locale?: 'en' | 'gu' | 'hi' | string | null;
   assigned_farm_ids?: number[];
   profile_photo_path?: string | null;
   profile_photo_url?: string | null;

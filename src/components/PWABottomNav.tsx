@@ -11,9 +11,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { usePathname, useSegments, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from '../i18n/I18nContext';
 
 export function PWABottomNav() {
   const { isAuthenticated } = useAuth();
+  const { t } = useTranslation();
   const pathname = usePathname();
   const segments = useSegments();
   const insets = useSafeAreaInsets();
@@ -100,7 +102,7 @@ export function PWABottomNav() {
           color={isFarmActive ? '#1f2937' : '#475569'}
         />
         <Text style={[styles.navLabel, isFarmActive && styles.navLabelActive]}>
-          FARM
+          {t('Farm').toUpperCase()}
         </Text>
         <View style={styles.navDivider} />
       </TouchableOpacity>
@@ -117,7 +119,7 @@ export function PWABottomNav() {
           color={isStaffActive ? '#1f2937' : '#475569'}
         />
         <Text style={[styles.navLabel, isStaffActive && styles.navLabelActive]}>
-          STAFF
+          {t('Staff').toUpperCase()}
         </Text>
         <View style={styles.navDivider} />
       </TouchableOpacity>
@@ -148,7 +150,7 @@ export function PWABottomNav() {
           color={isNotesActive ? '#1f2937' : '#475569'}
         />
         <Text style={[styles.navLabel, isNotesActive && styles.navLabelActive]}>
-          NOTES
+          {t('Notes').toUpperCase()}
         </Text>
         <View style={styles.navDivider} />
       </TouchableOpacity>
@@ -165,7 +167,7 @@ export function PWABottomNav() {
           color={isMoreActive ? '#1f2937' : '#475569'}
         />
         <Text style={[styles.navLabel, isMoreActive && styles.navLabelActive]}>
-          MORE
+          {t('More').toUpperCase()}
         </Text>
       </TouchableOpacity>
     </View>

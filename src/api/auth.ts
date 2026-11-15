@@ -41,6 +41,7 @@ export const authApi = {
     email?: string;
     username?: string;
     default_landing_page?: string | null;
+    preferred_locale?: string | null;
   }): Promise<User> {
     const response = await apiClient.put<{ message: string; user: User }>('/profile', payload);
     return response.data.user;

@@ -30,21 +30,23 @@ import { permissions } from '../src/utils/permissions';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
 import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar } from '../src/components/ui';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
+import { useTranslation } from '../src/i18n/I18nContext';
 
 const COMMON_UNITS = ['BAG', 'KG', 'QUINTAL', 'TON', 'CRATE'];
 
-const GRADE_OPTIONS = [
-  { label: 'Grade A+', value: 'a_plus' },
-  { label: 'Grade A', value: 'a' },
-  { label: 'Grade B+', value: 'b_plus' },
-  { label: 'Grade B', value: 'b' },
-  { label: 'Grade C+', value: 'c_plus' },
-  { label: 'Grade C', value: 'c' },
-  { label: 'Grade D', value: 'd' },
-];
-
 export default function SalesScreen() {
+  const { t } = useTranslation();
   const { user } = useAuth();
+
+  const GRADE_OPTIONS = [
+    { label: t('Grade A+'), value: 'a_plus' },
+    { label: t('Grade A'), value: 'a' },
+    { label: t('Grade B+'), value: 'b_plus' },
+    { label: t('Grade B'), value: 'b' },
+    { label: t('Grade C+'), value: 'c_plus' },
+    { label: t('Grade C'), value: 'c' },
+    { label: t('Grade D'), value: 'd' },
+  ];
   const [sales, setSales] = useState<Sale[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
   const [cropCycles, setCropCycles] = useState<CropCycle[]>([]);
@@ -341,25 +343,25 @@ export default function SalesScreen() {
     try {
       if (editingSale) {
         await salesApi.updateSale(editingSale.id, payload);
-        Alert.alert('Success', 'Sale updated successfully.');
+        Alert.alert(t('Success'), t('Sale updated successfully.'));
       } else {
         await salesApi.createSale(payload);
-        Alert.alert('Success', 'Sale recorded successfully.');
+        Alert.alert(t('Success'), t('Sale recorded successfully.'));
       }
       setSaleModalVisible(false);
       fetchSales(false);
     } catch (error) {
       console.error('Error saving sale:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to save sale.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to save sale.')));
     }
   };
 
   // Delete Sale
   const handleDeleteSale = (sale: Sale) => {
-    Alert.alert('Confirm Delete', 'Are you sure you want to delete this sale record?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('Confirm Delete'), t('Are you sure you want to delete this sale record?'), [
+      { text: t('Cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('Delete'),
         style: 'destructive',
         onPress: async () => {
           try {
@@ -367,7 +369,7 @@ export default function SalesScreen() {
             fetchSales(false);
           } catch (error) {
             console.error('Error deleting sale:', error);
-            Alert.alert('Error', extractErrorMessage(error, 'Failed to delete sale.'));
+            Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to delete sale.')));
           }
         },
       },
@@ -429,7 +431,7 @@ export default function SalesScreen() {
 
   // Farm filter options for QuickChipGroup
   const farmFilterOptions = useMemo(() => {
-    const opts = [{ label: 'All Farms', value: 'all' as string | number }];
+    const opts = [{ label: t('All Farms'), value: 'all' as string | number }];
     accessibleFarms.forEach((f) => {
       opts.push({
         label: f.name,
@@ -437,7 +439,7 @@ export default function SalesScreen() {
       });
     });
     return opts;
-  }, [accessibleFarms]);
+  }, [accessibleFarms, t]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -450,8 +452,8 @@ export default function SalesScreen() {
             <Ionicons name="arrow-back" size={20} color={colors.slate700} />
           </TouchableOpacity>
           <View style={styles.headerTitleCol}>
-            <Text style={styles.headerTitle}>Sales</Text>
-            <Text style={styles.headerSubtitle}>Manage sales and track revenue with ease.</Text>
+            <Text style={styles.headerTitle}>{t('Sales')}</Text>
+            <Text style={styles.headerSubtitle}>{t('Manage sales and track revenue with ease.')}</Text>
           </View>
         </View>
       </View>
@@ -461,7 +463,7 @@ export default function SalesScreen() {
         <SearchFilterBar
           query={search}
           onChangeQuery={setSearch}
-          placeholder="Search sales..."
+          placeholder={t('Search sales...')}
         />
 
         <View style={styles.farmPillWrapper}>
@@ -480,7 +482,7 @@ export default function SalesScreen() {
         <View style={styles.summaryGrid}>
           <View style={styles.summaryTile}>
             <MetricTile
-              label="GROSS SALES"
+              label={t('GROSS SALES')}
               value={`₹${salesSummary.gross.toFixed(0)}`}
               iconName="trending-up"
               iconColor={colors.slate700}
@@ -489,7 +491,7 @@ export default function SalesScreen() {
           </View>
           <View style={styles.summaryTile}>
             <MetricTile
-              label="DEDUCTIONS"
+              label={t('DEDUCTIONS')}
               value={`-₹${salesSummary.deductions.toFixed(0)}`}
               iconName="tag-outline"
               iconColor={colors.dangerText}
@@ -498,7 +500,7 @@ export default function SalesScreen() {
           </View>
           <View style={styles.summaryTile}>
             <MetricTile
-              label="NET REALIZED"
+              label={t('NET REALIZED')}
               value={`₹${salesSummary.net.toFixed(0)}`}
               iconName="cash-multiple"
               iconColor={colors.successText}
@@ -512,7 +514,7 @@ export default function SalesScreen() {
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading sales invoices...</Text>
+          <Text style={styles.loadingText}>{t('Loading sales invoices...')}</Text>
         </View>
       ) : (
         <FlatList
@@ -532,9 +534,9 @@ export default function SalesScreen() {
               <View style={styles.emptyIconCircle}>
                 <Ionicons name="trending-up-outline" size={36} color={colors.slate400} />
               </View>
-              <Text style={styles.emptyTitle}>No Sales Recorded</Text>
+              <Text style={styles.emptyTitle}>{t('No Sales Recorded')}</Text>
               <Text style={styles.emptySubtitle}>
-                {search ? 'No sales match your current search' : 'Tap + button below to log your first harvest sale'}
+                {search ? t('No sales match your current search') : t('Tap + button below to log your first harvest sale')}
               </Text>
             </View>
           }
@@ -573,16 +575,16 @@ export default function SalesScreen() {
                 {/* Badges Row */}
                 <View style={styles.badgesWrapper}>
                   <StatusBadge
-                    label={item.crop?.name || 'Crop'}
+                    label={item.crop?.name || t('Crop')}
                     variant="purple"
                   />
                   <StatusBadge
-                    label={item.farm?.name || 'Farm'}
+                    label={item.farm?.name || t('Farm')}
                     variant="neutral"
                   />
                   {item.has_grades ? (
                     <StatusBadge
-                      label={`Graded (${item.grades?.length || 0})`}
+                      label={`${t('Graded')} (${item.grades?.length || 0})`}
                       variant="warning"
                     />
                   ) : null}
@@ -591,14 +593,14 @@ export default function SalesScreen() {
                 {/* Quantity & Rate Grid */}
                 <View style={styles.detailsGrid}>
                   <View style={styles.gridCell}>
-                    <Text style={styles.gridLabel}>QUANTITY</Text>
+                    <Text style={styles.gridLabel}>{t('QUANTITY')}</Text>
                     <Text style={styles.gridVal}>
                       {item.total_quantity} {item.quantity_unit}
                     </Text>
                   </View>
                   <View style={styles.gridDivider} />
                   <View style={styles.gridCell}>
-                    <Text style={styles.gridLabel}>UNIT RATE</Text>
+                    <Text style={styles.gridLabel}>{t('UNIT RATE')}</Text>
                     <Text style={styles.gridVal}>
                       {permissions.canViewFinancials(user) ? `₹${item.rate} / ${item.quantity_unit}` : '—'}
                     </Text>

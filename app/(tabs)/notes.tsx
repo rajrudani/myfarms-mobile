@@ -24,8 +24,10 @@ import { NoteReminder, NoteReminderStatus } from '../../src/types';
 import { extractErrorMessage } from '../../src/api/client';
 import { AttachmentPicker } from '../../src/components/AttachmentPicker';
 import { colors, radius, spacing, typography } from '../../src/theme/tokens';
+import { useTranslation } from '../../src/i18n/I18nContext';
 
 export default function NotesScreen() {
+  const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
 
@@ -90,7 +92,7 @@ export default function NotesScreen() {
       } catch (error) {
         console.error('Error fetching notes:', error);
         if (targetPage === 1) {
-          Alert.alert('Error', extractErrorMessage(error, 'Failed to load notes and reminders.'));
+          Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to load notes and reminders.')));
         }
       } finally {
         setLoading(false);
@@ -98,7 +100,7 @@ export default function NotesScreen() {
         setLoadingMore(false);
       }
     },
-    [search, statusFilter, typeFilter]
+    [search, statusFilter, typeFilter, t]
   );
 
   useEffect(() => {
@@ -142,11 +144,11 @@ export default function NotesScreen() {
 
   const handleSaveNote = async () => {
     if (!title.trim()) {
-      Alert.alert('Validation Error', 'Title is required.');
+      Alert.alert(t('Validation Error'), t('Title is required.'));
       return;
     }
     if (notifyEnabled && !notifyAt.trim()) {
-      Alert.alert('Validation Error', 'Notification date is required when reminder is enabled.');
+      Alert.alert(t('Validation Error'), t('Notification date is required when reminder is enabled.'));
       return;
     }
 
@@ -162,10 +164,10 @@ export default function NotesScreen() {
       });
       setCreateModalVisible(false);
       fetchNotes(1, false);
-      Alert.alert('Success', 'Note / Reminder created successfully!');
+      Alert.alert(t('Success'), t('Note / Reminder created successfully!'));
     } catch (error) {
       console.error('Error saving note:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to save note.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to save note.')));
     } finally {
       setSaving(false);
     }
@@ -225,14 +227,14 @@ export default function NotesScreen() {
             <Text style={styles.cardDateText}>{formatDate(item.created_at)}</Text>
             <View style={[styles.statusPill, { backgroundColor: statusStyle.bg }]}>
               <Text style={[styles.statusPillText, { color: statusStyle.text }]}>
-                {effectiveStatus.toUpperCase()}
+                {t(effectiveStatus.charAt(0).toUpperCase() + effectiveStatus.slice(1)).toUpperCase()}
               </Text>
             </View>
           </View>
 
           {/* Title */}
           <Text style={styles.cardTitleText} numberOfLines={2}>
-            {item.title || 'Untitled'}
+            {item.title || t('Untitled')}
           </Text>
 
           {/* Tags row: Reminder date, creator, attachment */}
@@ -246,7 +248,7 @@ export default function NotesScreen() {
 
             <View style={styles.creatorTag}>
               <Ionicons name="person-outline" size={12} color="#64748b" />
-              <Text style={styles.creatorTagText}>{item.creator_name || 'Staff'}</Text>
+              <Text style={styles.creatorTagText}>{item.creator_name || t('Staff')}</Text>
             </View>
 
             {item.attachment_path && (
@@ -258,7 +260,7 @@ export default function NotesScreen() {
 
           {/* Details 2-line snippet */}
           <Text style={styles.cardDetailsText} numberOfLines={2}>
-            {item.details ? item.details.replace(/<[^>]*>?/gm, '') : 'No details added yet.'}
+            {item.details ? item.details.replace(/<[^>]*>?/gm, '') : t('No details added yet.')}
           </Text>
         </View>
       </TouchableOpacity>
@@ -272,8 +274,8 @@ export default function NotesScreen() {
       {/* Sticky Header Toolbar (note-reminder-sticky) */}
       <View style={styles.stickyHeader}>
         <View style={styles.toolbar}>
-          <Text style={styles.toolbarTitle}>Notes & Reminders</Text>
-          <Text style={styles.toolbarSubtitle}>Manage notes and reminders with ease.</Text>
+          <Text style={styles.toolbarTitle}>{t('Notes & Reminders')}</Text>
+          <Text style={styles.toolbarSubtitle}>{t('Manage notes and reminders with ease.')}</Text>
         </View>
 
         {/* Search row with filter toggle button */}
@@ -282,7 +284,7 @@ export default function NotesScreen() {
             <Ionicons name="search-outline" size={18} color="#94a3b8" />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search notes and reminders..."
+              placeholder={t('Search notes and reminders...')}
               placeholderTextColor="#94a3b8"
               value={search}
               onChangeText={setSearch}
@@ -301,7 +303,7 @@ export default function NotesScreen() {
             ]}
             onPress={() => setShowFilters(!showFilters)}
             activeOpacity={0.7}
-            accessibilityLabel="Filter notes and reminders"
+            accessibilityLabel={t('Filter notes and reminders')}
           >
             <Ionicons
               name="funnel-outline"
@@ -315,10 +317,10 @@ export default function NotesScreen() {
         {showFilters && (
           <View style={styles.filtersContainer}>
             <View style={styles.filtersHeader}>
-              <Text style={styles.filtersTitle}>FILTERS</Text>
+              <Text style={styles.filtersTitle}>{t('FILTERS')}</Text>
               {isFilterActive && (
                 <TouchableOpacity onPress={handleResetFilters} activeOpacity={0.7}>
-                  <Text style={styles.filtersReset}>RESET</Text>
+                  <Text style={styles.filtersReset}>{t('RESET')}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -338,7 +340,7 @@ export default function NotesScreen() {
                     statusFilter !== 'all' && styles.filterTagActiveText,
                   ]}
                 >
-                  Status: {statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}
+                  {t('Status')}: {t(statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1))}
                 </Text>
                 <Ionicons
                   name="chevron-down"
@@ -361,7 +363,7 @@ export default function NotesScreen() {
                     typeFilter !== 'all' && styles.filterTagActiveText,
                   ]}
                 >
-                  Type: {typeFilter === 'note' ? 'Notes' : typeFilter === 'reminder' ? 'Reminders' : 'All'}
+                  {t('Type')}: {typeFilter === 'note' ? t('Notes') : typeFilter === 'reminder' ? t('Reminders') : t('All')}
                 </Text>
                 <Ionicons
                   name="chevron-down"
@@ -378,7 +380,7 @@ export default function NotesScreen() {
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading notes and reminders...</Text>
+          <Text style={styles.loadingText}>{t('Loading notes and reminders...')}</Text>
         </View>
       ) : (
         <FlatList
@@ -403,18 +405,18 @@ export default function NotesScreen() {
             loadingMore ? (
               <View style={styles.loadMoreWrap}>
                 <ActivityIndicator size="small" color={colors.primary} />
-                <Text style={styles.loadMoreText}>Loading more notes and reminders…</Text>
+                <Text style={styles.loadMoreText}>{t('Loading more notes and reminders…')}</Text>
               </View>
             ) : null
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <View style={styles.emptyCard}>
-                <Text style={styles.emptyTitle}>No notes or reminders yet.</Text>
+                <Text style={styles.emptyTitle}>{t('No notes or reminders yet.')}</Text>
                 <Text style={styles.emptySubtitle}>
                   {search
-                    ? 'No records match your search filter.'
-                    : 'Create your first entry to start tracking tasks and observations.'}
+                    ? t('No records match your search filter.')
+                    : t('Create your first entry to start tracking tasks and observations.')}
                 </Text>
               </View>
             </View>
@@ -427,7 +429,7 @@ export default function NotesScreen() {
         style={styles.fab}
         onPress={handleOpenCreateModal}
         activeOpacity={0.85}
-        accessibilityLabel="Add Note / Reminder"
+        accessibilityLabel={t('Add Note / Reminder')}
       >
         <Ionicons name="add" size={28} color="#ffffff" />
       </TouchableOpacity>
@@ -440,13 +442,13 @@ export default function NotesScreen() {
           onPress={() => setStatusSheetVisible(false)}
         >
           <View style={styles.sheetContent}>
-            <Text style={styles.sheetTitle}>Select Status</Text>
+            <Text style={styles.sheetTitle}>{t('Select Status')}</Text>
             {[
-              { label: 'All', value: 'all' },
-              { label: 'Active', value: 'active' },
-              { label: 'Inactive', value: 'inactive' },
-              { label: 'Overdue', value: 'overdue' },
-              { label: 'Completed', value: 'completed' },
+              { label: t('All'), value: 'all' },
+              { label: t('Active'), value: 'active' },
+              { label: t('Inactive'), value: 'inactive' },
+              { label: t('Overdue'), value: 'overdue' },
+              { label: t('Completed'), value: 'completed' },
             ].map((opt) => (
               <TouchableOpacity
                 key={opt.value}
@@ -484,11 +486,11 @@ export default function NotesScreen() {
           onPress={() => setTypeSheetVisible(false)}
         >
           <View style={styles.sheetContent}>
-            <Text style={styles.sheetTitle}>Select Type</Text>
+            <Text style={styles.sheetTitle}>{t('Select Type')}</Text>
             {[
-              { label: 'All', value: 'all' },
-              { label: 'Notes', value: 'note' },
-              { label: 'Reminders', value: 'reminder' },
+              { label: t('All'), value: 'all' },
+              { label: t('Notes'), value: 'note' },
+              { label: t('Reminders'), value: 'reminder' },
             ].map((opt) => (
               <TouchableOpacity
                 key={opt.value}
@@ -529,7 +531,7 @@ export default function NotesScreen() {
           <View style={styles.modalCard}>
             <View style={styles.modalHead}>
               <Text style={styles.modalHeadTitle}>
-                {notifyEnabled ? 'New Reminder' : 'New Note'}
+                {notifyEnabled ? t('New Reminder') : t('New Note')}
               </Text>
               <TouchableOpacity onPress={() => setCreateModalVisible(false)} style={styles.modalCloseBtn}>
                 <Ionicons name="close" size={20} color="#64748b" />
@@ -538,22 +540,22 @@ export default function NotesScreen() {
 
             <ScrollView contentContainerStyle={styles.modalScroll} showsVerticalScrollIndicator={false}>
               <Text style={styles.modalLabel}>
-                Title <Text style={{ color: '#dc2626' }}>*</Text>
+                {t('Title')} <Text style={{ color: '#dc2626' }}>*</Text>
               </Text>
               <TextInput
                 style={styles.modalInput}
                 value={title}
                 onChangeText={setTitle}
-                placeholder="e.g. Inspect drip line block B"
+                placeholder={t('e.g. Inspect drip line block B')}
                 placeholderTextColor="#94a3b8"
               />
 
-              <Text style={styles.modalLabel}>Details & Instructions</Text>
+              <Text style={styles.modalLabel}>{t('Details & Instructions')}</Text>
               <TextInput
                 style={[styles.modalInput, styles.modalTextArea]}
                 value={details}
                 onChangeText={setDetails}
-                placeholder="Specific instructions, observation notes, product names..."
+                placeholder={t('Specific instructions, observation notes, product names...')}
                 placeholderTextColor="#94a3b8"
                 multiline
                 numberOfLines={4}
@@ -562,8 +564,8 @@ export default function NotesScreen() {
               {/* Enable Reminder Switch */}
               <View style={styles.modalSwitchRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.modalSwitchLabel}>Enable Reminder</Text>
-                  <Text style={styles.modalSwitchSub}>Schedule date for task notification</Text>
+                  <Text style={styles.modalSwitchLabel}>{t('Enable Reminder')}</Text>
+                  <Text style={styles.modalSwitchSub}>{t('Schedule date for task notification')}</Text>
                 </View>
                 <Switch
                   value={notifyEnabled}
@@ -577,7 +579,7 @@ export default function NotesScreen() {
               {notifyEnabled && (
                 <View style={styles.modalNotifyBox}>
                   <Text style={styles.modalLabel}>
-                    Notify At (YYYY-MM-DD) <Text style={{ color: '#dc2626' }}>*</Text>
+                    {t('Notification Date')} (YYYY-MM-DD) <Text style={{ color: '#dc2626' }}>*</Text>
                   </Text>
                   <TextInput
                     style={styles.modalInput}
@@ -591,7 +593,7 @@ export default function NotesScreen() {
                       style={styles.presetChip}
                       onPress={() => setNotifyAt(new Date().toISOString().split('T')[0])}
                     >
-                      <Text style={styles.presetChipText}>Today</Text>
+                      <Text style={styles.presetChipText}>{t('Today')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.presetChip}
@@ -601,7 +603,7 @@ export default function NotesScreen() {
                         setNotifyAt(d.toISOString().split('T')[0]);
                       }}
                     >
-                      <Text style={styles.presetChipText}>Tomorrow</Text>
+                      <Text style={styles.presetChipText}>{t('Tomorrow')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.presetChip}
@@ -611,7 +613,7 @@ export default function NotesScreen() {
                         setNotifyAt(d.toISOString().split('T')[0]);
                       }}
                     >
-                      <Text style={styles.presetChipText}>In 3 Days</Text>
+                      <Text style={styles.presetChipText}>{t('In 3 Days')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.presetChip}
@@ -621,14 +623,14 @@ export default function NotesScreen() {
                         setNotifyAt(d.toISOString().split('T')[0]);
                       }}
                     >
-                      <Text style={styles.presetChipText}>Next Week</Text>
+                      <Text style={styles.presetChipText}>{t('Next Week')}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
               )}
 
               {/* Status Selector */}
-              <Text style={styles.modalLabel}>Status</Text>
+              <Text style={styles.modalLabel}>{t('Status')}</Text>
               <View style={styles.statusChipsRow}>
                 {(['active', 'completed', 'overdue', 'inactive'] as NoteReminderStatus[]).map((st) => (
                   <TouchableOpacity
@@ -637,7 +639,7 @@ export default function NotesScreen() {
                     onPress={() => setStatus(st)}
                   >
                     <Text style={[styles.statusChipText, status === st && styles.statusChipActiveText]}>
-                      {st.toUpperCase()}
+                      {t(st.charAt(0).toUpperCase() + st.slice(1)).toUpperCase()}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -646,7 +648,7 @@ export default function NotesScreen() {
               {/* Attachment Picker */}
               <View style={{ marginTop: 12 }}>
                 <AttachmentPicker
-                  label="Attach Field Photo / Document"
+                  label={t('Attach Field Photo / Document')}
                   category="note-reminders"
                   currentPath={attachmentPath}
                   currentUrl={attachmentUrl}
@@ -663,7 +665,7 @@ export default function NotesScreen() {
                   style={styles.modalCancelBtn}
                   onPress={() => setCreateModalVisible(false)}
                 >
-                  <Text style={styles.modalCancelText}>Cancel</Text>
+                  <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -674,7 +676,7 @@ export default function NotesScreen() {
                   {saving ? (
                     <ActivityIndicator size="small" color="#ffffff" />
                   ) : (
-                    <Text style={styles.modalSaveText}>Save Note</Text>
+                    <Text style={styles.modalSaveText}>{notifyEnabled ? t('Save Reminder') : t('Save Note')}</Text>
                   )}
                 </TouchableOpacity>
               </View>

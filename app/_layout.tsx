@@ -7,6 +7,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
+import { I18nProvider } from '../src/i18n/I18nContext';
 import { OfflineBanner } from '../src/components/OfflineBanner';
 
 import { PWABottomNav } from '../src/components/PWABottomNav';
@@ -46,7 +47,9 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <RootLayoutNav />
+      <I18nProvider>
+        <RootLayoutNav />
+      </I18nProvider>
     </AuthProvider>
   );
 }

@@ -55,12 +55,27 @@ export const apiClient = axios.create({
   },
 });
 
-// Inject authentication token on every request
+// Active API locale for backend request translation
+let currentApiLocale: string = 'en';
+
+export const setApiLocale = (locale: string) => {
+  currentApiLocale = locale;
+};
+
+export const getApiLocale = (): string => {
+  return currentApiLocale;
+};
+
+// Inject authentication token and locale headers on every request
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     const token = await storage.getToken();
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (config.headers) {
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      config.headers['X-Locale'] = currentApiLocale;
+      config.headers['Accept-Language'] = currentApiLocale;
     }
     return config;
   },

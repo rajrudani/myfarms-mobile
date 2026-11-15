@@ -23,6 +23,7 @@ import { mastersApi } from '../src/api/masters';
 import { Crop } from '../src/types';
 import { extractErrorMessage, getBaseUrl } from '../src/api/client';
 import { takePhoto, pickImage, uploadMedia } from '../src/utils/media';
+import { useTranslation } from '../src/i18n/I18nContext';
 
 const getAbsoluteImageUrl = (urlPath?: string | null) => {
   if (!urlPath) return undefined;
@@ -34,6 +35,7 @@ const getAbsoluteImageUrl = (urlPath?: string | null) => {
 };
 
 export default function CropsScreen() {
+  const { t, locale } = useTranslation();
   const [crops, setCrops] = useState<Crop[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -172,17 +174,17 @@ export default function CropsScreen() {
     try {
       if (editingCrop) {
         await mastersApi.updateCrop(editingCrop.id, payload);
-        Alert.alert('Success', 'Crop updated successfully.');
+        Alert.alert(t('Success'), t('Crop updated successfully.'));
       } else {
         await mastersApi.createCrop(payload);
-        Alert.alert('Success', 'Crop added successfully.');
+        Alert.alert(t('Success'), t('Crop added successfully.'));
       }
       setModalVisible(false);
       fetchCrops(false);
     } catch (error: any) {
       console.error('Error saving crop:', error);
-      const msg = extractErrorMessage(error, 'Failed to save crop.');
-      Alert.alert('Error', msg);
+      const msg = extractErrorMessage(error, t('Failed to save crop.'));
+      Alert.alert(t('Error'), msg);
     }
   };
 
@@ -206,8 +208,8 @@ export default function CropsScreen() {
             <Ionicons name="arrow-back" size={20} color="#334155" />
           </TouchableOpacity>
           <View style={styles.headerTitleCol}>
-            <Text style={styles.headerTitle}>Crops</Text>
-            <Text style={styles.headerSubtitle}>Manage crop masters for your farm group.</Text>
+            <Text style={styles.headerTitle}>{t('Crops')}</Text>
+            <Text style={styles.headerSubtitle}>{t('Manage crop masters for your farm group.')}</Text>
           </View>
         </View>
       </View>
@@ -218,7 +220,7 @@ export default function CropsScreen() {
           <Ionicons name="search-outline" size={18} color="#94a3b8" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search for crops..."
+            placeholder={t('Search for crops...')}
             placeholderTextColor="#94a3b8"
             value={search}
             onChangeText={setSearch}
@@ -245,7 +247,7 @@ export default function CropsScreen() {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="grid-outline" size={48} color="#94a3b8" />
-              <Text style={styles.emptyText}>No crops found.</Text>
+              <Text style={styles.emptyText}>{t('No crops found.')}</Text>
             </View>
           }
           renderItem={({ item }) => {

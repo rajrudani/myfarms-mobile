@@ -25,6 +25,7 @@ import { CropCycle, Farm, Crop } from '../../src/types';
 import { useAuth } from '../../src/hooks/useAuth';
 import { extractErrorMessage } from '../../src/api/client';
 import { colors, radius, spacing, shadows } from '../../src/theme/tokens';
+import { useTranslation } from '../../src/i18n/I18nContext';
 import {
   BentoCard,
   StatusBadge,
@@ -33,20 +34,8 @@ import {
   ChipOption,
 } from '../../src/components/ui';
 
-const AREA_UNIT_OPTIONS: ChipOption<string>[] = [
-  { label: 'Acre', value: 'ACRE' },
-  { label: 'Hectare', value: 'HECTARE' },
-  { label: 'Bigha', value: 'BIGHAS' },
-  { label: 'Guntha', value: 'GUNTHAS' },
-];
-
-const CYCLE_STATUS_OPTIONS: ChipOption<string>[] = [
-  { label: 'Active', value: 'ACTIVE' },
-  { label: 'Completed', value: 'COMPLETED' },
-  { label: 'Cancelled', value: 'CANCELLED' },
-];
-
 export default function CropCyclesScreen() {
+  const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
   const [cycles, setCycles] = useState<CropCycle[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
@@ -57,6 +46,19 @@ export default function CropCyclesScreen() {
   // Search & Filter state
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'all'>('ACTIVE');
+
+  const AREA_UNIT_OPTIONS: ChipOption<string>[] = [
+    { label: t('Acre'), value: 'ACRE' },
+    { label: t('Hectare'), value: 'HECTARE' },
+    { label: t('Bigha'), value: 'BIGHAS' },
+    { label: t('Guntha'), value: 'GUNTHAS' },
+  ];
+
+  const CYCLE_STATUS_OPTIONS: ChipOption<string>[] = [
+    { label: t('Active'), value: 'ACTIVE' },
+    { label: t('Completed'), value: 'COMPLETED' },
+    { label: t('Cancelled'), value: 'CANCELLED' },
+  ];
 
   // Create Cycle Modal State
   const [createModalVisible, setCreateModalVisible] = useState(false);
@@ -110,7 +112,7 @@ export default function CropCyclesScreen() {
       setCrops(cropsData);
     } catch (error: any) {
       console.error('Error fetching crop cycles data:', error);
-      Alert.alert('Error', 'Failed to fetch data from server.');
+      Alert.alert(t('Error'), t('Failed to fetch data from server.'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -164,20 +166,20 @@ export default function CropCyclesScreen() {
 
   const handleCreateCycle = async () => {
     if (!farmId || !cropId || !allocatedArea) {
-      Alert.alert('Validation Error', 'Farm, Crop, and Allocated Area are required.');
+      Alert.alert(t('Validation Error'), t('Farm, Crop, and Allocated Area are required.'));
       return;
     }
 
     const areaNum = parseFloat(allocatedArea);
     if (isNaN(areaNum) || areaNum <= 0) {
-      Alert.alert('Validation Error', 'Please enter a valid positive allocated area.');
+      Alert.alert(t('Validation Error'), t('Please enter a valid positive allocated area.'));
       return;
     }
 
     if (currentFarmAreaInfo && areaNum > currentFarmAreaInfo.remaining) {
       Alert.alert(
-        'Warning: Area Exceeded',
-        `Allocated area (${areaNum} ${allocatedAreaUnit}) exceeds the remaining available farm area (${currentFarmAreaInfo.remaining} ${currentFarmAreaInfo.unit}). Please adjust allocated area.`
+        t('Warning: Area Exceeded'),
+        `${t('Allocated area')} (${areaNum} ${allocatedAreaUnit}) ${t('exceeds the remaining available farm area')} (${currentFarmAreaInfo.remaining} ${currentFarmAreaInfo.unit}).`
       );
       return;
     }
@@ -198,7 +200,7 @@ export default function CropCyclesScreen() {
       };
 
       await cropCyclesApi.create(newCycle);
-      Alert.alert('Success', 'Crop cycle added successfully!');
+      Alert.alert(t('Success'), t('Crop cycle added successfully!'));
 
       setFarmId('');
       setCropId('');
@@ -214,8 +216,8 @@ export default function CropCyclesScreen() {
       fetchData();
     } catch (error: any) {
       console.error('Error creating crop cycle:', error);
-      const msg = extractErrorMessage(error, 'Failed to add crop cycle.');
-      Alert.alert('Error', msg);
+      const msg = extractErrorMessage(error, t('Failed to add crop cycle.'));
+      Alert.alert(t('Error'), msg);
     } finally {
       setSaving(false);
     }
@@ -224,13 +226,13 @@ export default function CropCyclesScreen() {
   const handleUpdateCycle = async () => {
     if (!selectedCycle || (!selectedCycle.id && !selectedCycle.ulid)) return;
     if (!editFarmId || (!editCropId && !selectedCycle.crop_id) || !editAllocatedArea) {
-      Alert.alert('Validation Error', 'Farm, Crop, and Allocated Area are required.');
+      Alert.alert(t('Validation Error'), t('Farm, Crop, and Allocated Area are required.'));
       return;
     }
 
     const areaNum = parseFloat(editAllocatedArea);
     if (isNaN(areaNum) || areaNum <= 0) {
-      Alert.alert('Validation Error', 'Please enter a valid positive allocated area.');
+      Alert.alert(t('Validation Error'), t('Please enter a valid positive allocated area.'));
       return;
     }
 
@@ -255,14 +257,14 @@ export default function CropCyclesScreen() {
       };
 
       const result = await cropCyclesApi.update(identifier, updatedCycle);
-      Alert.alert('Success', 'Crop cycle updated successfully!');
+      Alert.alert(t('Success'), t('Crop cycle updated successfully!'));
       setIsEditing(false);
       setSelectedCycle(result);
       fetchData();
     } catch (error: any) {
       console.error('Error updating crop cycle:', error);
-      const msg = extractErrorMessage(error, 'Failed to update crop cycle.');
-      Alert.alert('Error', msg);
+      const msg = extractErrorMessage(error, t('Failed to update crop cycle.'));
+      Alert.alert(t('Error'), msg);
     } finally {
       setUpdating(false);
     }
@@ -273,22 +275,22 @@ export default function CropCyclesScreen() {
     const identifier = cycle.ulid || cycle.id!;
 
     Alert.alert(
-      'Confirm Delete',
-      'Are you sure you want to delete this crop cycle? This action cannot be undone.',
+      t('Confirm Delete'),
+      t('Are you sure you want to delete this crop cycle? This action cannot be undone.'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('Cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('Delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               await cropCyclesApi.delete(identifier);
-              Alert.alert('Success', 'Crop cycle deleted successfully!');
+              Alert.alert(t('Success'), t('Crop cycle deleted successfully!'));
               setDetailModalVisible(false);
               fetchData();
             } catch (error: any) {
               console.error('Error deleting crop cycle:', error);
-              Alert.alert('Error', 'Failed to delete crop cycle.');
+              Alert.alert(t('Error'), t('Failed to delete crop cycle.'));
             }
           },
         },
@@ -299,7 +301,7 @@ export default function CropCyclesScreen() {
   const getFarmName = (farmId?: any, farmObj?: Farm) => {
     if (farmObj?.name) return farmObj.name;
     const found = farms.find((f) => f.ulid === farmId || f.id === farmId);
-    return found?.name || 'Unknown Farm';
+    return found?.name || t('Unknown Farm');
   };
 
   const handleOpenView = (cycle: CropCycle) => {
@@ -356,20 +358,20 @@ export default function CropCyclesScreen() {
 
   const selectedFarmName =
     activeFarms.find((f) => f.ulid === farmId || f.id?.toString() === farmId)?.name ||
-    'Select Farm';
+    t('Select Farm');
   const editSelectedFarmName =
     farms.find((f) => f.ulid === editFarmId || f.id?.toString() === editFarmId)?.name ||
-    'Select Farm';
+    t('Select Farm');
 
   const activeCount = cycles.filter((c) => c.status === 'ACTIVE').length;
   const completedCount = cycles.filter((c) => c.status === 'COMPLETED').length;
   const cancelledCount = cycles.filter((c) => c.status === 'CANCELLED').length;
 
   const STATUS_FILTER_OPTIONS: ChipOption<'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'all'>[] = [
-    { label: 'Active', value: 'ACTIVE', badge: activeCount },
-    { label: 'Completed', value: 'COMPLETED', badge: completedCount },
-    { label: 'Cancelled', value: 'CANCELLED', badge: cancelledCount },
-    { label: 'All', value: 'all', badge: cycles.length },
+    { label: t('Active'), value: 'ACTIVE', badge: activeCount },
+    { label: t('Completed'), value: 'COMPLETED', badge: completedCount },
+    { label: t('Cancelled'), value: 'CANCELLED', badge: cancelledCount },
+    { label: t('All'), value: 'all', badge: cycles.length },
   ];
 
   const getStatusVariant = (status: string) => {
@@ -396,7 +398,7 @@ export default function CropCyclesScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.cropTitle} numberOfLines={1}>
-                {item.crop_name || item.crop_type || 'Unknown Crop'}
+                {item.crop_name || item.crop_type || t('Unknown Crop')}
               </Text>
               <View style={styles.farmLocationRow}>
                 <Ionicons name="location-outline" size={12} color={colors.slate500} />
@@ -408,7 +410,7 @@ export default function CropCyclesScreen() {
           </View>
 
           <StatusBadge
-            label={item.status}
+            label={t(item.status.charAt(0).toUpperCase() + item.status.slice(1).toLowerCase())}
             variant={getStatusVariant(item.status)}
             dot={item.status === 'ACTIVE'}
           />
@@ -419,7 +421,7 @@ export default function CropCyclesScreen() {
           <View style={styles.pill}>
             <Ionicons name="map-outline" size={13} color={colors.primary} style={styles.pillIcon} />
             <Text style={styles.pillValue}>
-              {item.allocated_area} {item.allocated_area_unit.toLowerCase()}
+              {item.allocated_area} {t(item.allocated_area_unit.toLowerCase())}
             </Text>
           </View>
 
@@ -443,7 +445,7 @@ export default function CropCyclesScreen() {
         {item.notes ? (
           <View style={styles.notesBox}>
             <Text style={styles.notesText} numberOfLines={2}>
-              Note: {item.notes}
+              {t('Note')}: {item.notes}
             </Text>
           </View>
         ) : null}
@@ -455,7 +457,7 @@ export default function CropCyclesScreen() {
             activeOpacity={0.7}
           >
             <Ionicons name="eye-outline" size={15} color={colors.slate800} />
-            <Text style={styles.actionBtnTextView}>Details</Text>
+            <Text style={styles.actionBtnTextView}>{t('Details')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -464,7 +466,7 @@ export default function CropCyclesScreen() {
             activeOpacity={0.7}
           >
             <Ionicons name="create-outline" size={15} color={colors.white} />
-            <Text style={styles.actionBtnTextManage}>Manage Cycle</Text>
+            <Text style={styles.actionBtnTextManage}>{t('Manage Cycle')}</Text>
           </TouchableOpacity>
         </View>
       </BentoCard>
@@ -475,7 +477,7 @@ export default function CropCyclesScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Loading crop cycles...</Text>
+        <Text style={styles.loadingText}>{t('Loading crop cycles...')}</Text>
       </View>
     );
   }
@@ -488,8 +490,8 @@ export default function CropCyclesScreen() {
       <View style={styles.stickyHeader}>
         <View style={styles.headerTitleRow}>
           <View>
-            <Text style={styles.headerTitle}>Crop Cycles</Text>
-            <Text style={styles.headerSubtitle}>Monitor sowing, stages, and harvest yield</Text>
+            <Text style={styles.headerTitle}>{t('Crop Cycles')}</Text>
+            <Text style={styles.headerSubtitle}>{t('Monitor sowing, stages, and harvest yield')}</Text>
           </View>
           <View style={styles.headerBadge}>
             <Text style={styles.headerBadgeText}>{filteredCycles.length}</Text>
@@ -499,7 +501,7 @@ export default function CropCyclesScreen() {
         <SearchFilterBar
           query={search}
           onChangeQuery={setSearch}
-          placeholder="Search crop, farm or season..."
+          placeholder={t('Search crop, farm or season...')}
         />
 
         {/* Status Filter Chips */}
@@ -532,9 +534,9 @@ export default function CropCyclesScreen() {
             <View style={styles.emptyIconCircle}>
               <MaterialCommunityIcons name="sprout-outline" size={32} color={colors.slate400} />
             </View>
-            <Text style={styles.emptyText}>No crop cycles found</Text>
+            <Text style={styles.emptyText}>{t('No crop cycles found')}</Text>
             <Text style={styles.emptySubtext}>
-              Try adjusting your filters or tap "+" to initiate a new crop cycle.
+              {t('Try adjusting your filters or tap "+" to initiate a new crop cycle.')}
             </Text>
           </View>
         }
@@ -565,7 +567,7 @@ export default function CropCyclesScreen() {
               contentContainerStyle={{ paddingBottom: 24 }}
             >
               <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>Initiate Crop Cycle</Text>
+                <Text style={styles.modalTitle}>{t('Initiate Crop Cycle')}</Text>
                 <TouchableOpacity onPress={() => setCreateModalVisible(false)}>
                   <Ionicons name="close" size={22} color={colors.slate600} />
                 </TouchableOpacity>
@@ -573,7 +575,7 @@ export default function CropCyclesScreen() {
 
               {/* Farm Selector Dropdown */}
               <Text style={styles.inputLabel}>
-                Associate Farm <Text style={{ color: colors.danger }}>*</Text>
+                {t('Associate Farm')} <Text style={{ color: colors.danger }}>*</Text>
               </Text>
               <TouchableOpacity
                 style={styles.dropdownTrigger}
@@ -592,7 +594,7 @@ export default function CropCyclesScreen() {
                 <View style={styles.dropdownList}>
                   {activeFarms.length === 0 ? (
                     <Text style={styles.dropdownEmptyText}>
-                      No active farms found. Create one first.
+                      {t('No active farms found. Create one first.')}
                     </Text>
                   ) : (
                     activeFarms.map((f) => (
@@ -607,7 +609,7 @@ export default function CropCyclesScreen() {
                         }}
                       >
                         <Text style={styles.dropdownItemText}>
-                          {f.name} ({f.area} {f.area_unit.toLowerCase()})
+                          {f.name} ({f.area} {t(f.area_unit.toLowerCase())})
                         </Text>
                       </TouchableOpacity>
                     ))
@@ -617,7 +619,7 @@ export default function CropCyclesScreen() {
 
               {/* Crop Master Selector */}
               <Text style={styles.inputLabel}>
-                Crop <Text style={{ color: colors.danger }}>*</Text>
+                {t('Crop')} <Text style={{ color: colors.danger }}>*</Text>
               </Text>
               <TouchableOpacity
                 style={styles.dropdownTrigger}
@@ -625,7 +627,7 @@ export default function CropCyclesScreen() {
                 activeOpacity={0.8}
               >
                 <Text style={styles.dropdownTriggerText}>
-                  {crops.find((c) => (c.ulid || c.id)?.toString() === cropId.toString())?.name || 'Select Crop'}
+                  {crops.find((c) => (c.ulid || c.id)?.toString() === cropId.toString())?.name || t('Select Crop')}
                 </Text>
                 <Ionicons
                   name={showCropDropdown ? 'chevron-up' : 'chevron-down'}
@@ -638,7 +640,7 @@ export default function CropCyclesScreen() {
                 <View style={styles.dropdownList}>
                   {crops.length === 0 ? (
                     <View style={styles.dropdownItem}>
-                      <Text style={styles.dropdownItemText}>No crops available. Create a crop in Masters first.</Text>
+                      <Text style={styles.dropdownItemText}>{t('No crops available. Create a crop in Masters first.')}</Text>
                     </View>
                   ) : (
                     crops.map((c) => (
@@ -663,7 +665,7 @@ export default function CropCyclesScreen() {
                 </View>
               )}
 
-              <Text style={styles.inputLabel}>Variety / Crop Type (Optional)</Text>
+              <Text style={styles.inputLabel}>{t('Variety / Crop Type (Optional)')}</Text>
               <TextInput
                 style={styles.input}
                 placeholder="e.g. Bhagwa, Kesar, Alphonso"
@@ -681,7 +683,7 @@ export default function CropCyclesScreen() {
               />
 
               <Text style={styles.inputLabel}>
-                Allocated Area <Text style={{ color: colors.danger }}>*</Text>
+                {t('Allocated Area')} <Text style={{ color: colors.danger }}>*</Text>
               </Text>
               <TextInput
                 style={styles.input}
@@ -700,7 +702,7 @@ export default function CropCyclesScreen() {
                 </View>
               )}
 
-              <Text style={styles.inputLabel}>Area Measurement Unit</Text>
+              <Text style={styles.inputLabel}>{t('Area Measurement Unit')}</Text>
               <QuickChipGroup
                 options={AREA_UNIT_OPTIONS}
                 selectedValue={allocatedAreaUnit}
@@ -708,7 +710,7 @@ export default function CropCyclesScreen() {
                 size="sm"
               />
 
-              <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Season Name</Text>
+              <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>{t('Season Name')}</Text>
               <TextInput
                 style={styles.input}
                 placeholder="e.g. Kharif 2026, Summer"
@@ -717,7 +719,7 @@ export default function CropCyclesScreen() {
                 onChangeText={setSeasonName}
               />
 
-              <Text style={styles.inputLabel}>Started On Date (YYYY-MM-DD)</Text>
+              <Text style={styles.inputLabel}>{t('Started On Date (YYYY-MM-DD)')}</Text>
               <TextInput
                 style={styles.input}
                 placeholder="YYYY-MM-DD"
@@ -726,7 +728,7 @@ export default function CropCyclesScreen() {
                 onChangeText={setStartedOn}
               />
 
-              <Text style={styles.inputLabel}>Expected Harvest Date (YYYY-MM-DD)</Text>
+              <Text style={styles.inputLabel}>{t('Expected Harvest Date (YYYY-MM-DD)')}</Text>
               <TextInput
                 style={styles.input}
                 placeholder="YYYY-MM-DD"
@@ -735,7 +737,7 @@ export default function CropCyclesScreen() {
                 onChangeText={setExpectedHarvestOn}
               />
 
-              <Text style={styles.inputLabel}>Notes</Text>
+              <Text style={styles.inputLabel}>{t('Notes')}</Text>
               <TextInput
                 style={[styles.input, styles.multilineInput]}
                 placeholder="Any special remarks or sowing details..."
@@ -752,7 +754,7 @@ export default function CropCyclesScreen() {
                   onPress={() => setCreateModalVisible(false)}
                   disabled={saving}
                 >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -763,7 +765,7 @@ export default function CropCyclesScreen() {
                   {saving ? (
                     <ActivityIndicator color={colors.white} />
                   ) : (
-                    <Text style={styles.saveBtnText}>Start Cycle</Text>
+                    <Text style={styles.saveBtnText}>{t('Start Cycle')}</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -790,7 +792,7 @@ export default function CropCyclesScreen() {
             >
               <View style={styles.modalHeaderRow}>
                 <Text style={styles.modalTitle}>
-                  {isEditing ? 'Manage Crop Cycle' : 'Crop Cycle Details'}
+                  {isEditing ? t('Manage Crop Cycle') : t('Crop Cycle Details')}
                 </Text>
                 <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
                   <Ionicons name="close" size={22} color={colors.slate600} />
@@ -799,7 +801,7 @@ export default function CropCyclesScreen() {
 
               {isEditing ? (
                 <View>
-                  <Text style={styles.inputLabel}>Associate Farm</Text>
+                  <Text style={styles.inputLabel}>{t('Associate Farm')}</Text>
                   <TouchableOpacity
                     style={styles.dropdownTrigger}
                     onPress={() => setShowEditFarmDropdown(!showEditFarmDropdown)}
@@ -824,7 +826,7 @@ export default function CropCyclesScreen() {
                           }}
                         >
                           <Text style={styles.dropdownItemText}>
-                            {f.name} ({f.area} {f.area_unit.toLowerCase()})
+                            {f.name} ({f.area} {t(f.area_unit.toLowerCase())})
                           </Text>
                         </TouchableOpacity>
                       ))}
@@ -832,7 +834,7 @@ export default function CropCyclesScreen() {
                   )}
 
                   {/* Edit Crop Selector */}
-                  <Text style={styles.inputLabel}>Crop</Text>
+                  <Text style={styles.inputLabel}>{t('Crop')}</Text>
                   <TouchableOpacity
                     style={styles.dropdownTrigger}
                     onPress={() => setShowEditCropDropdown(!showEditCropDropdown)}
@@ -841,7 +843,7 @@ export default function CropCyclesScreen() {
                     <Text style={styles.dropdownTriggerText}>
                       {crops.find((c) => (c.ulid || c.id)?.toString() === editCropId.toString())?.name ||
                         selectedCycle?.crop_name ||
-                        'Select Crop'}
+                        t('Select Crop')}
                     </Text>
                     <Ionicons
                       name={showEditCropDropdown ? 'chevron-up' : 'chevron-down'}
@@ -869,7 +871,7 @@ export default function CropCyclesScreen() {
                     </View>
                   )}
 
-                  <Text style={styles.inputLabel}>Variety / Crop Type (Optional)</Text>
+                  <Text style={styles.inputLabel}>{t('Variety / Crop Type (Optional)')}</Text>
                   <TextInput
                     style={styles.input}
                     placeholder="e.g. Bhagwa, Kesar, Alphonso"
@@ -878,7 +880,7 @@ export default function CropCyclesScreen() {
                     onChangeText={setEditCropType}
                   />
 
-                  <Text style={styles.inputLabel}>Allocated Area</Text>
+                  <Text style={styles.inputLabel}>{t('Allocated Area')}</Text>
                   <TextInput
                     style={styles.input}
                     keyboardType="decimal-pad"
@@ -894,7 +896,7 @@ export default function CropCyclesScreen() {
                     </View>
                   )}
 
-                  <Text style={styles.inputLabel}>Area Measurement Unit</Text>
+                  <Text style={styles.inputLabel}>{t('Area Measurement Unit')}</Text>
                   <QuickChipGroup
                     options={AREA_UNIT_OPTIONS}
                     selectedValue={editAllocatedAreaUnit}
@@ -902,28 +904,28 @@ export default function CropCyclesScreen() {
                     size="sm"
                   />
 
-                  <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Season Name</Text>
+                  <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>{t('Season Name')}</Text>
                   <TextInput
                     style={styles.input}
                     value={editSeasonName}
                     onChangeText={setEditSeasonName}
                   />
 
-                  <Text style={styles.inputLabel}>Started On Date (YYYY-MM-DD)</Text>
+                  <Text style={styles.inputLabel}>{t('Started On Date (YYYY-MM-DD)')}</Text>
                   <TextInput
                     style={styles.input}
                     value={editStartedOn}
                     onChangeText={setEditStartedOn}
                   />
 
-                  <Text style={styles.inputLabel}>Expected Harvest Date (YYYY-MM-DD)</Text>
+                  <Text style={styles.inputLabel}>{t('Expected Harvest Date (YYYY-MM-DD)')}</Text>
                   <TextInput
                     style={styles.input}
                     value={editExpectedHarvestOn}
                     onChangeText={setEditExpectedHarvestOn}
                   />
 
-                  <Text style={styles.inputLabel}>Cycle Status</Text>
+                  <Text style={styles.inputLabel}>{t('Cycle Status')}</Text>
                   <QuickChipGroup
                     options={CYCLE_STATUS_OPTIONS}
                     selectedValue={editStatus}
@@ -933,7 +935,7 @@ export default function CropCyclesScreen() {
 
                   {editStatus === 'COMPLETED' && (
                     <View style={{ marginTop: spacing.md }}>
-                      <Text style={styles.inputLabel}>Actual Harvest Date (YYYY-MM-DD)</Text>
+                      <Text style={styles.inputLabel}>{t('Actual Harvest Date (YYYY-MM-DD)')}</Text>
                       <TextInput
                         style={styles.input}
                         placeholder="YYYY-MM-DD"
@@ -942,7 +944,7 @@ export default function CropCyclesScreen() {
                         onChangeText={setEditActualHarvestOn}
                       />
 
-                      <Text style={styles.inputLabel}>Harvest Yield Amount</Text>
+                      <Text style={styles.inputLabel}>{t('Harvest Yield Amount')}</Text>
                       <TextInput
                         style={styles.input}
                         placeholder="e.g. 500"
@@ -952,7 +954,7 @@ export default function CropCyclesScreen() {
                         onChangeText={setEditHarvestAmount}
                       />
 
-                      <Text style={styles.inputLabel}>Harvest Yield Unit</Text>
+                      <Text style={styles.inputLabel}>{t('Harvest Yield Unit')}</Text>
                       <TextInput
                         style={styles.input}
                         placeholder="e.g. KG, QUINTAL, BAGS"
@@ -963,7 +965,7 @@ export default function CropCyclesScreen() {
                     </View>
                   )}
 
-                  <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Notes</Text>
+                  <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>{t('Notes')}</Text>
                   <TextInput
                     style={[styles.input, styles.multilineInput]}
                     value={editNotes}
@@ -978,7 +980,7 @@ export default function CropCyclesScreen() {
                       onPress={() => setIsEditing(false)}
                       disabled={updating}
                     >
-                      <Text style={styles.cancelBtnText}>Back to View</Text>
+                      <Text style={styles.cancelBtnText}>{t('Back to View')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -989,7 +991,7 @@ export default function CropCyclesScreen() {
                       {updating ? (
                         <ActivityIndicator color={colors.white} />
                       ) : (
-                        <Text style={styles.saveBtnText}>Save</Text>
+                        <Text style={styles.saveBtnText}>{t('Save')}</Text>
                       )}
                     </TouchableOpacity>
                   </View>
@@ -998,42 +1000,42 @@ export default function CropCyclesScreen() {
                 <View style={styles.detailsView}>
                   <View style={styles.detailCard}>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Crop Name:</Text>
+                      <Text style={styles.detailLabel}>{t('Crop Name:')}</Text>
                       <Text style={styles.detailValue}>
-                        {selectedCycle?.crop_name || selectedCycle?.crop_type || 'Unknown Crop'}
+                        {selectedCycle?.crop_name || selectedCycle?.crop_type || t('Unknown Crop')}
                       </Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Associated Farm:</Text>
+                      <Text style={styles.detailLabel}>{t('Associated Farm:')}</Text>
                       <Text style={styles.detailValue}>
                         {farms.find(
                           (f) =>
                             f.ulid === selectedCycle?.farm_id || f.id === selectedCycle?.farm_id
-                        )?.name || 'Unknown Farm'}
+                        )?.name || t('Unknown Farm')}
                       </Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Allocated Area:</Text>
+                      <Text style={styles.detailLabel}>{t('Allocated Area:')}</Text>
                       <Text style={styles.detailValue}>
                         {selectedCycle?.allocated_area} {selectedCycle?.allocated_area_unit}
                       </Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Status:</Text>
+                      <Text style={styles.detailLabel}>{t('Status:')}</Text>
                       <StatusBadge
-                        label={selectedCycle?.status || 'ACTIVE'}
+                        label={t(selectedCycle?.status?.charAt(0).toUpperCase() + (selectedCycle?.status?.slice(1).toLowerCase() || ''))}
                         variant={getStatusVariant(selectedCycle?.status || 'ACTIVE')}
                         dot={selectedCycle?.status === 'ACTIVE'}
                       />
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Season:</Text>
+                      <Text style={styles.detailLabel}>{t('Season:')}</Text>
                       <Text style={styles.detailValue}>
                         {selectedCycle?.season_name || 'N/A'}
                       </Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Started On:</Text>
+                      <Text style={styles.detailLabel}>{t('Started On:')}</Text>
                       <Text style={styles.detailValue}>
                         {selectedCycle?.started_on
                           ? selectedCycle.started_on.split('T')[0]
@@ -1041,7 +1043,7 @@ export default function CropCyclesScreen() {
                       </Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Expected Harvest:</Text>
+                      <Text style={styles.detailLabel}>{t('Expected Harvest:')}</Text>
                       <Text style={styles.detailValue}>
                         {selectedCycle?.expected_harvest_on
                           ? selectedCycle.expected_harvest_on.split('T')[0]
@@ -1052,7 +1054,7 @@ export default function CropCyclesScreen() {
                     {selectedCycle?.status === 'COMPLETED' && (
                       <>
                         <View style={styles.detailRow}>
-                          <Text style={styles.detailLabel}>Actual Harvest Date:</Text>
+                          <Text style={styles.detailLabel}>{t('Actual Harvest Date:')}</Text>
                           <Text style={styles.detailValue}>
                             {selectedCycle?.actual_harvest_on
                               ? selectedCycle.actual_harvest_on.split('T')[0]
@@ -1060,7 +1062,7 @@ export default function CropCyclesScreen() {
                           </Text>
                         </View>
                         <View style={styles.detailRow}>
-                          <Text style={styles.detailLabel}>Harvest Yield:</Text>
+                          <Text style={styles.detailLabel}>{t('Harvest Yield:')}</Text>
                           <Text style={styles.detailValue}>
                             {selectedCycle?.harvest_amount}{' '}
                             {selectedCycle?.harvest_unit || ''}
@@ -1071,7 +1073,7 @@ export default function CropCyclesScreen() {
 
                     {selectedCycle?.notes ? (
                       <View style={{ marginTop: 8 }}>
-                        <Text style={[styles.detailLabel, { marginBottom: 4 }]}>Notes:</Text>
+                        <Text style={[styles.detailLabel, { marginBottom: 4 }]}>{t('Notes:')}</Text>
                         <Text style={[styles.detailValue, { fontWeight: 'normal', color: colors.slate600 }]}>
                           {selectedCycle.notes}
                         </Text>
@@ -1084,13 +1086,13 @@ export default function CropCyclesScreen() {
                       style={[styles.modalBtn, styles.deleteBtn]}
                       onPress={() => selectedCycle && handleDeleteCycle(selectedCycle)}
                     >
-                      <Text style={styles.deleteBtnText}>Delete</Text>
+                      <Text style={styles.deleteBtnText}>{t('Delete')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.modalBtn, styles.saveBtn]}
                       onPress={() => selectedCycle && setIsEditing(true)}
                     >
-                      <Text style={styles.saveBtnText}>Edit Details</Text>
+                      <Text style={styles.saveBtnText}>{t('Edit Details')}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
