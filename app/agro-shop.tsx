@@ -5,7 +5,6 @@ import {
   View,
   FlatList,
   TouchableOpacity,
-  SafeAreaView,
   Alert,
   Modal,
   TextInput,
@@ -17,6 +16,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { agroShopsApi } from '../src/api/agroShops';
@@ -28,6 +28,8 @@ import { AttachmentPicker } from '../src/components/AttachmentPicker';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
 import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar } from '../src/components/ui';
 import { useTranslation } from '../src/i18n/I18nContext';
+import { useResponsive } from '../src/utils/responsive';
+import { formatCurrency } from '../src/utils/formatters';
 
 type ActiveTab = 'purchases' | 'payments' | 'info';
 
@@ -53,6 +55,7 @@ const PAYMENT_METHODS = [
 export default function AgroShopScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const { containerMaxWidth, isTablet, isSmallPhone } = useResponsive();
   const [shops, setShops] = useState<AgroShop[]>([]);
   const [selectedShopId, setSelectedShopId] = useState<number | string | null>(null);
   const [summary, setSummary] = useState<{ total_purchase: number; total_paid: number; balance: number }>({
@@ -784,102 +787,106 @@ export default function AgroShopScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTopRow}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={20} color={colors.slate700} />
-          </TouchableOpacity>
-          <View style={styles.headerTitleCol}>
-            <Text style={styles.headerTitle}>{t('Agro Shops & Purchases')}</Text>
-            <Text style={styles.headerSubtitle}>{t('Track agricultural supplies, itemized bills, and payments')}</Text>
+      <View style={[styles.mainWrapper, { maxWidth: containerMaxWidth }]}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerTopRow}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
+              <Ionicons name="arrow-back" size={20} color={colors.slate700} />
+            </TouchableOpacity>
+            <View style={styles.headerTitleCol}>
+              <Text style={styles.headerTitle}>{t('Agro Shops & Purchases')}</Text>
+              <Text style={styles.headerSubtitle}>{t('Track agricultural supplies, itemized bills, and payments')}</Text>
+            </View>
           </View>
         </View>
-      </View>
 
-      {/* Shop Selector Row */}
-      <View style={styles.shopSelectorWrapper}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.shopSelectorContent}
-        >
-          {shops.map((shop) => {
-            const isSelected = selectedShopId === shop.id;
-            const hasDue = shop.summary && shop.summary.balance > 0;
-            return (
-              <TouchableOpacity
-                key={shop.id}
-                style={[styles.shopPill, isSelected && styles.shopPillActive]}
-                onPress={() => setSelectedShopId(shop.id)}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name="storefront"
-                  size={14}
-                  color={isSelected ? colors.white : colors.slate600}
-                />
-                <Text style={[styles.shopPillText, isSelected && styles.shopPillTextActive]}>
-                  {shop.name}
-                </Text>
-                {hasDue && permissions.canViewFinancials(user) ? (
-                  <View
-                    style={[
-                      styles.duePill,
-                      isSelected ? styles.duePillSelected : styles.duePillUnselected,
-                    ]}
-                  >
-                    <Text
+        {/* Shop Selector Row */}
+        <View style={styles.shopSelectorWrapper}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.shopSelectorContent}
+          >
+            {shops.map((shop) => {
+              const isSelected = selectedShopId === shop.id;
+              const hasDue = shop.summary && shop.summary.balance > 0;
+              return (
+                <TouchableOpacity
+                  key={shop.id}
+                  style={[styles.shopPill, isSelected && styles.shopPillActive]}
+                  onPress={() => setSelectedShopId(shop.id)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="storefront"
+                    size={14}
+                    color={isSelected ? colors.white : colors.slate600}
+                  />
+                  <Text style={[styles.shopPillText, isSelected && styles.shopPillTextActive]}>
+                    {shop.name}
+                  </Text>
+                  {hasDue && permissions.canViewFinancials(user) ? (
+                    <View
                       style={[
-                        styles.duePillText,
-                        isSelected ? styles.duePillTextSelected : styles.duePillTextUnselected,
+                        styles.duePill,
+                        isSelected ? styles.duePillSelected : styles.duePillUnselected,
                       ]}
                     >
-                      ₹{shop.summary?.balance}
-                    </Text>
-                  </View>
-                ) : null}
-              </TouchableOpacity>
-            );
-          })}
-          {shops.length === 0 && (
-            <Text style={styles.noShopsInfoText}>{t('Please add a shop to begin ledger tracking.')}</Text>
-          )}
-        </ScrollView>
-      </View>
-
-      {/* Summary Bento Stats */}
-      {selectedShopId && permissions.canViewFinancials(user) && (
-        <View style={styles.summaryGrid}>
-          <View style={styles.summaryTile}>
-            <MetricTile
-              label={t('PURCHASES')}
-              value={`₹${summary.total_purchase}`}
-              iconName="cart-outline"
-              iconColor={colors.slate700}
-              iconBg={colors.slate100}
-            />
-          </View>
-          <View style={styles.summaryTile}>
-            <MetricTile
-              label={t('PAID')}
-              value={`₹${summary.total_paid}`}
-              iconName="check-circle-outline"
-              iconColor={colors.successText}
-              iconBg={colors.successSurface}
-            />
-          </View>
-          <View style={styles.summaryTile}>
-            <MetricTile
-              label={t('BALANCE DUE')}
-              value={`₹${summary.balance}`}
-              iconName="alert-circle-outline"
-              iconColor={summary.balance > 0 ? colors.dangerText : colors.slate600}
-              iconBg={summary.balance > 0 ? colors.dangerSurface : colors.slate100}
-            />
-          </View>
+                      <Text
+                        style={[
+                          styles.duePillText,
+                          isSelected ? styles.duePillTextSelected : styles.duePillTextUnselected,
+                        ]}
+                      >
+                        {formatCurrency(shop.summary?.balance ?? 0)}
+                      </Text>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
+            {shops.length === 0 && (
+              <Text style={styles.noShopsInfoText}>{t('Please add a shop to begin ledger tracking.')}</Text>
+            )}
+          </ScrollView>
         </View>
-      )}
+
+        {/* Summary Bento Stats */}
+        {selectedShopId && permissions.canViewFinancials(user) && (
+          <View style={styles.summaryGrid}>
+            <View style={styles.summaryTile}>
+              <MetricTile
+                label={t('PURCHASES')}
+                value={summary.total_purchase}
+                formatAs="currency"
+                iconName="cart-outline"
+                iconColor={colors.slate700}
+                iconBg={colors.slate100}
+              />
+            </View>
+            <View style={styles.summaryTile}>
+              <MetricTile
+                label={t('PAID')}
+                value={summary.total_paid}
+                formatAs="currency"
+                iconName="check-circle-outline"
+                iconColor={colors.successText}
+                iconBg={colors.successSurface}
+              />
+            </View>
+            <View style={styles.summaryTile}>
+              <MetricTile
+                label={t('BALANCE DUE')}
+                value={summary.balance}
+                formatAs="currency"
+                iconName="alert-circle-outline"
+                iconColor={summary.balance > 0 ? colors.dangerText : colors.slate600}
+                iconBg={summary.balance > 0 ? colors.dangerSurface : colors.slate100}
+              />
+            </View>
+          </View>
+        )}
 
       {/* Segmented Control tab row */}
       {selectedShopId && (
@@ -952,6 +959,7 @@ export default function AgroShopScreen() {
           <Ionicons name="add" size={28} color={colors.white} />
         </TouchableOpacity>
       )}
+      </View>
 
       {/* Action choices dialog */}
       <Modal
@@ -1561,6 +1569,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.slate50,
+  },
+  mainWrapper: {
+    width: '100%',
+    alignSelf: 'center',
+    flex: 1,
   },
   centered: {
     flex: 1,

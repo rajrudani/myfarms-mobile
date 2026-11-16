@@ -10,13 +10,13 @@ import {
   Modal,
   TextInput,
   RefreshControl,
-  SafeAreaView,
   Platform,
   KeyboardAvoidingView,
   ScrollView,
   StatusBar,
   Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { staffApi } from '../../src/api/staff';
@@ -29,6 +29,7 @@ import { extractErrorMessage, getAbsoluteImageUrl } from '../../src/api/client';
 import { permissions } from '../../src/utils/permissions';
 import { useTranslation } from '../../src/i18n/I18nContext';
 import { colors, radius, spacing, shadows } from '../../src/theme/tokens';
+import { useResponsive } from '../../src/utils/responsive';
 import {
   BentoCard,
   StatusBadge,
@@ -57,6 +58,7 @@ export default function StaffScreen() {
   const { t } = useTranslation();
   const { tab } = useLocalSearchParams<{ tab?: 'staff' | 'attendance' | 'payments' }>();
   const { isAuthenticated, user } = useAuth();
+  const { containerMaxWidth, isTablet } = useResponsive();
 
   // Active Tab state: 'staff' | 'attendance' | 'payments'
   const [activeTab, setActiveTab] = useState<'staff' | 'attendance' | 'payments'>('staff');
@@ -748,12 +750,13 @@ export default function StaffScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
-      {/* Header Sticky */}
-      <View style={styles.header}>
-        <View style={styles.headerTitleWrap}>
-          <Text style={styles.headerTitle}>{t('Manage Staff') || t('Staff')}</Text>
-          <Text style={styles.headerSubtitle}>{t('Manage staff, attendance, and payments with ease.')}</Text>
-        </View>
+      <View style={[styles.mainWrapper, { maxWidth: containerMaxWidth }]}>
+        {/* Header Sticky */}
+        <View style={styles.header}>
+          <View style={styles.headerTitleWrap}>
+            <Text style={styles.headerTitle}>{t('Manage Staff') || t('Staff')}</Text>
+            <Text style={styles.headerSubtitle}>{t('Manage staff, attendance, and payments with ease.')}</Text>
+          </View>
 
         {/* PWA Segmented Tab Bar */}
         <View style={styles.segmentedTabBar}>
@@ -1074,6 +1077,7 @@ export default function StaffScreen() {
           </TouchableOpacity>
         </View>
       )}
+      </View>
 
       {/* Add Staff Modal */}
       <Modal
@@ -1488,6 +1492,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.slate50,
+  },
+  mainWrapper: {
+    width: '100%',
+    alignSelf: 'center',
+    flex: 1,
   },
   header: {
     backgroundColor: colors.white,

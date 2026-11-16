@@ -10,11 +10,11 @@ import {
   Modal,
   TextInput,
   RefreshControl,
-  SafeAreaView,
   Platform,
   KeyboardAvoidingView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { farmActivitiesApi } from '../src/api/farmActivities';
@@ -22,6 +22,8 @@ import { expensesApi } from '../src/api/expenses';
 import { FarmActivity, FarmExpense } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
+import { useResponsive } from '../src/utils/responsive';
+import { formatCurrency } from '../src/utils/formatters';
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; border: string }> = {
   completed: { label: 'Completed', bg: '#ecfdf3', text: '#15803d', border: '#bbf7d0' },
@@ -33,6 +35,7 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; b
 export default function ActivityViewScreen() {
   const params = useLocalSearchParams();
   const activityIdentifier = (params.activity_ulid as string) || (params.activity_id as string);
+  const { containerMaxWidth, isTablet } = useResponsive();
 
   const [activity, setActivity] = useState<FarmActivity | null>(null);
   const [loading, setLoading] = useState(true);
@@ -259,32 +262,33 @@ export default function ActivityViewScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
 
-      {/* Top Sticky Bar */}
-      <View style={styles.topStickyBar}>
-        <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-          accessibilityLabel="Back"
-        >
-          <Ionicons name="arrow-back" size={20} color="#166534" />
-        </TouchableOpacity>
+      <View style={[styles.mainWrapper, { maxWidth: containerMaxWidth }]}>
+        {/* Top Sticky Bar */}
+        <View style={styles.topStickyBar}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+            accessibilityLabel="Back"
+          >
+            <Ionicons name="arrow-back" size={20} color="#166534" />
+          </TouchableOpacity>
 
-        <Text style={styles.topBarTitle}>Activity Details</Text>
+          <Text style={styles.topBarTitle}>Activity Details</Text>
 
-        <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() => setEditModalVisible(true)}
-          activeOpacity={0.7}
-          accessibilityLabel="Edit Activity"
-        >
-          <Ionicons name="create-outline" size={20} color="#166534" />
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => setEditModalVisible(true)}
+            activeOpacity={0.7}
+            accessibilityLabel="Edit Activity"
+          >
+            <Ionicons name="create-outline" size={20} color="#166534" />
+          </TouchableOpacity>
+        </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -401,7 +405,9 @@ export default function ActivityViewScreen() {
               <View style={styles.expenseSummaryBanner}>
                 <View>
                   <Text style={styles.bannerLabel}>TOTAL LINKED COST</Text>
-                  <Text style={styles.bannerValue}>₹{linkedExpensesTotal.toFixed(2)}</Text>
+                  <Text style={styles.bannerValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                    {formatCurrency(linkedExpensesTotal)}
+                  </Text>
                 </View>
                 <View style={styles.chipRow}>
                   <Text style={styles.bannerChip}>{linkedExpenses.length} Records</Text>
@@ -424,7 +430,9 @@ export default function ActivityViewScreen() {
                       <Text style={styles.linkedItemSub}>{exp.date ? exp.date.split('T')[0] : ''}</Text>
                     </View>
                     <View style={styles.linkedItemRight}>
-                      <Text style={styles.linkedItemAmount}>₹{parseFloat(exp.amount || 0).toFixed(2)}</Text>
+                      <Text style={styles.linkedItemAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                        {formatCurrency(exp.amount || 0)}
+                      </Text>
                       <TouchableOpacity
                         style={styles.unlinkBtn}
                         onPress={(e) => {
@@ -479,6 +487,7 @@ export default function ActivityViewScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      </View>
 
       {/* Edit Activity Modal */}
       <Modal visible={editModalVisible} transparent animationType="slide" onRequestClose={() => setEditModalVisible(false)}>
@@ -664,6 +673,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  mainWrapper: {
+    width: '100%',
+    alignSelf: 'center',
+    flex: 1,
   },
   centerBox: {
     flex: 1,

@@ -10,11 +10,11 @@ import {
   Modal,
   TextInput,
   RefreshControl,
-  SafeAreaView,
   Platform,
   KeyboardAvoidingView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { expensesApi } from '../src/api/expenses';
@@ -22,6 +22,8 @@ import { farmActivitiesApi } from '../src/api/farmActivities';
 import { FarmExpense, FarmActivity } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
+import { useResponsive } from '../src/utils/responsive';
+import { formatCurrency } from '../src/utils/formatters';
 
 const PAYMENT_METHODS = ['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Other'];
 const PAYMENT_STATUSES = [
@@ -33,6 +35,7 @@ const PAYMENT_STATUSES = [
 export default function ExpenseViewScreen() {
   const params = useLocalSearchParams();
   const expenseIdentifier = (params.expense_ulid as string) || (params.expense_id as string);
+  const { containerMaxWidth, isTablet } = useResponsive();
 
   const [expense, setExpense] = useState<FarmExpense | null>(null);
   const [loading, setLoading] = useState(true);
@@ -254,51 +257,52 @@ export default function ExpenseViewScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
 
-      {/* Top Sticky Bar */}
-      <View style={styles.topStickyBar}>
-        <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-          accessibilityLabel="Back"
+      <View style={[styles.mainWrapper, { maxWidth: containerMaxWidth }]}>
+        {/* Top Sticky Bar */}
+        <View style={styles.topStickyBar}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+            accessibilityLabel="Back"
+          >
+            <Ionicons name="arrow-back" size={20} color="#166534" />
+          </TouchableOpacity>
+
+          <Text style={styles.topBarTitle}>Expense Details</Text>
+
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => setEditModalVisible(true)}
+            activeOpacity={0.7}
+            accessibilityLabel="Edit Expense"
+          >
+            <Ionicons name="create-outline" size={20} color="#166534" />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={['#16a34a']}
+              tintColor="#16a34a"
+            />
+          }
         >
-          <Ionicons name="arrow-back" size={20} color="#166534" />
-        </TouchableOpacity>
-
-        <Text style={styles.topBarTitle}>Expense Details</Text>
-
-        <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() => setEditModalVisible(true)}
-          activeOpacity={0.7}
-          accessibilityLabel="Edit Expense"
-        >
-          <Ionicons name="create-outline" size={20} color="#166534" />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={['#16a34a']}
-            tintColor="#16a34a"
-          />
-        }
-      >
-        {/* 1. Summary Card */}
-        <View style={styles.card}>
-          <View style={styles.summaryTopRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.label}>EXPENSE CATEGORY</Text>
-              <Text style={styles.categoryTitle}>{categoryName}</Text>
-              <Text style={styles.amountDisplay}>
-                ₹{parseFloat(expense.amount ? expense.amount.toString() : '0').toFixed(2)}
-              </Text>
-            </View>
+          {/* 1. Summary Card */}
+          <View style={styles.card}>
+            <View style={styles.summaryTopRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>EXPENSE CATEGORY</Text>
+                <Text style={styles.categoryTitle}>{categoryName}</Text>
+                <Text style={styles.amountDisplay} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                  {formatCurrency(parseFloat(expense.amount ? expense.amount.toString() : '0'))}
+                </Text>
+              </View>
 
             <View style={[styles.statusPill, { backgroundColor: statusConfig.bg, borderColor: statusConfig.border }]}>
               <View style={[styles.statusDot, { backgroundColor: statusConfig.text }]} />
@@ -447,6 +451,7 @@ export default function ExpenseViewScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      </View>
 
       {/* Edit Expense Modal */}
       <Modal visible={editModalVisible} transparent animationType="slide" onRequestClose={() => setEditModalVisible(false)}>
@@ -667,6 +672,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  mainWrapper: {
+    width: '100%',
+    alignSelf: 'center',
+    flex: 1,
   },
   centerBox: {
     flex: 1,

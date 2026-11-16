@@ -5,7 +5,6 @@ import {
   View,
   FlatList,
   TouchableOpacity,
-  SafeAreaView,
   Alert,
   Modal,
   TextInput,
@@ -17,6 +16,7 @@ import {
   StatusBar,
   useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { notesApi, NoteFilters } from '../../src/api/notes';
@@ -27,11 +27,12 @@ import { colors, radius, spacing, typography } from '../../src/theme/tokens';
 import { useTranslation } from '../../src/i18n/I18nContext';
 import { scheduleLocalReminder } from '../../src/utils/notifications';
 import { offlineSync } from '../../src/utils/offlineSync';
+import { useResponsive } from '../../src/utils/responsive';
 
 export default function NotesScreen() {
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
-  const isTablet = width >= 768;
+  const { containerMaxWidth, isTablet } = useResponsive();
 
   const [notes, setNotes] = useState<NoteReminder[]>([]);
   const [loading, setLoading] = useState(false);
@@ -322,12 +323,13 @@ export default function NotesScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
 
-      {/* Sticky Header Toolbar (note-reminder-sticky) */}
-      <View style={styles.stickyHeader}>
-        <View style={styles.toolbar}>
-          <Text style={styles.toolbarTitle}>{t('Notes & Reminders')}</Text>
-          <Text style={styles.toolbarSubtitle}>{t('Manage notes and reminders with ease.')}</Text>
-        </View>
+      <View style={[styles.mainWrapper, { maxWidth: containerMaxWidth }]}>
+        {/* Sticky Header Toolbar (note-reminder-sticky) */}
+        <View style={styles.stickyHeader}>
+          <View style={styles.toolbar}>
+            <Text style={styles.toolbarTitle}>{t('Notes & Reminders')}</Text>
+            <Text style={styles.toolbarSubtitle}>{t('Manage notes and reminders with ease.')}</Text>
+          </View>
 
         {/* Search row with filter toggle button */}
         <View style={styles.searchRow}>
@@ -484,6 +486,7 @@ export default function NotesScreen() {
       >
         <Ionicons name="add" size={28} color="#ffffff" />
       </TouchableOpacity>
+      </View>
 
       {/* Status Filter Picker Sheet Modal */}
       <Modal visible={statusSheetVisible} transparent animationType="fade">
@@ -743,6 +746,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  mainWrapper: {
+    width: '100%',
+    alignSelf: 'center',
+    flex: 1,
   },
 
   // Sticky Header (note-reminder-sticky)

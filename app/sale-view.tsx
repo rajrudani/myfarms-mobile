@@ -10,13 +10,13 @@ import {
   Modal,
   TextInput,
   RefreshControl,
-  SafeAreaView,
   Platform,
   KeyboardAvoidingView,
   Image,
   StatusBar,
   Switch,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { salesApi } from '../src/api/sales';
@@ -26,6 +26,8 @@ import { useAuth } from '../src/hooks/useAuth';
 import { permissions } from '../src/utils/permissions';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
 import { useTranslation } from '../src/i18n/I18nContext';
+import { useResponsive } from '../src/utils/responsive';
+import { formatCurrency, formatQuantity } from '../src/utils/formatters';
 
 export const getAbsoluteImageUrl = (urlPath?: string | null) => {
   if (!urlPath) return undefined;
@@ -41,6 +43,7 @@ export default function SaleViewScreen() {
   const { user } = useAuth();
   const params = useLocalSearchParams();
   const saleIdentifier = (params.sale_ulid as string) || (params.sale_id as string);
+  const { containerMaxWidth, isTablet } = useResponsive();
 
   const [sale, setSale] = useState<Sale | null>(null);
   const [loading, setLoading] = useState(true);
@@ -315,133 +318,140 @@ export default function SaleViewScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
 
-      {/* Top Sticky Header */}
-      <View style={styles.topStickyBar}>
-        <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-          accessibilityLabel={t('Back')}
-        >
-          <Ionicons name="arrow-back" size={20} color="#166534" />
-        </TouchableOpacity>
-
-        <Text style={styles.topBarTitle}>{t('Sale Details')}</Text>
-
-        {permissions.canManageCommercials(user) ? (
+      <View style={[styles.mainWrapper, { maxWidth: containerMaxWidth }]}>
+        {/* Top Sticky Header */}
+        <View style={styles.topStickyBar}>
           <TouchableOpacity
             style={styles.iconBtn}
-            onPress={() => setEditModalVisible(true)}
+            onPress={() => router.back()}
             activeOpacity={0.7}
-            accessibilityLabel={t('Edit Sale')}
+            accessibilityLabel={t('Back')}
           >
-            <Ionicons name="create-outline" size={20} color="#166534" />
+            <Ionicons name="arrow-back" size={20} color="#166534" />
           </TouchableOpacity>
-        ) : (
-          <View style={{ width: 36 }} />
-        )}
-      </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={['#16a34a']}
-            tintColor="#16a34a"
-          />
-        }
-      >
-        {/* 1. Hero Card */}
-        <View style={[styles.card, styles.heroCard]}>
-          <Text style={styles.heroLabel}>
-            {permissions.canViewFinancials(user) ? t('FINAL SALE VALUE') : t('SALE RECORD')}
-          </Text>
-          <Text style={styles.heroAmount}>
-            {permissions.canViewFinancials(user) ? `₹${finalAmount.toFixed(2)}` : `${totalQuantity.toFixed(2)} ${unit}`}
-          </Text>
+          <Text style={styles.topBarTitle}>{t('Sale Details')}</Text>
 
-          <View style={styles.heroChipsRow}>
-            <View style={styles.heroChip}>
-              <Ionicons name="calendar-outline" size={13} color="#166534" />
-              <Text style={styles.heroChipText}>{sale.date ? sale.date.split('T')[0] : 'N/A'}</Text>
-            </View>
-
-            <View style={styles.heroChip}>
-              <Ionicons name="person-outline" size={13} color="#166534" />
-              <Text style={styles.heroChipText}>{sale.buyer_name || t('Buyer')}</Text>
-            </View>
-          </View>
+          {permissions.canManageCommercials(user) ? (
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => setEditModalVisible(true)}
+              activeOpacity={0.7}
+              accessibilityLabel={t('Edit Sale')}
+            >
+              <Ionicons name="create-outline" size={20} color="#166534" />
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 36 }} />
+          )}
         </View>
 
-        {/* 2. Farm & Crop Info Card */}
-        <View style={styles.card}>
-          <View style={styles.infoLinkRow}>
-            <View style={styles.infoLinkIconBox}>
-              <Ionicons name="location-outline" size={18} color="#166534" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.infoLinkLabel}>{t('FARM')}</Text>
-              <Text style={styles.infoLinkValue}>{farmName}</Text>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={['#16a34a']}
+              tintColor="#16a34a"
+            />
+          }
+        >
+          {/* 1. Hero Card */}
+          <View style={[styles.card, styles.heroCard]}>
+            <Text style={styles.heroLabel}>
+              {permissions.canViewFinancials(user) ? t('FINAL SALE VALUE') : t('SALE RECORD')}
+            </Text>
+            <Text style={styles.heroAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+              {permissions.canViewFinancials(user) ? formatCurrency(finalAmount) : formatQuantity(totalQuantity, unit)}
+            </Text>
+
+            <View style={styles.heroChipsRow}>
+              <View style={styles.heroChip}>
+                <Ionicons name="calendar-outline" size={13} color="#166534" />
+                <Text style={styles.heroChipText}>{sale.date ? sale.date.split('T')[0] : 'N/A'}</Text>
+              </View>
+
+              <View style={styles.heroChip}>
+                <Ionicons name="person-outline" size={13} color="#166534" />
+                <Text style={styles.heroChipText}>{sale.buyer_name || t('Buyer')}</Text>
+              </View>
             </View>
           </View>
 
-          <View style={styles.divider} />
-
-          <View style={styles.infoLinkRow}>
-            <View style={styles.infoLinkIconBox}>
-              <Ionicons name="sparkles-outline" size={18} color="#166534" />
+          {/* 2. Farm & Crop Info Card */}
+          <View style={styles.card}>
+            <View style={styles.infoLinkRow}>
+              <View style={styles.infoLinkIconBox}>
+                <Ionicons name="location-outline" size={18} color="#166534" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.infoLinkLabel}>{t('FARM')}</Text>
+                <Text style={styles.infoLinkValue}>{farmName}</Text>
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.infoLinkLabel}>{t('CROP (SEASON)')}</Text>
-              <Text style={styles.infoLinkValue}>
-                {cropName} {cycleName ? `(${cycleName})` : ''}
-              </Text>
+
+            <View style={styles.divider} />
+
+            <View style={styles.infoLinkRow}>
+              <View style={styles.infoLinkIconBox}>
+                <Ionicons name="sparkles-outline" size={18} color="#166534" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.infoLinkLabel}>{t('CROP (SEASON)')}</Text>
+                <Text style={styles.infoLinkValue}>
+                  {cropName} {cycleName ? `(${cycleName})` : ''}
+                </Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* 3. Sale Details Card */}
-        <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="archive-outline" size={18} color="#166534" />
-            <Text style={styles.sectionTitle}>{t('Sale Details')}</Text>
-          </View>
-
-          <View style={styles.produceRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.produceTitle}>{t('Total Produce')}</Text>
-              <Text style={styles.produceSub}>
-                {totalQuantity.toFixed(2)} {unit}
-                {permissions.canViewFinancials(user) ? ` @ ₹${rate.toFixed(2)}/${unit}` : ''}
-              </Text>
+          {/* 3. Sale Details Card */}
+          <View style={styles.card}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="archive-outline" size={18} color="#166534" />
+              <Text style={styles.sectionTitle}>{t('Sale Details')}</Text>
             </View>
-            {permissions.canViewFinancials(user) && (
-              <Text style={styles.produceAmount}>₹{grossAmount.toFixed(2)}</Text>
-            )}
-          </View>
 
-          <View style={styles.metricsGrid}>
-            <View style={styles.metricCell}>
-              <Text style={styles.metricLabel}>{t('QUANTITY')}</Text>
-              <Text style={styles.metricVal}>{totalQuantity.toFixed(2)} {unit}</Text>
+            <View style={styles.produceRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.produceTitle}>{t('Total Produce')}</Text>
+                <Text style={styles.produceSub}>
+                  {formatQuantity(totalQuantity, unit)}
+                  {permissions.canViewFinancials(user) ? ` @ ${formatCurrency(rate)}/${unit}` : ''}
+                </Text>
+              </View>
+              {permissions.canViewFinancials(user) && (
+                <Text style={styles.produceAmount}>{formatCurrency(grossAmount)}</Text>
+              )}
             </View>
-            {permissions.canViewFinancials(user) && (
-              <>
-                <View style={styles.metricCell}>
-                  <Text style={styles.metricLabel}>{t('AVG RATE')}</Text>
-                  <Text style={styles.metricVal}>₹{rate.toFixed(2)}</Text>
-                </View>
-                <View style={styles.metricCell}>
-                  <Text style={styles.metricLabel}>{t('GROSS AMOUNT')}</Text>
-                  <Text style={[styles.metricVal, { color: '#166534' }]}>₹{grossAmount.toFixed(2)}</Text>
-                </View>
-              </>
-            )}
+
+            <View style={styles.metricsGrid}>
+              <View style={styles.metricCell}>
+                <Text style={styles.metricLabel}>{t('QUANTITY')}</Text>
+                <Text style={styles.metricVal} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                  {formatQuantity(totalQuantity, unit)}
+                </Text>
+              </View>
+              {permissions.canViewFinancials(user) && (
+                <>
+                  <View style={styles.metricCell}>
+                    <Text style={styles.metricLabel}>{t('AVG RATE')}</Text>
+                    <Text style={styles.metricVal} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                      {formatCurrency(rate)}
+                    </Text>
+                  </View>
+                  <View style={styles.metricCell}>
+                    <Text style={styles.metricLabel}>{t('GROSS AMOUNT')}</Text>
+                    <Text style={[styles.metricVal, { color: '#166534' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                      {formatCurrency(grossAmount)}
+                    </Text>
+                  </View>
+                </>
+              )}
+            </View>
           </View>
-        </View>
 
         {/* Quality Grades Breakdown */}
         <View style={styles.card}>
@@ -635,6 +645,7 @@ export default function SaleViewScreen() {
           </View>
         )}
       </ScrollView>
+      </View>
 
       {/* Edit Sale Modal */}
       <Modal visible={editModalVisible} transparent animationType="slide" onRequestClose={() => setEditModalVisible(false)}>
@@ -1053,6 +1064,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  mainWrapper: {
+    width: '100%',
+    alignSelf: 'center',
+    flex: 1,
   },
   centerBox: {
     flex: 1,

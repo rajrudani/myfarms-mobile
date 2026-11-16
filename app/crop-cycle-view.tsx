@@ -10,13 +10,13 @@ import {
   Modal,
   TextInput,
   RefreshControl,
-  SafeAreaView,
   Platform,
   KeyboardAvoidingView,
   StatusBar,
   Image,
   Switch,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { cropCyclesApi } from '../src/api/cropCycles';
@@ -38,6 +38,7 @@ import {
 import { extractErrorMessage, getBaseUrl } from '../src/api/client';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
 import { QuickChipGroup, ChipOption } from '../src/components/ui';
+import { useResponsive } from '../src/utils/responsive';
 
 export const getAbsoluteImageUrl = (urlPath?: string | null) => {
   if (!urlPath) return undefined;
@@ -178,6 +179,7 @@ const getNormalizedOptions = (opts: any): { key: string; label: string }[] => {
 export default function CropCycleViewScreen() {
   const params = useLocalSearchParams();
   const cycleIdentifier = (params.cycle_ulid as string) || (params.ulid as string) || (params.cycle_id as string) || (params.id as string);
+  const { containerMaxWidth, isTablet } = useResponsive();
 
   const [cycle, setCycle] = useState<CropCycle | null>(null);
   const [farm, setFarm] = useState<Farm | null>(null);
@@ -688,28 +690,29 @@ export default function CropCycleViewScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
 
-      {/* Top Sticky Bar */}
-      <View style={styles.topStickyBar}>
-        <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-          accessibilityLabel="Back"
-        >
-          <Ionicons name="arrow-back" size={20} color="#166534" />
-        </TouchableOpacity>
+      <View style={[styles.mainWrapper, { maxWidth: containerMaxWidth }]}>
+        {/* Top Sticky Bar */}
+        <View style={styles.topStickyBar}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+            accessibilityLabel="Back"
+          >
+            <Ionicons name="arrow-back" size={20} color="#166534" />
+          </TouchableOpacity>
 
-        <Text style={styles.topBarTitle}>Crop Cycle</Text>
+          <Text style={styles.topBarTitle}>Crop Cycle</Text>
 
-        <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() => setEditCycleModalVisible(true)}
-          activeOpacity={0.7}
-          accessibilityLabel="Edit Crop Cycle"
-        >
-          <Ionicons name="create-outline" size={20} color="#166534" />
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => setEditCycleModalVisible(true)}
+            activeOpacity={0.7}
+            accessibilityLabel="Edit Crop Cycle"
+          >
+            <Ionicons name="create-outline" size={20} color="#166534" />
+          </TouchableOpacity>
+        </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -1018,11 +1021,15 @@ export default function CropCycleViewScreen() {
             <View style={styles.expenseSummaryBanner}>
               <View>
                 <Text style={styles.summaryLabel}>TOTAL EXPENSES</Text>
-                <Text style={styles.summaryValue}>{formatCurrency(totalExpenseSum)}</Text>
+                <Text style={styles.summaryValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                  {formatCurrency(totalExpenseSum)}
+                </Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={styles.summaryLabel}>COUNT</Text>
-                <Text style={styles.summaryValue}>{expenses.length}</Text>
+                <Text style={styles.summaryValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                  {expenses.length}
+                </Text>
               </View>
             </View>
           )}
@@ -1096,13 +1103,13 @@ export default function CropCycleViewScreen() {
             <View style={styles.salesSummaryBanner}>
               <View>
                 <Text style={[styles.summaryLabel, { color: '#15803d' }]}>GROSS AMOUNT</Text>
-                <Text style={[styles.summaryValue, { color: '#14532d' }]}>
+                <Text style={[styles.summaryValue, { color: '#14532d' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                   {formatCurrency(totalGrossSales)}
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={[styles.summaryLabel, { color: '#15803d' }]}>FINAL AMOUNT</Text>
-                <Text style={[styles.summaryValue, { color: '#14532d' }]}>
+                <Text style={[styles.summaryValue, { color: '#14532d' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                   {formatCurrency(totalFinalSales)}
                 </Text>
               </View>
@@ -1172,6 +1179,7 @@ export default function CropCycleViewScreen() {
             {isHarvested ? 'Edit Harvest' : 'Harvest Crop'}
           </Text>
         </TouchableOpacity>
+      </View>
       </View>
 
       {/* MODAL 1: Edit Cycle */}
@@ -1877,6 +1885,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  mainWrapper: {
+    width: '100%',
+    alignSelf: 'center',
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,

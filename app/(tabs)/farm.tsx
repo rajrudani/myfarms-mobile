@@ -10,11 +10,11 @@ import {
   Modal,
   TextInput,
   RefreshControl,
-  SafeAreaView,
   Platform,
   KeyboardAvoidingView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { farmsApi } from '../../src/api/farms';
@@ -23,6 +23,7 @@ import { useAuth } from '../../src/hooks/useAuth';
 import { extractErrorMessage } from '../../src/api/client';
 import { permissions } from '../../src/utils/permissions';
 import { useTranslation } from '../../src/i18n/I18nContext';
+import { useResponsive } from '../../src/utils/responsive';
 import { colors, radius, spacing, shadows } from '../../src/theme/tokens';
 import {
   StatusBadge,
@@ -40,6 +41,7 @@ const AREA_UNIT_OPTIONS: ChipOption<string>[] = [
 export default function FarmsScreen() {
   const { isAuthenticated, user } = useAuth();
   const { t } = useTranslation();
+  const { containerMaxWidth, isTablet } = useResponsive();
   const [farms, setFarms] = useState<Farm[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -324,21 +326,21 @@ export default function FarmsScreen() {
       <View style={styles.pillsRow}>
         <View style={styles.pill}>
           <Ionicons name="map-outline" size={14} color="#15803d" style={styles.pillIcon} />
-          <Text style={styles.pillValue} numberOfLines={1}>
+          <Text style={styles.pillValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
             {formatAreaDisplay(item.area, item.area_unit)}
           </Text>
         </View>
 
         <View style={styles.pill}>
           <Ionicons name="people-outline" size={14} color="#15803d" style={styles.pillIcon} />
-          <Text style={styles.pillValue} numberOfLines={1}>
+          <Text style={styles.pillValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
             {item.assigned_staff_count ?? 0} {t('Workers') || 'workers'}
           </Text>
         </View>
 
         <View style={styles.pill}>
           <Ionicons name="sparkles-outline" size={14} color="#15803d" style={styles.pillIcon} />
-          <Text style={styles.pillValue} numberOfLines={1}>
+          <Text style={styles.pillValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
             {item.active_cycles_count ?? 0} {t('Active Crops') || 'crops'}
           </Text>
         </View>
@@ -380,113 +382,115 @@ export default function FarmsScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
 
-      {/* Sticky Header Panel */}
-      <View style={styles.stickyHeader}>
-        <View style={styles.headerTitleRow}>
-          <View>
-            <Text style={styles.headerTitle}>{t('Farms')}</Text>
-            <Text style={styles.headerSubtitle}>{t('Manage farms, activities, and expenses.')}</Text>
-          </View>
-          <View style={styles.headerBadge}>
-            <Text style={styles.headerBadgeText}>{filteredFarms.length}</Text>
-          </View>
-        </View>
-
-        {/* Search & Filter Row */}
-        <View style={styles.searchFilterRow}>
-          <View style={styles.searchBox}>
-            <Ionicons name="search-outline" size={18} color="#64748b" style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              value={search}
-              onChangeText={setSearch}
-              placeholder={t('Search by name or location')}
-              placeholderTextColor="#94a3b8"
-              autoCorrect={false}
-              autoCapitalize="none"
-            />
-            {search.length > 0 && (
-              <TouchableOpacity onPress={() => setSearch('')} style={styles.clearBtn}>
-                <Ionicons name="close-circle" size={18} color="#94a3b8" />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <TouchableOpacity
-            style={[styles.filterBtn, statusFilter !== 'active' && styles.filterBtnActive]}
-            onPress={() => setFilterModalVisible(true)}
-            activeOpacity={0.7}
-            accessibilityLabel="Filter farms"
-          >
-            <Ionicons
-              name="funnel-outline"
-              size={19}
-              color={statusFilter !== 'active' ? '#ffffff' : '#64748b'}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* Active Filter Indicator Tag */}
-        {statusFilter !== 'active' && (
-          <View style={styles.activeFilterRow}>
-            <View style={styles.activeFilterChip}>
-              <Text style={styles.activeFilterChipText}>
-                Status: {statusFilter === 'inactive' ? 'Inactive' : 'All'}
-              </Text>
-              <TouchableOpacity
-                onPress={() => setStatusFilter('active')}
-                style={styles.activeFilterChipClear}
-                accessibilityLabel="Reset filter"
-              >
-                <Ionicons name="close" size={13} color="#ffffff" />
-              </TouchableOpacity>
+      <View style={[styles.mainWrapper, { maxWidth: containerMaxWidth }]}>
+        {/* Sticky Header Panel */}
+        <View style={styles.stickyHeader}>
+          <View style={styles.headerTitleRow}>
+            <View>
+              <Text style={styles.headerTitle}>{t('Farms')}</Text>
+              <Text style={styles.headerSubtitle}>{t('Manage farms, activities, and expenses.')}</Text>
+            </View>
+            <View style={styles.headerBadge}>
+              <Text style={styles.headerBadgeText}>{filteredFarms.length}</Text>
             </View>
           </View>
+
+          {/* Search & Filter Row */}
+          <View style={styles.searchFilterRow}>
+            <View style={styles.searchBox}>
+              <Ionicons name="search-outline" size={18} color="#64748b" style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                value={search}
+                onChangeText={setSearch}
+                placeholder={t('Search by name or location')}
+                placeholderTextColor="#94a3b8"
+                autoCorrect={false}
+                autoCapitalize="none"
+              />
+              {search.length > 0 && (
+                <TouchableOpacity onPress={() => setSearch('')} style={styles.clearBtn}>
+                  <Ionicons name="close-circle" size={18} color="#94a3b8" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={[styles.filterBtn, statusFilter !== 'active' && styles.filterBtnActive]}
+              onPress={() => setFilterModalVisible(true)}
+              activeOpacity={0.7}
+              accessibilityLabel="Filter farms"
+            >
+              <Ionicons
+                name="funnel-outline"
+                size={19}
+                color={statusFilter !== 'active' ? '#ffffff' : '#64748b'}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* Active Filter Indicator Tag */}
+          {statusFilter !== 'active' && (
+            <View style={styles.activeFilterRow}>
+              <View style={styles.activeFilterChip}>
+                <Text style={styles.activeFilterChipText}>
+                  Status: {statusFilter === 'inactive' ? 'Inactive' : 'All'}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setStatusFilter('active')}
+                  style={styles.activeFilterChipClear}
+                  accessibilityLabel="Reset filter"
+                >
+                  <Ionicons name="close" size={13} color="#ffffff" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </View>
+
+        <FlatList
+          data={filteredFarms}
+          keyExtractor={(item, index) => item.ulid || item.id?.toString() || index.toString()}
+          renderItem={renderFarmItem}
+          contentContainerStyle={[styles.listContainer, isTablet && styles.listContainerTablet]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={['#16a34a']}
+              tintColor="#16a34a"
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyIconCircle}>
+                <Ionicons name="leaf-outline" size={32} color={colors.slate400} />
+              </View>
+              <Text style={styles.emptyText}>No farms found</Text>
+              <Text style={styles.emptySubtext}>
+                Try adjusting your search query or tap "+" to record a new farm.
+              </Text>
+            </View>
+          }
+        />
+
+        {/* Floating Action Button */}
+        {permissions.canManageFarms(user) && (
+          <TouchableOpacity
+            style={styles.floatingActionBtn}
+            onPress={() => {
+              setNameError('');
+              setAreaError('');
+              setCreateModalVisible(true);
+            }}
+            activeOpacity={0.8}
+            accessibilityLabel="Add farm"
+          >
+            <Ionicons name="add" size={30} color={colors.white} />
+          </TouchableOpacity>
         )}
       </View>
-
-      <FlatList
-        data={filteredFarms}
-        keyExtractor={(item, index) => item.ulid || item.id?.toString() || index.toString()}
-        renderItem={renderFarmItem}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={['#16a34a']}
-            tintColor="#16a34a"
-          />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconCircle}>
-              <Ionicons name="leaf-outline" size={32} color={colors.slate400} />
-            </View>
-            <Text style={styles.emptyText}>No farms found</Text>
-            <Text style={styles.emptySubtext}>
-              Try adjusting your search query or tap "+" to record a new farm.
-            </Text>
-          </View>
-        }
-      />
-
-      {/* Floating Action Button */}
-      {permissions.canManageFarms(user) && (
-        <TouchableOpacity
-          style={styles.floatingActionBtn}
-          onPress={() => {
-            setNameError('');
-            setAreaError('');
-            setCreateModalVisible(true);
-          }}
-          activeOpacity={0.8}
-          accessibilityLabel="Add farm"
-        >
-          <Ionicons name="add" size={30} color={colors.white} />
-        </TouchableOpacity>
-      )}
 
       {/* Filter Bottom Sheet Modal */}
       <Modal
@@ -883,6 +887,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8fafc',
   },
+  mainWrapper: {
+    width: '100%',
+    alignSelf: 'center',
+    flex: 1,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1013,6 +1022,9 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 100,
     gap: 20,
+  },
+  listContainerTablet: {
+    paddingHorizontal: 28,
   },
   farmCard: {
     backgroundColor: '#ffffff',

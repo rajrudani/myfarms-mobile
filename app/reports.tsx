@@ -4,7 +4,6 @@ import {
   Text,
   View,
   TouchableOpacity,
-  SafeAreaView,
   ActivityIndicator,
   ScrollView,
   FlatList,
@@ -15,9 +14,11 @@ import {
   Modal,
   Switch,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { reportsApi } from '../src/api/reports';
+import { useResponsive } from '../src/utils/responsive';
 import {
   ReportFiltersData,
   AttendanceReportRow,
@@ -50,6 +51,7 @@ const MONTHS = [
 
 export default function ReportsScreen() {
   const { t } = useTranslation();
+  const { containerMaxWidth, isTablet } = useResponsive();
   const [activeReport, setActiveReport] = useState<ReportType>(null);
   const [filtersData, setFiltersData] = useState<ReportFiltersData | null>(null);
   const [loadingFilters, setLoadingFilters] = useState(true);
@@ -1264,51 +1266,53 @@ export default function ReportsScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => {
-            if (activeReport) {
-              selectReport(null);
-            } else {
-              router.back();
-            }
-          }}
-          accessibilityLabel="Back"
-        >
-          <Ionicons name="arrow-back" size={20} color="#475569" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {activeReport === 'attendance'
-            ? t('Attendance Report')
-            : activeReport === 'payment'
-            ? t('Payment Report')
-            : activeReport === 'activity'
-            ? t('Activities Report')
-            : activeReport === 'expense'
-            ? t('Expenses Report')
-            : t('Reports')}
-        </Text>
-        {activeReport ? (
+      <View style={[styles.mainWrapper, { maxWidth: containerMaxWidth }]}>
+        {/* Header */}
+        <View style={styles.header}>
           <TouchableOpacity
-            style={styles.exportHeaderBtn}
-            onPress={() => setShowExportModal(true)}
-            disabled={exportLoading}
-            accessibilityLabel="Export options"
+            style={styles.backBtn}
+            onPress={() => {
+              if (activeReport) {
+                selectReport(null);
+              } else {
+                router.back();
+              }
+            }}
+            accessibilityLabel="Back"
           >
-            {exportLoading ? (
-              <ActivityIndicator size="small" color="#166534" />
-            ) : (
-              <Ionicons name="share-outline" size={20} color="#166534" />
-            )}
+            <Ionicons name="arrow-back" size={20} color="#475569" />
           </TouchableOpacity>
-        ) : (
-          <View style={styles.headerSpacer} />
-        )}
-      </View>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {activeReport === 'attendance'
+              ? t('Attendance Report')
+              : activeReport === 'payment'
+              ? t('Payment Report')
+              : activeReport === 'activity'
+              ? t('Activities Report')
+              : activeReport === 'expense'
+              ? t('Expenses Report')
+              : t('Reports')}
+          </Text>
+          {activeReport ? (
+            <TouchableOpacity
+              style={styles.exportHeaderBtn}
+              onPress={() => setShowExportModal(true)}
+              disabled={exportLoading}
+              accessibilityLabel="Export options"
+            >
+              {exportLoading ? (
+                <ActivityIndicator size="small" color="#166534" />
+              ) : (
+                <Ionicons name="share-outline" size={20} color="#166534" />
+              )}
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
+        </View>
 
-      {renderContent()}
+        {renderContent()}
+      </View>
 
       {/* Export Options Bottom Modal */}
       <Modal
@@ -1398,6 +1402,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.slate50,
+  },
+  mainWrapper: {
+    width: '100%',
+    alignSelf: 'center',
+    flex: 1,
   },
   centered: {
     flex: 1,
