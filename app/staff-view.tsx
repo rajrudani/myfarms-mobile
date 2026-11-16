@@ -10,12 +10,12 @@ import {
   Modal,
   TextInput,
   RefreshControl,
-  SafeAreaView,
   Platform,
   KeyboardAvoidingView,
   Linking,
   Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { staffApi } from '../src/api/staff';
@@ -26,12 +26,16 @@ import { Farm, StaffMember, StaffPayment, StaffAttendance, StaffRoleValue } from
 import { useAuth } from '../src/hooks/useAuth';
 import { extractErrorMessage, getAbsoluteImageUrl } from '../src/api/client';
 import { permissions } from '../src/utils/permissions';
+import { useResponsive } from '../src/utils/responsive';
+import { formatCurrency } from '../src/utils/formatters';
+import { ModalSheet, ModernInput } from '../src/components/ui';
 
 export default function StaffViewScreen() {
   const { id } = useLocalSearchParams();
   const staffIdentifier = id as string;
 
   const { user } = useAuth();
+  const { containerMaxWidth, isTablet } = useResponsive();
   
   // States
   const [staff, setStaff] = useState<StaffMember | null>(null);
@@ -426,8 +430,9 @@ export default function StaffViewScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Sticky Header */}
-      <View style={styles.navbar}>
+      <View style={[styles.mainWrapper, { maxWidth: containerMaxWidth }]}>
+        {/* Sticky Header */}
+        <View style={styles.navbar}>
         <TouchableOpacity style={styles.navBackBtn} onPress={() => router.back()} activeOpacity={0.7}>
           <Ionicons name="chevron-back" size={22} color="#475569" />
         </TouchableOpacity>
@@ -872,564 +877,529 @@ export default function StaffViewScreen() {
           </View>
         )}
       </ScrollView>
+      </View>
 
       {/* Edit Staff Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
+      <ModalSheet
         visible={editModalVisible}
-        onRequestClose={() => setEditModalVisible(false)}
+        onClose={() => setEditModalVisible(false)}
+        title="Edit Staff details"
+        maxHeight="88%"
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>Edit Staff details</Text>
-                <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-                  <Ionicons name="close" size={22} color="#64748b" />
-                </TouchableOpacity>
-              </View>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
+          <ModernInput
+            label="Full Name"
+            placeholder="Name"
+            value={name}
+            onChangeText={setName}
+            containerStyle={{ marginBottom: 12 }}
+          />
 
-              <Text style={styles.inputLabel}>Full Name</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Name"
-                value={name}
-                onChangeText={setName}
+          <Text style={styles.inputLabel}>Role</Text>
+          <TouchableOpacity
+            style={styles.dropdownTrigger}
+            onPress={() => setShowRoleDropdown(!showRoleDropdown)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.dropdownTriggerText}>{role}</Text>
+            <Ionicons name={showRoleDropdown ? "chevron-up" : "chevron-down"} size={16} color="#64748b" />
+          </TouchableOpacity>
+
+          {showRoleDropdown && (
+            <View style={styles.dropdownList}>
+              {(['Owner', 'Manager', 'Worker', 'Consultant'] as StaffRoleValue[]).map((r) => (
+                <TouchableOpacity
+                  key={r}
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    setRole(r);
+                    setShowRoleDropdown(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.dropdownItemText}>{r}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {(role === 'Owner' || role === 'Manager') && (
+            <>
+              <ModernInput
+                label="Username"
+                placeholder="Username"
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
+                containerStyle={{ marginTop: 12 }}
               />
 
-              <Text style={styles.inputLabel}>Role</Text>
-              <TouchableOpacity
-                style={styles.dropdownTrigger}
-                onPress={() => setShowRoleDropdown(!showRoleDropdown)}
-              >
-                <Text style={styles.dropdownTriggerText}>{role}</Text>
-                <Ionicons name={showRoleDropdown ? "chevron-up" : "chevron-down"} size={16} color="#64748b" />
-              </TouchableOpacity>
-
-              {showRoleDropdown && (
-                <View style={styles.dropdownList}>
-                  {(['Owner', 'Manager', 'Worker', 'Consultant'] as StaffRoleValue[]).map((r) => (
-                    <TouchableOpacity
-                      key={r}
-                      style={styles.dropdownItem}
-                      onPress={() => {
-                        setRole(r);
-                        setShowRoleDropdown(false);
-                      }}
-                    >
-                      <Text style={styles.dropdownItemText}>{r}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-
-              {(role === 'Owner' || role === 'Manager') && (
-                <>
-                  <Text style={styles.inputLabel}>Username</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Username"
-                    value={username}
-                    onChangeText={setUsername}
-                    autoCapitalize="none"
-                  />
-
-                  <Text style={styles.inputLabel}>Email</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Email"
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
-
-                  <Text style={styles.inputLabel}>New Password (Optional)</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Type to change password"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry
-                  />
-                </>
-              )}
-
-              {role !== 'Owner' && (
-                <>
-                  <Text style={styles.inputLabel}>Assign Farms</Text>
-                  <TouchableOpacity
-                    style={styles.dropdownTrigger}
-                    onPress={() => setShowFarmsDropdown(!showFarmsDropdown)}
-                  >
-                    <Text style={styles.dropdownTriggerText}>
-                      {selectedFarms.length > 0 ? `${selectedFarms.length} Farms Selected` : 'Select Farms'}
-                    </Text>
-                    <Ionicons name={showFarmsDropdown ? "chevron-up" : "chevron-down"} size={16} color="#64748b" />
-                  </TouchableOpacity>
-
-                  {showFarmsDropdown && (
-                    <View style={styles.dropdownList}>
-                      {activeFarmsList.map((f) => {
-                        const isSelected = selectedFarms.includes(f.id as number);
-                        return (
-                          <TouchableOpacity
-                            key={f.id}
-                            style={styles.dropdownCheckboxItem}
-                            onPress={() => toggleFarmSelection(f.id as number)}
-                          >
-                            <Text style={styles.dropdownItemText}>{f.name}</Text>
-                            <Ionicons
-                              name={isSelected ? "checkbox" : "square-outline"}
-                              size={18}
-                              color={isSelected ? "#166534" : "#64748b"}
-                            />
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  )}
-                </>
-              )}
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.cancelBtn]}
-                  onPress={() => setEditModalVisible(false)}
-                  disabled={updating}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.saveBtn]}
-                  onPress={handleUpdateStaff}
-                  disabled={updating}
-                >
-                  {updating ? (
-                    <ActivityIndicator color="#ffffff" />
-                  ) : (
-                    <Text style={styles.saveBtnText}>Save</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Add Payment Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={paymentModalVisible}
-        onRequestClose={() => setPaymentModalVisible(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>Record Payment</Text>
-                <TouchableOpacity onPress={() => setPaymentModalVisible(false)}>
-                  <Ionicons name="close" size={22} color="#64748b" />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.inputLabel}>Staff Member</Text>
-              <TextInput style={[styles.input, { color: '#64748b' }]} value={staff.name} editable={false} />
-
-              <Text style={styles.inputLabel}>Amount Paid (₹)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. 5000"
-                keyboardType="numeric"
-                value={amount}
-                onChangeText={setAmount}
+              <ModernInput
+                label="Email"
+                placeholder="Email"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                containerStyle={{ marginTop: 12 }}
               />
 
-              <Text style={styles.inputLabel}>Payment Method</Text>
+              <ModernInput
+                label="New Password (Optional)"
+                placeholder="Type to change password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                containerStyle={{ marginTop: 12 }}
+              />
+            </>
+          )}
+
+          {role !== 'Owner' && (
+            <>
+              <Text style={[styles.inputLabel, { marginTop: 12 }]}>Assign Farms</Text>
               <TouchableOpacity
                 style={styles.dropdownTrigger}
-                onPress={() => setShowPayMethodDropdown(!showPayMethodDropdown)}
+                onPress={() => setShowFarmsDropdown(!showFarmsDropdown)}
+                activeOpacity={0.8}
               >
                 <Text style={styles.dropdownTriggerText}>
-                  {payMethod.replace('_', ' ').toUpperCase()}
+                  {selectedFarms.length > 0 ? `${selectedFarms.length} Farms Selected` : 'Select Farms'}
                 </Text>
-                <Ionicons name={showPayMethodDropdown ? "chevron-up" : "chevron-down"} size={16} color="#64748b" />
+                <Ionicons name={showFarmsDropdown ? "chevron-up" : "chevron-down"} size={16} color="#64748b" />
               </TouchableOpacity>
 
-              {showPayMethodDropdown && (
+              {showFarmsDropdown && (
                 <View style={styles.dropdownList}>
-                  {([
-                    { value: 'cash', label: 'CASH' },
-                    { value: 'google_pay', label: 'GOOGLE PAY' },
-                    { value: 'phonepe', label: 'PHONEPE' },
-                    { value: 'other_upi', label: 'OTHER UPI' },
-                    { value: 'bank_transfer', label: 'BANK TRANSFER' },
-                  ] as const).map((m) => (
-                    <TouchableOpacity
-                      key={m.value}
-                      style={styles.dropdownItem}
-                      onPress={() => {
-                        setPayMethod(m.value);
-                        setShowPayMethodDropdown(false);
-                      }}
-                    >
-                      <Text style={styles.dropdownItemText}>{m.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-
-              <Text style={styles.inputLabel}>Given By</Text>
-              <TouchableOpacity
-                style={styles.dropdownTrigger}
-                onPress={() => setShowPayGivenDropdown(!showPayGivenDropdown)}
-              >
-                <Text style={styles.dropdownTriggerText}>{selectedGivenByName}</Text>
-                <Ionicons name={showPayGivenDropdown ? "chevron-up" : "chevron-down"} size={16} color="#64748b" />
-              </TouchableOpacity>
-
-              {showPayGivenDropdown && (
-                <View style={styles.dropdownList}>
-                  {allStaff
-                    .filter((s) => s.roles.some((r) => r.value === 'Owner' || r.value === 'Manager'))
-                    .map((s) => (
+                  {activeFarmsList.map((f) => {
+                    const isSelected = selectedFarms.includes(f.id as number);
+                    return (
                       <TouchableOpacity
-                        key={s.id}
-                        style={styles.dropdownItem}
-                        onPress={() => {
-                          setPayGivenBy(s.id);
-                          setShowPayGivenDropdown(false);
-                        }}
+                        key={f.id}
+                        style={styles.dropdownCheckboxItem}
+                        onPress={() => toggleFarmSelection(f.id as number)}
+                        activeOpacity={0.7}
                       >
-                        <Text style={styles.dropdownItemText}>{s.name} ({s.roles[0]?.label})</Text>
+                        <Text style={styles.dropdownItemText}>{f.name}</Text>
+                        <Ionicons
+                          name={isSelected ? "checkbox" : "square-outline"}
+                          size={18}
+                          color={isSelected ? "#166534" : "#64748b"}
+                        />
                       </TouchableOpacity>
-                    ))}
+                    );
+                  })}
                 </View>
               )}
+            </>
+          )}
 
-              <Text style={styles.inputLabel}>Payment Date (YYYY-MM-DD)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="YYYY-MM-DD"
-                value={payDate}
-                onChangeText={setPayDate}
-              />
-
-              <Text style={styles.inputLabel}>Notes</Text>
-              <TextInput
-                style={[styles.input, styles.multilineInput]}
-                placeholder="Reference details..."
-                value={payNotes}
-                onChangeText={setPayNotes}
-                multiline
-                numberOfLines={3}
-              />
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.cancelBtn]}
-                  onPress={() => setPaymentModalVisible(false)}
-                  disabled={savingPayment}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.saveBtn]}
-                  onPress={handleAddPayment}
-                  disabled={savingPayment}
-                >
-                  {savingPayment ? (
-                    <ActivityIndicator color="#ffffff" />
-                  ) : (
-                    <Text style={styles.saveBtnText}>Record Payment</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Assign Farm Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={assignFarmModalVisible}
-        onRequestClose={() => setAssignFarmModalVisible(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>Assign Farm</Text>
-              <TouchableOpacity onPress={() => setAssignFarmModalVisible(false)}>
-                <Ionicons name="close" size={22} color="#64748b" />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.inputLabel}>Select Farm</Text>
+          <View style={styles.modalActions}>
             <TouchableOpacity
-              style={styles.dropdownTrigger}
-              onPress={() => setShowAssignFarmDropdown(!showAssignFarmDropdown)}
+              style={[styles.modalBtn, styles.cancelBtn]}
+              onPress={() => setEditModalVisible(false)}
+              disabled={updating}
+              activeOpacity={0.7}
             >
-              <Text style={styles.dropdownTriggerText}>
-                {selectedAssignFarmId
-                  ? farms.find(f => f.id === selectedAssignFarmId)?.name || 'Select Farm'
-                  : 'Select Farm'}
-              </Text>
-              <Ionicons name={showAssignFarmDropdown ? "chevron-up" : "chevron-down"} size={16} color="#64748b" />
+              <Text style={styles.cancelBtnText}>Cancel</Text>
             </TouchableOpacity>
 
-            {showAssignFarmDropdown && (
-              <View style={styles.dropdownList}>
-                {activeFarmsList
-                  .filter(f => !staff.farms.some(sf => sf.id === f.id))
-                  .map(f => (
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.saveBtn]}
+              onPress={handleUpdateStaff}
+              disabled={updating}
+              activeOpacity={0.7}
+            >
+              {updating ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.saveBtnText}>Save</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </ModalSheet>
+
+      {/* Add Payment Modal */}
+      <ModalSheet
+        visible={paymentModalVisible}
+        onClose={() => setPaymentModalVisible(false)}
+        title="Record Payment"
+        maxHeight="88%"
+      >
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
+          <ModernInput
+            label="Staff Member"
+            value={staff.name}
+            editable={false}
+            containerStyle={{ marginBottom: 12 }}
+          />
+
+          <ModernInput
+            label="Amount Paid"
+            placeholder="e.g. 5000"
+            keyboardType="decimal-pad"
+            value={amount}
+            onChangeText={setAmount}
+            prefix={<Text style={{ color: '#059669', fontWeight: '700', marginRight: 4 }}>₹</Text>}
+            containerStyle={{ marginBottom: 12 }}
+          />
+
+          <Text style={styles.inputLabel}>Payment Method</Text>
+          <TouchableOpacity
+            style={styles.dropdownTrigger}
+            onPress={() => setShowPayMethodDropdown(!showPayMethodDropdown)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.dropdownTriggerText}>
+              {payMethod.replace('_', ' ').toUpperCase()}
+            </Text>
+            <Ionicons name={showPayMethodDropdown ? "chevron-up" : "chevron-down"} size={16} color="#64748b" />
+          </TouchableOpacity>
+
+          {showPayMethodDropdown && (
+            <View style={styles.dropdownList}>
+              {([
+                { value: 'cash', label: 'CASH' },
+                { value: 'google_pay', label: 'GOOGLE PAY' },
+                { value: 'phonepe', label: 'PHONEPE' },
+                { value: 'other_upi', label: 'OTHER UPI' },
+                { value: 'bank_transfer', label: 'BANK TRANSFER' },
+              ] as const).map((m) => (
+                <TouchableOpacity
+                  key={m.value}
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    setPayMethod(m.value);
+                    setShowPayMethodDropdown(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.dropdownItemText}>{m.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          <Text style={[styles.inputLabel, { marginTop: 12 }]}>Given By</Text>
+          <TouchableOpacity
+            style={styles.dropdownTrigger}
+            onPress={() => setShowPayGivenDropdown(!showPayGivenDropdown)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.dropdownTriggerText}>{selectedGivenByName}</Text>
+            <Ionicons name={showPayGivenDropdown ? "chevron-up" : "chevron-down"} size={16} color="#64748b" />
+          </TouchableOpacity>
+
+          {showPayGivenDropdown && (
+            <View style={styles.dropdownList}>
+              {allStaff
+                .filter((s) => s.roles.some((r) => r.value === 'Owner' || r.value === 'Manager'))
+                .map((s) => (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setPayGivenBy(s.id);
+                      setShowPayGivenDropdown(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.dropdownItemText}>{s.name} ({s.roles[0]?.label})</Text>
+                  </TouchableOpacity>
+                ))}
+            </View>
+          )}
+
+          <ModernInput
+            label="Payment Date (YYYY-MM-DD)"
+            placeholder="YYYY-MM-DD"
+            value={payDate}
+            onChangeText={setPayDate}
+            containerStyle={{ marginTop: 12, marginBottom: 12 }}
+          />
+
+          <ModernInput
+            label="Notes"
+            placeholder="Reference details..."
+            value={payNotes}
+            onChangeText={setPayNotes}
+            multiline
+            numberOfLines={3}
+            containerStyle={{ marginBottom: 16 }}
+          />
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.cancelBtn]}
+              onPress={() => setPaymentModalVisible(false)}
+              disabled={savingPayment}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.saveBtn]}
+              onPress={handleAddPayment}
+              disabled={savingPayment}
+              activeOpacity={0.7}
+            >
+              {savingPayment ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.saveBtnText}>Record Payment</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </ModalSheet>
+
+      {/* Assign Farm Modal */}
+      <ModalSheet
+        visible={assignFarmModalVisible}
+        onClose={() => setAssignFarmModalVisible(false)}
+        title="Assign Farm"
+        maxHeight="60%"
+      >
+        <Text style={styles.inputLabel}>Select Farm</Text>
+        <TouchableOpacity
+          style={styles.dropdownTrigger}
+          onPress={() => setShowAssignFarmDropdown(!showAssignFarmDropdown)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.dropdownTriggerText}>
+            {selectedAssignFarmId
+              ? farms.find(f => f.id === selectedAssignFarmId)?.name || 'Select Farm'
+              : 'Select Farm'}
+          </Text>
+          <Ionicons name={showAssignFarmDropdown ? "chevron-up" : "chevron-down"} size={16} color="#64748b" />
+        </TouchableOpacity>
+
+        {showAssignFarmDropdown && (
+          <View style={styles.dropdownList}>
+            {activeFarmsList
+              .filter(f => !staff.farms.some(sf => sf.id === f.id))
+              .map(f => (
+                <TouchableOpacity
+                  key={f.id}
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    setSelectedAssignFarmId(f.id as number);
+                    setShowAssignFarmDropdown(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.dropdownItemText}>{f.name}</Text>
+                </TouchableOpacity>
+              ))}
+          </View>
+        )}
+
+        <View style={styles.modalActions}>
+          <TouchableOpacity
+            style={[styles.modalBtn, styles.cancelBtn]}
+            onPress={() => setAssignFarmModalVisible(false)}
+            disabled={assigningFarm}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.cancelBtnText}>Cancel</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.modalBtn, styles.saveBtn]}
+            onPress={handleAssignFarm}
+            disabled={assigningFarm}
+            activeOpacity={0.7}
+          >
+            {assigningFarm ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text style={styles.saveBtnText}>Assign</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ModalSheet>
+
+      {/* Settle Payments Modal */}
+      <ModalSheet
+        visible={settleModalVisible}
+        onClose={() => setSettleModalVisible(false)}
+        title="Settle Payments"
+        maxHeight="75%"
+      >
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
+          <ModernInput
+            label="Current Total Unsettled"
+            value={formatCurrency(Number(staff.payment_stats?.current_paid || 0))}
+            editable={false}
+            containerStyle={{ marginBottom: 12 }}
+          />
+
+          <ModernInput
+            label="Settlement Date (YYYY-MM-DD)"
+            placeholder="YYYY-MM-DD"
+            value={settleDate}
+            onChangeText={setSettleDate}
+            containerStyle={{ marginBottom: 12 }}
+          />
+
+          <ModernInput
+            label="Notes"
+            placeholder="Example: Season Closed, Completed cycle payment..."
+            value={settleNotes}
+            onChangeText={setSettleNotes}
+            multiline
+            numberOfLines={3}
+            containerStyle={{ marginBottom: 16 }}
+          />
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.cancelBtn]}
+              onPress={() => setSettleModalVisible(false)}
+              disabled={settlingPayments}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modalBtn, { backgroundColor: '#d97706' }]}
+              onPress={handleSettlePayments}
+              disabled={settlingPayments}
+              activeOpacity={0.7}
+            >
+              {settlingPayments ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.saveBtnText}>Settle & Restart</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </ModalSheet>
+
+      {/* Edit Attendance Modal */}
+      <ModalSheet
+        visible={attendanceModalVisible}
+        onClose={() => setAttendanceModalVisible(false)}
+        title="Attendance Details"
+        maxHeight="75%"
+      >
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
+          <ModernInput
+            label="Date"
+            value={selectedAttendanceDate}
+            editable={false}
+            containerStyle={{ marginBottom: 12 }}
+          />
+
+          <Text style={styles.inputLabel}>Status</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+            <TouchableOpacity
+              style={[
+                styles.attBtn,
+                attendanceStatus === 'present' && { backgroundColor: '#dcfce7', borderColor: '#22c55e' }
+              ]}
+              onPress={() => setAttendanceStatus('present')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.attBtnText, attendanceStatus === 'present' && { color: '#15803d' }]}>Present</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.attBtn,
+                attendanceStatus === 'half_day' && { backgroundColor: '#fef3c7', borderColor: '#f59e0b' }
+              ]}
+              onPress={() => setAttendanceStatus('half_day')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.attBtnText, attendanceStatus === 'half_day' && { color: '#b45309' }]}>Half Day</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.attBtn,
+                attendanceStatus === 'absent' && { backgroundColor: '#fee2e2', borderColor: '#ef4444' }
+              ]}
+              onPress={() => setAttendanceStatus('absent')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.attBtnText, attendanceStatus === 'absent' && { color: '#b91c1c' }]}>Absent</Text>
+            </TouchableOpacity>
+          </View>
+
+          {attendanceStatus !== 'absent' && (
+            <>
+              <Text style={styles.inputLabel}>Work Location</Text>
+              <TouchableOpacity
+                style={styles.dropdownTrigger}
+                onPress={() => setShowAttendanceFarmDropdown(!showAttendanceFarmDropdown)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.dropdownTriggerText}>
+                  {attendanceFarmId
+                    ? farms.find(f => f.id === attendanceFarmId)?.name || 'Select Farm'
+                    : 'Select Farm'}
+                </Text>
+                <Ionicons name={showAttendanceFarmDropdown ? "chevron-up" : "chevron-down"} size={16} color="#64748b" />
+              </TouchableOpacity>
+
+              {showAttendanceFarmDropdown && (
+                <View style={styles.dropdownList}>
+                  {staff.farms.map(f => (
                     <TouchableOpacity
                       key={f.id}
                       style={styles.dropdownItem}
                       onPress={() => {
-                        setSelectedAssignFarmId(f.id as number);
-                        setShowAssignFarmDropdown(false);
+                        setAttendanceFarmId(f.id);
+                        setShowAttendanceFarmDropdown(false);
                       }}
+                      activeOpacity={0.7}
                     >
                       <Text style={styles.dropdownItemText}>{f.name}</Text>
                     </TouchableOpacity>
                   ))}
-              </View>
-            )}
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.cancelBtn]}
-                onPress={() => setAssignFarmModalVisible(false)}
-                disabled={assigningFarm}
-              >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.saveBtn]}
-                onPress={handleAssignFarm}
-                disabled={assigningFarm}
-              >
-                {assigningFarm ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <Text style={styles.saveBtnText}>Assign</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Settle Payments Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={settleModalVisible}
-        onRequestClose={() => setSettleModalVisible(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>Settle Payments</Text>
-                <TouchableOpacity onPress={() => setSettleModalVisible(false)}>
-                  <Ionicons name="close" size={22} color="#64748b" />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.inputLabel}>Current Total Unsettled</Text>
-              <TextInput
-                style={[styles.input, { color: '#64748b' }]}
-                value={`₹${Number(staff.payment_stats?.current_paid || 0).toLocaleString('en-IN')}`}
-                editable={false}
-              />
-
-              <Text style={styles.inputLabel}>Settlement Date (YYYY-MM-DD)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="YYYY-MM-DD"
-                value={settleDate}
-                onChangeText={setSettleDate}
-              />
-
-              <Text style={styles.inputLabel}>Notes</Text>
-              <TextInput
-                style={[styles.input, styles.multilineInput]}
-                placeholder="Example: Season Closed, Completed cycle payment..."
-                value={settleNotes}
-                onChangeText={setSettleNotes}
-                multiline
-                numberOfLines={3}
-              />
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.cancelBtn]}
-                  onPress={() => setSettleModalVisible(false)}
-                  disabled={settlingPayments}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.modalBtn, { backgroundColor: '#d97706' }]}
-                  onPress={handleSettlePayments}
-                  disabled={settlingPayments}
-                >
-                  {settlingPayments ? (
-                    <ActivityIndicator color="#ffffff" />
-                  ) : (
-                    <Text style={styles.saveBtnText}>Settle & Restart</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Edit Attendance Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={attendanceModalVisible}
-        onRequestClose={() => setAttendanceModalVisible(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>Attendance Details</Text>
-                <TouchableOpacity onPress={() => setAttendanceModalVisible(false)}>
-                  <Ionicons name="close" size={22} color="#64748b" />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.inputLabel}>Date</Text>
-              <TextInput style={[styles.input, { color: '#64748b' }]} value={selectedAttendanceDate} editable={false} />
-
-              <Text style={styles.inputLabel}>Status</Text>
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-                <TouchableOpacity
-                  style={[
-                    styles.attBtn,
-                    attendanceStatus === 'present' && { backgroundColor: '#dcfce7', borderColor: '#22c55e' }
-                  ]}
-                  onPress={() => setAttendanceStatus('present')}
-                >
-                  <Text style={[styles.attBtnText, attendanceStatus === 'present' && { color: '#15803d' }]}>Present</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.attBtn,
-                    attendanceStatus === 'half_day' && { backgroundColor: '#fef3c7', borderColor: '#f59e0b' }
-                  ]}
-                  onPress={() => setAttendanceStatus('half_day')}
-                >
-                  <Text style={[styles.attBtnText, attendanceStatus === 'half_day' && { color: '#b45309' }]}>Half Day</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.attBtn,
-                    attendanceStatus === 'absent' && { backgroundColor: '#fee2e2', borderColor: '#ef4444' }
-                  ]}
-                  onPress={() => setAttendanceStatus('absent')}
-                >
-                  <Text style={[styles.attBtnText, attendanceStatus === 'absent' && { color: '#b91c1c' }]}>Absent</Text>
-                </TouchableOpacity>
-              </View>
-
-              {attendanceStatus !== 'absent' && (
-                <>
-                  <Text style={styles.inputLabel}>Work Location</Text>
-                  <TouchableOpacity
-                    style={styles.dropdownTrigger}
-                    onPress={() => setShowAttendanceFarmDropdown(!showAttendanceFarmDropdown)}
-                  >
-                    <Text style={styles.dropdownTriggerText}>
-                      {attendanceFarmId
-                        ? farms.find(f => f.id === attendanceFarmId)?.name || 'Select Farm'
-                        : 'Select Farm'}
-                    </Text>
-                    <Ionicons name={showAttendanceFarmDropdown ? "chevron-up" : "chevron-down"} size={16} color="#64748b" />
-                  </TouchableOpacity>
-
-                  {showAttendanceFarmDropdown && (
-                    <View style={styles.dropdownList}>
-                      {staff.farms.map(f => (
-                        <TouchableOpacity
-                          key={f.id}
-                          style={styles.dropdownItem}
-                          onPress={() => {
-                            setAttendanceFarmId(f.id);
-                            setShowAttendanceFarmDropdown(false);
-                          }}
-                        >
-                          <Text style={styles.dropdownItemText}>{f.name}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
-
-                  <Text style={styles.inputLabel}>Notes</Text>
-                  <TextInput
-                    style={[styles.input, styles.multilineInput]}
-                    placeholder="E.g. check in/out time, tasks..."
-                    value={attendanceNotes}
-                    onChangeText={setAttendanceNotes}
-                    multiline
-                    numberOfLines={3}
-                  />
-                </>
+                </View>
               )}
 
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.cancelBtn]}
-                  onPress={() => setAttendanceModalVisible(false)}
-                  disabled={savingAttendance}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
+              <ModernInput
+                label="Notes"
+                placeholder="E.g. check in/out time, tasks..."
+                value={attendanceNotes}
+                onChangeText={setAttendanceNotes}
+                multiline
+                numberOfLines={3}
+                containerStyle={{ marginTop: 12, marginBottom: 12 }}
+              />
+            </>
+          )}
 
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.saveBtn]}
-                  onPress={handleSaveDayAttendance}
-                  disabled={savingAttendance}
-                >
-                  {savingAttendance ? (
-                    <ActivityIndicator color="#ffffff" />
-                  ) : (
-                    <Text style={styles.saveBtnText}>Save</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.cancelBtn]}
+              onPress={() => setAttendanceModalVisible(false)}
+              disabled={savingAttendance}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.saveBtn]}
+              onPress={handleSaveDayAttendance}
+              disabled={savingAttendance}
+              activeOpacity={0.7}
+            >
+              {savingAttendance ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.saveBtnText}>Save</Text>
+              )}
+            </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        </ScrollView>
+      </ModalSheet>
     </SafeAreaView>
   );
 }
@@ -1438,6 +1408,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  mainWrapper: {
+    width: '100%',
+    alignSelf: 'center',
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,

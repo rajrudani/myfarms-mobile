@@ -37,7 +37,7 @@ import {
 } from '../src/types';
 import { extractErrorMessage, getBaseUrl } from '../src/api/client';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
-import { QuickChipGroup, ChipOption } from '../src/components/ui';
+import { QuickChipGroup, ChipOption, ModalSheet, ModernInput } from '../src/components/ui';
 import { useResponsive } from '../src/utils/responsive';
 
 export const getAbsoluteImageUrl = (urlPath?: string | null) => {
@@ -1183,299 +1183,250 @@ export default function CropCycleViewScreen() {
       </View>
 
       {/* MODAL 1: Edit Cycle */}
-      <Modal
+      <ModalSheet
         visible={editCycleModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setEditCycleModalVisible(false)}
+        onClose={() => setEditCycleModalVisible(false)}
+        title="Edit Crop Cycle"
+        maxHeight="88%"
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Crop Cycle</Text>
-              <TouchableOpacity onPress={() => setEditCycleModalVisible(false)}>
-                <Ionicons name="close" size={22} color={colors.slate600} />
-              </TouchableOpacity>
-            </View>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <ModernInput
+            label="Crop Type / Variety"
+            value={editCropType}
+            onChangeText={setEditCropType}
+            placeholder="e.g. Cotton, Wheat"
+            placeholderTextColor={colors.slate400}
+            containerStyle={{ marginBottom: spacing.md }}
+          />
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.inputLabel}>Crop Type / Variety</Text>
-              <TextInput
-                style={styles.input}
-                value={editCropType}
-                onChangeText={setEditCropType}
-                placeholder="e.g. Cotton, Wheat"
-                placeholderTextColor={colors.slate400}
-              />
+          <ModernInput
+            label="Allocated Area"
+            value={editAllocatedArea}
+            onChangeText={setEditAllocatedArea}
+            keyboardType="decimal-pad"
+            placeholder="e.g. 5.5"
+            placeholderTextColor={colors.slate400}
+            containerStyle={{ marginBottom: spacing.sm }}
+          />
 
-              <Text style={styles.inputLabel}>Allocated Area</Text>
-              <TextInput
-                style={styles.input}
-                value={editAllocatedArea}
-                onChangeText={setEditAllocatedArea}
-                keyboardType="decimal-pad"
-                placeholder="e.g. 5.5"
-                placeholderTextColor={colors.slate400}
-              />
+          <Text style={styles.inputLabel}>Area Measurement Unit</Text>
+          <QuickChipGroup
+            options={AREA_UNIT_OPTIONS}
+            selectedValue={editAllocatedAreaUnit}
+            onSelect={(val) => setEditAllocatedAreaUnit(val)}
+            size="sm"
+          />
 
-              <Text style={styles.inputLabel}>Area Measurement Unit</Text>
-              <QuickChipGroup
-                options={AREA_UNIT_OPTIONS}
-                selectedValue={editAllocatedAreaUnit}
-                onSelect={(val) => setEditAllocatedAreaUnit(val)}
-                size="sm"
-              />
+          <ModernInput
+            label="Season Name"
+            value={editSeasonName}
+            onChangeText={setEditSeasonName}
+            placeholder="e.g. Kharif 2026"
+            placeholderTextColor={colors.slate400}
+            containerStyle={{ marginTop: spacing.md, marginBottom: spacing.md }}
+          />
 
-              <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Season Name</Text>
-              <TextInput
-                style={styles.input}
-                value={editSeasonName}
-                onChangeText={setEditSeasonName}
-                placeholder="e.g. Kharif 2026"
-                placeholderTextColor={colors.slate400}
-              />
+          <ModernInput
+            label="Started Date (YYYY-MM-DD)"
+            value={editStartedOn}
+            onChangeText={setEditStartedOn}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor={colors.slate400}
+            containerStyle={{ marginBottom: spacing.md }}
+          />
 
-              <Text style={styles.inputLabel}>Started Date (YYYY-MM-DD)</Text>
-              <TextInput
-                style={styles.input}
-                value={editStartedOn}
-                onChangeText={setEditStartedOn}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.slate400}
-              />
+          <ModernInput
+            label="Expected Harvest Date (YYYY-MM-DD)"
+            value={editExpectedHarvestOn}
+            onChangeText={setEditExpectedHarvestOn}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor={colors.slate400}
+            containerStyle={{ marginBottom: spacing.md }}
+          />
 
-              <Text style={styles.inputLabel}>Expected Harvest Date (YYYY-MM-DD)</Text>
-              <TextInput
-                style={styles.input}
-                value={editExpectedHarvestOn}
-                onChangeText={setEditExpectedHarvestOn}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.slate400}
-              />
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.cancelBtn]}
+              onPress={() => setEditCycleModalVisible(false)}
+              disabled={updatingCycle}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
 
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.cancelBtn]}
-                  onPress={() => setEditCycleModalVisible(false)}
-                  disabled={updatingCycle}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.saveBtn]}
-                  onPress={handleSaveCycle}
-                  disabled={updatingCycle}
-                >
-                  {updatingCycle ? (
-                    <ActivityIndicator color={colors.white} />
-                  ) : (
-                    <Text style={styles.saveBtnText}>Save Changes</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.saveBtn]}
+              onPress={handleSaveCycle}
+              disabled={updatingCycle}
+              activeOpacity={0.7}
+            >
+              {updatingCycle ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <Text style={styles.saveBtnText}>Save Changes</Text>
+              )}
+            </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        </ScrollView>
+      </ModalSheet>
 
       {/* MODAL 2: Harvest Crop */}
-      <Modal
+      <ModalSheet
         visible={harvestModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setHarvestModalVisible(false)}
+        onClose={() => setHarvestModalVisible(false)}
+        title={harvestIsHarvested ? 'Harvest Crop Cycle' : 'Update Cycle Status'}
+        maxHeight="88%"
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {harvestIsHarvested ? 'Harvest Crop Cycle' : 'Update Cycle Status'}
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Harvested Toggle */}
+          <View style={styles.switchRow}>
+            <View style={{ flex: 1, paddingRight: spacing.sm }}>
+              <Text style={styles.switchTitle}>Harvested</Text>
+              <Text style={styles.switchSubtitle}>
+                {harvestIsHarvested
+                  ? 'Turn off to move this cycle back to Active status'
+                  : 'Turn on to mark this crop cycle as harvested'}
               </Text>
-              <TouchableOpacity onPress={() => setHarvestModalVisible(false)}>
-                <Ionicons name="close" size={22} color={colors.slate600} />
-              </TouchableOpacity>
             </View>
+            <Switch
+              value={harvestIsHarvested}
+              onValueChange={(val) => {
+                setHarvestIsHarvested(val);
+                if (val && !harvestDate) {
+                  setHarvestDate(new Date().toISOString().split('T')[0]);
+                }
+              }}
+              trackColor={{ false: colors.slate200, true: '#86efac' }}
+              thumbColor={harvestIsHarvested ? colors.primary : colors.slate400}
+            />
+          </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Harvested Toggle */}
-              <View style={styles.switchRow}>
+          {harvestIsHarvested ? (
+            <>
+              {/* Create New Cycle Toggle (for Perennial crops like Mango, Lemon, etc.) */}
+              <View style={[styles.switchRow, { marginTop: spacing.md }]}>
                 <View style={{ flex: 1, paddingRight: spacing.sm }}>
-                  <Text style={styles.switchTitle}>Harvested</Text>
+                  <Text style={styles.switchTitle}>Create New Cycle</Text>
                   <Text style={styles.switchSubtitle}>
-                    {harvestIsHarvested
-                      ? 'Turn off to move this cycle back to Active status'
-                      : 'Turn on to mark this crop cycle as harvested'}
+                    For perennial crops (mango, lemon, chikoo, etc.) where planting continues after each harvest
                   </Text>
                 </View>
                 <Switch
-                  value={harvestIsHarvested}
-                  onValueChange={(val) => {
-                    setHarvestIsHarvested(val);
-                    if (val && !harvestDate) {
-                      setHarvestDate(new Date().toISOString().split('T')[0]);
-                    }
-                  }}
+                  value={createNextCycle}
+                  onValueChange={setCreateNextCycle}
                   trackColor={{ false: colors.slate200, true: '#86efac' }}
-                  thumbColor={harvestIsHarvested ? colors.primary : colors.slate400}
+                  thumbColor={createNextCycle ? colors.primary : colors.slate400}
                 />
               </View>
 
-              {harvestIsHarvested ? (
-                <>
-                  {/* Create New Cycle Toggle (for Perennial crops like Mango, Lemon, etc.) */}
-                  <View style={[styles.switchRow, { marginTop: spacing.md }]}>
-                    <View style={{ flex: 1, paddingRight: spacing.sm }}>
-                      <Text style={styles.switchTitle}>Create New Cycle</Text>
-                      <Text style={styles.switchSubtitle}>
-                        For perennial crops (mango, lemon, chikoo, etc.) where planting continues after each harvest
-                      </Text>
-                    </View>
-                    <Switch
-                      value={createNextCycle}
-                      onValueChange={setCreateNextCycle}
-                      trackColor={{ false: colors.slate200, true: '#86efac' }}
-                      thumbColor={createNextCycle ? colors.primary : colors.slate400}
-                    />
-                  </View>
+              <ModernInput
+                label="Actual Harvest Date (YYYY-MM-DD)"
+                required
+                value={harvestDate}
+                onChangeText={setHarvestDate}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={colors.slate400}
+                containerStyle={{ marginTop: spacing.md, marginBottom: spacing.md }}
+              />
 
-                  <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>
-                    Actual Harvest Date (YYYY-MM-DD) *
-                  </Text>
-                  <TextInput
-                    style={styles.input}
-                    value={harvestDate}
-                    onChangeText={setHarvestDate}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor={colors.slate400}
-                  />
+              <ModernInput
+                label="Harvest Yield Amount"
+                value={harvestAmount}
+                onChangeText={setHarvestAmount}
+                keyboardType="decimal-pad"
+                placeholder="e.g. 1200"
+                placeholderTextColor={colors.slate400}
+                containerStyle={{ marginBottom: spacing.sm }}
+              />
 
-                  <Text style={styles.inputLabel}>Harvest Yield Amount</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={harvestAmount}
-                    onChangeText={setHarvestAmount}
-                    keyboardType="decimal-pad"
-                    placeholder="e.g. 1200"
-                    placeholderTextColor={colors.slate400}
-                  />
+              <Text style={styles.inputLabel}>Yield Unit</Text>
+              <QuickChipGroup
+                options={HARVEST_UNITS}
+                selectedValue={harvestUnit.toLowerCase()}
+                onSelect={(val) => setHarvestUnit(val.toString())}
+                size="sm"
+              />
+            </>
+          ) : null}
 
-                  <Text style={styles.inputLabel}>Yield Unit</Text>
-                  <QuickChipGroup
-                    options={HARVEST_UNITS}
-                    selectedValue={harvestUnit.toLowerCase()}
-                    onSelect={(val) => setHarvestUnit(val.toString())}
-                    size="sm"
-                  />
-                </>
-              ) : null}
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.cancelBtn]}
+              onPress={() => setHarvestModalVisible(false)}
+              disabled={savingHarvest}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
 
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.cancelBtn]}
-                  onPress={() => setHarvestModalVisible(false)}
-                  disabled={savingHarvest}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.saveBtn]}
-                  onPress={handleSaveHarvest}
-                  disabled={savingHarvest}
-                >
-                  {savingHarvest ? (
-                    <ActivityIndicator color={colors.white} />
-                  ) : (
-                    <Text style={styles.saveBtnText}>
-                      {harvestIsHarvested ? 'Save Harvest' : 'Move to Active'}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.saveBtn]}
+              onPress={handleSaveHarvest}
+              disabled={savingHarvest}
+              activeOpacity={0.7}
+            >
+              {savingHarvest ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <Text style={styles.saveBtnText}>
+                  {harvestIsHarvested ? 'Save Harvest' : 'Move to Active'}
+                </Text>
+              )}
+            </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        </ScrollView>
+      </ModalSheet>
 
       {/* MODAL 3: Edit Field Notes */}
-      <Modal
+      <ModalSheet
         visible={editNotesModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setEditNotesModalVisible(false)}
+        onClose={() => setEditNotesModalVisible(false)}
+        title="Field Notes"
+        maxHeight="60%"
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Field Notes</Text>
-              <TouchableOpacity onPress={() => setEditNotesModalVisible(false)}>
-                <Ionicons name="close" size={22} color={colors.slate600} />
-              </TouchableOpacity>
-            </View>
+        <ModernInput
+          label="Notes"
+          value={notesText}
+          onChangeText={setNotesText}
+          placeholder="Record crop observations, watering notes, soil remarks..."
+          placeholderTextColor={colors.slate400}
+          multiline
+          numberOfLines={5}
+          containerStyle={{ marginBottom: spacing.md }}
+        />
 
-            <TextInput
-              style={[styles.input, styles.multilineInput]}
-              value={notesText}
-              onChangeText={setNotesText}
-              placeholder="Record crop observations, watering notes, soil remarks..."
-              placeholderTextColor={colors.slate400}
-              multiline
-              numberOfLines={5}
-            />
+        <View style={styles.modalActions}>
+          <TouchableOpacity
+            style={[styles.modalBtn, styles.cancelBtn]}
+            onPress={() => setEditNotesModalVisible(false)}
+            disabled={savingNotes}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.cancelBtnText}>Cancel</Text>
+          </TouchableOpacity>
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.cancelBtn]}
-                onPress={() => setEditNotesModalVisible(false)}
-                disabled={savingNotes}
-              >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.saveBtn]}
-                onPress={handleSaveNotes}
-                disabled={savingNotes}
-              >
-                {savingNotes ? (
-                  <ActivityIndicator color={colors.white} />
-                ) : (
-                  <Text style={styles.saveBtnText}>Save Note</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+          <TouchableOpacity
+            style={[styles.modalBtn, styles.saveBtn]}
+            onPress={handleSaveNotes}
+            disabled={savingNotes}
+            activeOpacity={0.7}
+          >
+            {savingNotes ? (
+              <ActivityIndicator color={colors.white} />
+            ) : (
+              <Text style={styles.saveBtnText}>Save Note</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ModalSheet>
 
       {/* MODAL 4: Quick Add Activity */}
-      <Modal
+      <ModalSheet
         visible={addActivityModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setAddActivityModalVisible(false)}
+        onClose={() => setAddActivityModalVisible(false)}
+        title="Log Field Activity"
+        maxHeight="90%"
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Log Field Activity</Text>
-              <TouchableOpacity onPress={() => setAddActivityModalVisible(false)}>
-                <Ionicons name="close" size={22} color={colors.slate600} />
-              </TouchableOpacity>
-            </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={styles.inputLabel}>Select Activity Type *</Text>
@@ -1745,138 +1696,127 @@ export default function CropCycleViewScreen() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </ModalSheet>
 
       {/* MODAL 5: Quick Add Expense */}
-      <Modal
+      <ModalSheet
         visible={addExpenseModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setAddExpenseModalVisible(false)}
+        onClose={() => setAddExpenseModalVisible(false)}
+        title="Log Farm Expense"
+        maxHeight="88%"
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Log Farm Expense</Text>
-              <TouchableOpacity onPress={() => setAddExpenseModalVisible(false)}>
-                <Ionicons name="close" size={22} color={colors.slate600} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.inputLabel}>Expense Category *</Text>
-              <View style={styles.chipSelectorWrap}>
-                {EXPENSE_CATEGORIES.map((cat) => {
-                  const isSel = expenseCategory === cat;
-                  return (
-                    <TouchableOpacity
-                      key={cat}
-                      style={[styles.masterChip, isSel && styles.masterChipSelected]}
-                      onPress={() => setExpenseCategory(cat)}
-                    >
-                      <Text
-                        style={[styles.masterChipText, isSel && styles.masterChipTextSelected]}
-                      >
-                        {cat}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <Text style={styles.inputLabel}>Amount (₹) *</Text>
-              <TextInput
-                style={styles.input}
-                value={expenseAmount}
-                onChangeText={setExpenseAmount}
-                keyboardType="decimal-pad"
-                placeholder="e.g. 3500"
-                placeholderTextColor={colors.slate400}
-              />
-
-              <Text style={styles.inputLabel}>Date (YYYY-MM-DD)</Text>
-              <TextInput
-                style={styles.input}
-                value={expenseDate}
-                onChangeText={setExpenseDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.slate400}
-              />
-
-              {/* Paid Toggle Switch */}
-              <View style={[styles.switchRow, { marginTop: spacing.xs }]}>
-                <View style={{ flex: 1, paddingRight: spacing.sm }}>
-                  <Text style={styles.switchTitle}>Paid</Text>
-                  <Text style={styles.switchSubtitle}>
-                    {expenseIsPaid ? 'Expense has been settled' : 'Expense is pending / unpaid'}
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <Text style={styles.inputLabel}>Expense Category *</Text>
+          <View style={styles.chipSelectorWrap}>
+            {EXPENSE_CATEGORIES.map((cat) => {
+              const isSel = expenseCategory === cat;
+              return (
+                <TouchableOpacity
+                  key={cat}
+                  style={[styles.masterChip, isSel && styles.masterChipSelected]}
+                  onPress={() => setExpenseCategory(cat)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[styles.masterChipText, isSel && styles.masterChipTextSelected]}
+                  >
+                    {cat}
                   </Text>
-                </View>
-                <Switch
-                  value={expenseIsPaid}
-                  onValueChange={(val) => {
-                    setExpenseIsPaid(val);
-                    if (!val) setExpensePaymentMethod('');
-                    else if (!expensePaymentMethod) setExpensePaymentMethod('cash');
-                  }}
-                  trackColor={{ false: colors.slate200, true: '#86efac' }}
-                  thumbColor={expenseIsPaid ? colors.primary : colors.slate400}
-                />
-              </View>
-
-              {/* Payment Method (conditional) */}
-              {expenseIsPaid && (
-                <View style={{ marginTop: spacing.sm }}>
-                  <Text style={styles.inputLabel}>Payment Method</Text>
-                  <QuickChipGroup
-                    options={EXPENSE_PAYMENT_METHODS}
-                    selectedValue={expensePaymentMethod}
-                    onSelect={(val) => setExpensePaymentMethod(val.toString())}
-                    size="sm"
-                  />
-                </View>
-              )}
-
-              <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Notes</Text>
-              <TextInput
-                style={[styles.input, styles.multilineInput]}
-                value={expenseNotes}
-                onChangeText={setExpenseNotes}
-                placeholder="Vendor name, bill number, remarks..."
-                placeholderTextColor={colors.slate400}
-                multiline
-                numberOfLines={3}
-              />
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.cancelBtn]}
-                  onPress={() => setAddExpenseModalVisible(false)}
-                  disabled={savingExpense}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
                 </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.saveBtn]}
-                  onPress={handleCreateExpense}
-                  disabled={savingExpense}
-                >
-                  {savingExpense ? (
-                    <ActivityIndicator color={colors.white} />
-                  ) : (
-                    <Text style={styles.saveBtnText}>Save Expense</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
+              );
+            })}
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+
+          <ModernInput
+            label="Amount"
+            required
+            value={expenseAmount}
+            onChangeText={setExpenseAmount}
+            keyboardType="decimal-pad"
+            placeholder="0.00"
+            placeholderTextColor={colors.slate400}
+            prefix={<Text style={{ color: '#059669', fontWeight: '700', marginRight: 4 }}>₹</Text>}
+            containerStyle={{ marginBottom: spacing.md }}
+          />
+
+          <ModernInput
+            label="Date (YYYY-MM-DD)"
+            value={expenseDate}
+            onChangeText={setExpenseDate}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor={colors.slate400}
+            containerStyle={{ marginBottom: spacing.sm }}
+          />
+
+          {/* Paid Toggle Switch */}
+          <View style={[styles.switchRow, { marginTop: spacing.xs }]}>
+            <View style={{ flex: 1, paddingRight: spacing.sm }}>
+              <Text style={styles.switchTitle}>Paid</Text>
+              <Text style={styles.switchSubtitle}>
+                {expenseIsPaid ? 'Expense has been settled' : 'Expense is pending / unpaid'}
+              </Text>
+            </View>
+            <Switch
+              value={expenseIsPaid}
+              onValueChange={(val) => {
+                setExpenseIsPaid(val);
+                if (!val) setExpensePaymentMethod('');
+                else if (!expensePaymentMethod) setExpensePaymentMethod('cash');
+              }}
+              trackColor={{ false: colors.slate200, true: '#86efac' }}
+              thumbColor={expenseIsPaid ? colors.primary : colors.slate400}
+            />
+          </View>
+
+          {/* Payment Method (conditional) */}
+          {expenseIsPaid && (
+            <View style={{ marginTop: spacing.sm }}>
+              <Text style={styles.inputLabel}>Payment Method</Text>
+              <QuickChipGroup
+                options={EXPENSE_PAYMENT_METHODS}
+                selectedValue={expensePaymentMethod}
+                onSelect={(val) => setExpensePaymentMethod(val.toString())}
+                size="sm"
+              />
+            </View>
+          )}
+
+          <ModernInput
+            label="Notes"
+            value={expenseNotes}
+            onChangeText={setExpenseNotes}
+            placeholder="Vendor name, bill number, remarks..."
+            placeholderTextColor={colors.slate400}
+            multiline
+            numberOfLines={3}
+            containerStyle={{ marginTop: spacing.md, marginBottom: spacing.md }}
+          />
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.cancelBtn]}
+              onPress={() => setAddExpenseModalVisible(false)}
+              disabled={savingExpense}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.saveBtn]}
+              onPress={handleCreateExpense}
+              disabled={savingExpense}
+              activeOpacity={0.7}
+            >
+              {savingExpense ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <Text style={styles.saveBtnText}>Save Expense</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </ModalSheet>
     </SafeAreaView>
   );
 }

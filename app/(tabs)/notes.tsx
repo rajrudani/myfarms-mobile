@@ -28,6 +28,7 @@ import { useTranslation } from '../../src/i18n/I18nContext';
 import { scheduleLocalReminder } from '../../src/utils/notifications';
 import { offlineSync } from '../../src/utils/offlineSync';
 import { useResponsive } from '../../src/utils/responsive';
+import { ModalSheet, ModernInput } from '../../src/components/ui';
 
 export default function NotesScreen() {
   const { t } = useTranslation();
@@ -489,255 +490,245 @@ export default function NotesScreen() {
       </View>
 
       {/* Status Filter Picker Sheet Modal */}
-      <Modal visible={statusSheetVisible} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.modalBackdrop}
-          activeOpacity={1}
-          onPress={() => setStatusSheetVisible(false)}
-        >
-          <View style={styles.sheetContent}>
-            <Text style={styles.sheetTitle}>{t('Select Status')}</Text>
-            {[
-              { label: t('All'), value: 'all' },
-              { label: t('Active'), value: 'active' },
-              { label: t('Inactive'), value: 'inactive' },
-              { label: t('Overdue'), value: 'overdue' },
-              { label: t('Completed'), value: 'completed' },
-            ].map((opt) => (
-              <TouchableOpacity
-                key={opt.value}
+      <ModalSheet
+        visible={statusSheetVisible}
+        onClose={() => setStatusSheetVisible(false)}
+        title={t('Select Status')}
+        maxHeight="50%"
+      >
+        <View style={{ gap: spacing.xs, paddingBottom: spacing.lg }}>
+          {[
+            { label: t('All'), value: 'all' },
+            { label: t('Active'), value: 'active' },
+            { label: t('Inactive'), value: 'inactive' },
+            { label: t('Overdue'), value: 'overdue' },
+            { label: t('Completed'), value: 'completed' },
+          ].map((opt) => (
+            <TouchableOpacity
+              key={opt.value}
+              style={[
+                styles.sheetOption,
+                statusFilter === opt.value && styles.sheetOptionActive,
+              ]}
+              onPress={() => {
+                setStatusFilter(opt.value);
+                setStatusSheetVisible(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text
                 style={[
-                  styles.sheetOption,
-                  statusFilter === opt.value && styles.sheetOptionActive,
+                  styles.sheetOptionText,
+                  statusFilter === opt.value && styles.sheetOptionActiveText,
                 ]}
-                onPress={() => {
-                  setStatusFilter(opt.value);
-                  setStatusSheetVisible(false);
-                }}
               >
-                <Text
-                  style={[
-                    styles.sheetOptionText,
-                    statusFilter === opt.value && styles.sheetOptionActiveText,
-                  ]}
-                >
-                  {opt.label}
-                </Text>
-                {statusFilter === opt.value && (
-                  <Ionicons name="checkmark" size={18} color="#16a34a" />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
+                {opt.label}
+              </Text>
+              {statusFilter === opt.value && (
+                <Ionicons name="checkmark" size={18} color="#16a34a" />
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ModalSheet>
 
       {/* Type Filter Picker Sheet Modal */}
-      <Modal visible={typeSheetVisible} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.modalBackdrop}
-          activeOpacity={1}
-          onPress={() => setTypeSheetVisible(false)}
-        >
-          <View style={styles.sheetContent}>
-            <Text style={styles.sheetTitle}>{t('Select Type')}</Text>
-            {[
-              { label: t('All'), value: 'all' },
-              { label: t('Notes'), value: 'note' },
-              { label: t('Reminders'), value: 'reminder' },
-            ].map((opt) => (
-              <TouchableOpacity
-                key={opt.value}
+      <ModalSheet
+        visible={typeSheetVisible}
+        onClose={() => setTypeSheetVisible(false)}
+        title={t('Select Type')}
+        maxHeight="45%"
+      >
+        <View style={{ gap: spacing.xs, paddingBottom: spacing.lg }}>
+          {[
+            { label: t('All'), value: 'all' },
+            { label: t('Notes'), value: 'note' },
+            { label: t('Reminders'), value: 'reminder' },
+          ].map((opt) => (
+            <TouchableOpacity
+              key={opt.value}
+              style={[
+                styles.sheetOption,
+                typeFilter === opt.value && styles.sheetOptionActive,
+              ]}
+              onPress={() => {
+                setTypeFilter(opt.value);
+                setTypeSheetVisible(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text
                 style={[
-                  styles.sheetOption,
-                  typeFilter === opt.value && styles.sheetOptionActive,
+                  styles.sheetOptionText,
+                  typeFilter === opt.value && styles.sheetOptionActiveText,
                 ]}
-                onPress={() => {
-                  setTypeFilter(opt.value);
-                  setTypeSheetVisible(false);
-                }}
               >
-                <Text
-                  style={[
-                    styles.sheetOptionText,
-                    typeFilter === opt.value && styles.sheetOptionActiveText,
-                  ]}
+                {opt.label}
+              </Text>
+              {typeFilter === opt.value && (
+                <Ionicons name="checkmark" size={18} color="#16a34a" />
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ModalSheet>
+
+      {/* Add Note/Reminder Modal (matching NoteReminderForm) */}
+      <ModalSheet
+        visible={createModalVisible}
+        onClose={() => setCreateModalVisible(false)}
+        title={notifyEnabled ? t('New Reminder') : t('New Note')}
+        maxHeight="88%"
+      >
+        <ScrollView contentContainerStyle={styles.modalScroll} showsVerticalScrollIndicator={false}>
+          <ModernInput
+            label={t('Title')}
+            required
+            value={title}
+            onChangeText={setTitle}
+            placeholder={t('e.g. Inspect drip line block B')}
+            placeholderTextColor="#94a3b8"
+            containerStyle={{ marginBottom: spacing.md }}
+          />
+
+          <ModernInput
+            label={t('Details & Instructions')}
+            value={details}
+            onChangeText={setDetails}
+            placeholder={t('Specific instructions, observation notes, product names...')}
+            placeholderTextColor="#94a3b8"
+            multiline
+            numberOfLines={4}
+            containerStyle={{ marginBottom: spacing.md }}
+          />
+
+          {/* Enable Reminder Switch */}
+          <View style={styles.modalSwitchRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.modalSwitchLabel}>{t('Enable Reminder')}</Text>
+              <Text style={styles.modalSwitchSub}>{t('Schedule date for task notification')}</Text>
+            </View>
+            <Switch
+              value={notifyEnabled}
+              onValueChange={setNotifyEnabled}
+              trackColor={{ false: '#cbd5e1', true: '#86efac' }}
+              thumbColor={notifyEnabled ? colors.primary : '#f8fafc'}
+            />
+          </View>
+
+          {/* Notify At Date Picker with Presets */}
+          {notifyEnabled && (
+            <View style={styles.modalNotifyBox}>
+              <ModernInput
+                label={t('Notification Date')}
+                required
+                value={notifyAt}
+                onChangeText={setNotifyAt}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor="#94a3b8"
+                containerStyle={{ marginBottom: spacing.xs }}
+              />
+              <View style={styles.presetChipsRow}>
+                <TouchableOpacity
+                  style={styles.presetChip}
+                  onPress={() => setNotifyAt(new Date().toISOString().split('T')[0])}
+                  activeOpacity={0.7}
                 >
-                  {opt.label}
+                  <Text style={styles.presetChipText}>{t('Today')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.presetChip}
+                  onPress={() => {
+                    const d = new Date();
+                    d.setDate(d.getDate() + 1);
+                    setNotifyAt(d.toISOString().split('T')[0]);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.presetChipText}>{t('Tomorrow')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.presetChip}
+                  onPress={() => {
+                    const d = new Date();
+                    d.setDate(d.getDate() + 3);
+                    setNotifyAt(d.toISOString().split('T')[0]);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.presetChipText}>{t('In 3 Days')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.presetChip}
+                  onPress={() => {
+                    const d = new Date();
+                    d.setDate(d.getDate() + 7);
+                    setNotifyAt(d.toISOString().split('T')[0]);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.presetChipText}>{t('Next Week')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* Status Selector */}
+          <Text style={styles.modalLabel}>{t('Status')}</Text>
+          <View style={styles.statusChipsRow}>
+            {(['active', 'completed', 'overdue', 'inactive'] as NoteReminderStatus[]).map((st) => (
+              <TouchableOpacity
+                key={st}
+                style={[styles.statusChip, status === st && styles.statusChipActive]}
+                onPress={() => setStatus(st)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.statusChipText, status === st && styles.statusChipActiveText]}>
+                  {t(st.charAt(0).toUpperCase() + st.slice(1)).toUpperCase()}
                 </Text>
-                {typeFilter === opt.value && (
-                  <Ionicons name="checkmark" size={18} color="#16a34a" />
-                )}
               </TouchableOpacity>
             ))}
           </View>
-        </TouchableOpacity>
-      </Modal>
 
-      {/* Add Note/Reminder Modal (matching NoteReminderForm) */}
-      <Modal
-        visible={createModalVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setCreateModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHead}>
-              <Text style={styles.modalHeadTitle}>
-                {notifyEnabled ? t('New Reminder') : t('New Note')}
-              </Text>
-              <TouchableOpacity onPress={() => setCreateModalVisible(false)} style={styles.modalCloseBtn}>
-                <Ionicons name="close" size={20} color="#64748b" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView contentContainerStyle={styles.modalScroll} showsVerticalScrollIndicator={false}>
-              <Text style={styles.modalLabel}>
-                {t('Title')} <Text style={{ color: '#dc2626' }}>*</Text>
-              </Text>
-              <TextInput
-                style={styles.modalInput}
-                value={title}
-                onChangeText={setTitle}
-                placeholder={t('e.g. Inspect drip line block B')}
-                placeholderTextColor="#94a3b8"
-              />
-
-              <Text style={styles.modalLabel}>{t('Details & Instructions')}</Text>
-              <TextInput
-                style={[styles.modalInput, styles.modalTextArea]}
-                value={details}
-                onChangeText={setDetails}
-                placeholder={t('Specific instructions, observation notes, product names...')}
-                placeholderTextColor="#94a3b8"
-                multiline
-                numberOfLines={4}
-              />
-
-              {/* Enable Reminder Switch */}
-              <View style={styles.modalSwitchRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.modalSwitchLabel}>{t('Enable Reminder')}</Text>
-                  <Text style={styles.modalSwitchSub}>{t('Schedule date for task notification')}</Text>
-                </View>
-                <Switch
-                  value={notifyEnabled}
-                  onValueChange={setNotifyEnabled}
-                  trackColor={{ false: '#cbd5e1', true: '#86efac' }}
-                  thumbColor={notifyEnabled ? colors.primary : '#f8fafc'}
-                />
-              </View>
-
-              {/* Notify At Date Picker with Presets */}
-              {notifyEnabled && (
-                <View style={styles.modalNotifyBox}>
-                  <Text style={styles.modalLabel}>
-                    {t('Notification Date')} (YYYY-MM-DD) <Text style={{ color: '#dc2626' }}>*</Text>
-                  </Text>
-                  <TextInput
-                    style={styles.modalInput}
-                    value={notifyAt}
-                    onChangeText={setNotifyAt}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor="#94a3b8"
-                  />
-                  <View style={styles.presetChipsRow}>
-                    <TouchableOpacity
-                      style={styles.presetChip}
-                      onPress={() => setNotifyAt(new Date().toISOString().split('T')[0])}
-                    >
-                      <Text style={styles.presetChipText}>{t('Today')}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.presetChip}
-                      onPress={() => {
-                        const d = new Date();
-                        d.setDate(d.getDate() + 1);
-                        setNotifyAt(d.toISOString().split('T')[0]);
-                      }}
-                    >
-                      <Text style={styles.presetChipText}>{t('Tomorrow')}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.presetChip}
-                      onPress={() => {
-                        const d = new Date();
-                        d.setDate(d.getDate() + 3);
-                        setNotifyAt(d.toISOString().split('T')[0]);
-                      }}
-                    >
-                      <Text style={styles.presetChipText}>{t('In 3 Days')}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.presetChip}
-                      onPress={() => {
-                        const d = new Date();
-                        d.setDate(d.getDate() + 7);
-                        setNotifyAt(d.toISOString().split('T')[0]);
-                      }}
-                    >
-                      <Text style={styles.presetChipText}>{t('Next Week')}</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-
-              {/* Status Selector */}
-              <Text style={styles.modalLabel}>{t('Status')}</Text>
-              <View style={styles.statusChipsRow}>
-                {(['active', 'completed', 'overdue', 'inactive'] as NoteReminderStatus[]).map((st) => (
-                  <TouchableOpacity
-                    key={st}
-                    style={[styles.statusChip, status === st && styles.statusChipActive]}
-                    onPress={() => setStatus(st)}
-                  >
-                    <Text style={[styles.statusChipText, status === st && styles.statusChipActiveText]}>
-                      {t(st.charAt(0).toUpperCase() + st.slice(1)).toUpperCase()}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Attachment Picker */}
-              <View style={{ marginTop: 12 }}>
-                <AttachmentPicker
-                  label={t('Attach Field Photo / Document')}
-                  category="note-reminders"
-                  currentPath={attachmentPath}
-                  currentUrl={attachmentUrl}
-                  onAttachmentChange={(p, u) => {
-                    setAttachmentPath(p);
-                    setAttachmentUrl(u);
-                  }}
-                />
-              </View>
-
-              {/* Buttons */}
-              <View style={styles.modalBtnRow}>
-                <TouchableOpacity
-                  style={styles.modalCancelBtn}
-                  onPress={() => setCreateModalVisible(false)}
-                >
-                  <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.modalSaveBtn}
-                  onPress={handleSaveNote}
-                  disabled={saving}
-                >
-                  {saving ? (
-                    <ActivityIndicator size="small" color="#ffffff" />
-                  ) : (
-                    <Text style={styles.modalSaveText}>{notifyEnabled ? t('Save Reminder') : t('Save Note')}</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
+          {/* Attachment Picker */}
+          <View style={{ marginTop: 12 }}>
+            <AttachmentPicker
+              label={t('Attach Field Photo / Document')}
+              category="note-reminders"
+              currentPath={attachmentPath}
+              currentUrl={attachmentUrl}
+              onAttachmentChange={(p, u) => {
+                setAttachmentPath(p);
+                setAttachmentUrl(u);
+              }}
+            />
           </View>
-        </View>
-      </Modal>
+
+          {/* Buttons */}
+          <View style={styles.modalBtnRow}>
+            <TouchableOpacity
+              style={styles.modalCancelBtn}
+              onPress={() => setCreateModalVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalSaveBtn}
+              onPress={handleSaveNote}
+              disabled={saving}
+              activeOpacity={0.7}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.modalSaveText}>{notifyEnabled ? t('Save Reminder') : t('Save Note')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </ModalSheet>
     </SafeAreaView>
   );
 }

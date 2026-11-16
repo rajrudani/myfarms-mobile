@@ -36,6 +36,8 @@ import {
   SearchFilterBar,
   QuickChipGroup,
   ChipOption,
+  ModalSheet,
+  ModernInput,
 } from '../../src/components/ui';
 
 const ROLE_OPTIONS: ChipOption<StaffRoleValue>[] = [
@@ -1080,410 +1082,384 @@ export default function StaffScreen() {
       </View>
 
       {/* Add Staff Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
+      <ModalSheet
         visible={addStaffModalVisible}
-        onRequestClose={() => setAddStaffModalVisible(false)}
+        onClose={() => setAddStaffModalVisible(false)}
+        title="Register New Staff"
+        maxHeight="88%"
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 30 }}
         >
-          <View style={styles.modalContent}>
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 30 }}
-            >
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>Register New Staff</Text>
-                <TouchableOpacity onPress={() => setAddStaffModalVisible(false)}>
-                  <Ionicons name="close" size={22} color={colors.slate600} />
-                </TouchableOpacity>
-              </View>
+          <ModernInput
+            label="Full Name"
+            required
+            placeholder="e.g. Ramesh Kumar"
+            placeholderTextColor={colors.slate400}
+            value={newStaffName}
+            onChangeText={setNewStaffName}
+            containerStyle={{ marginBottom: spacing.md }}
+          />
 
+          <Text style={styles.inputLabel}>Staff Role</Text>
+          <QuickChipGroup
+            options={ROLE_OPTIONS}
+            selectedValue={newStaffRole}
+            onSelect={(val) => {
+              setNewStaffRole(val as StaffRoleValue);
+              if (val === 'Owner') {
+                setNewStaffFarms([]);
+                setNewStaffFamilyHeadId(null);
+              } else if (val === 'Worker') {
+                if (farms.length > 0 && newStaffFarms.length === 0) {
+                  setNewStaffFarms([Number(farms[0].id)]);
+                }
+              }
+            }}
+            size="sm"
+          />
+
+          {/* Role-Specific Farm Assignment */}
+          {newStaffRole === 'Owner' ? (
+            <View style={styles.roleInfoBox}>
+              <Ionicons name="information-circle-outline" size={16} color="#1e40af" />
+              <Text style={styles.roleInfoText}>Owners automatically have full access to all farms.</Text>
+            </View>
+          ) : newStaffRole === 'Worker' ? (
+            <View style={{ marginTop: spacing.md }}>
               <Text style={styles.inputLabel}>
-                Full Name <Text style={{ color: colors.danger }}>*</Text>
+                Assigned Farm <Text style={{ color: colors.danger }}>*</Text>
               </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. Ramesh Kumar"
-                placeholderTextColor={colors.slate400}
-                value={newStaffName}
-                onChangeText={setNewStaffName}
-              />
-
-              <Text style={styles.inputLabel}>Staff Role</Text>
-              <QuickChipGroup
-                options={ROLE_OPTIONS}
-                selectedValue={newStaffRole}
-                onSelect={(val) => {
-                  setNewStaffRole(val as StaffRoleValue);
-                  if (val === 'Owner') {
-                    setNewStaffFarms([]);
-                    setNewStaffFamilyHeadId(null);
-                  } else if (val === 'Worker') {
-                    if (farms.length > 0 && newStaffFarms.length === 0) {
-                      setNewStaffFarms([Number(farms[0].id)]);
-                    }
-                  }
-                }}
-                size="sm"
-              />
-
-              {/* Role-Specific Farm Assignment */}
-              {newStaffRole === 'Owner' ? (
-                <View style={styles.roleInfoBox}>
-                  <Ionicons name="information-circle-outline" size={16} color="#1e40af" />
-                  <Text style={styles.roleInfoText}>Owners automatically have full access to all farms.</Text>
-                </View>
-              ) : newStaffRole === 'Worker' ? (
-                <View style={{ marginTop: spacing.md }}>
-                  <Text style={styles.inputLabel}>
-                    Assigned Farm <Text style={{ color: colors.danger }}>*</Text>
-                  </Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
-                    {farms.map((f) => {
-                      const fId = Number(f.id);
-                      const isSel = newStaffFarms.includes(fId);
-                      return (
-                        <TouchableOpacity
-                          key={f.id}
-                          style={[styles.farmSelectChip, isSel && styles.farmSelectChipActive]}
-                          onPress={() => setNewStaffFarms([fId])}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons
-                            name={isSel ? 'checkmark-circle' : 'business-outline'}
-                            size={14}
-                            color={isSel ? colors.white : colors.slate600}
-                          />
-                          <Text style={[styles.farmSelectChipText, isSel && styles.farmSelectChipTextActive]}>
-                            {f.name}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-              ) : (
-                <View style={{ marginTop: spacing.md }}>
-                  <Text style={styles.inputLabel}>
-                    Assigned Farms <Text style={{ color: colors.danger }}>*</Text>
-                  </Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 4 }}>
-                    {farms.map((f) => {
-                      const fId = Number(f.id);
-                      const isSel = newStaffFarms.includes(fId);
-                      return (
-                        <TouchableOpacity
-                          key={f.id}
-                          style={[styles.farmSelectChip, isSel && styles.farmSelectChipActive]}
-                          onPress={() => {
-                            if (isSel) {
-                              setNewStaffFarms(newStaffFarms.filter((id) => id !== fId));
-                            } else {
-                              setNewStaffFarms([...newStaffFarms, fId]);
-                            }
-                          }}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons
-                            name={isSel ? 'checkmark-circle' : 'square-outline'}
-                            size={14}
-                            color={isSel ? colors.white : colors.slate600}
-                          />
-                          <Text style={[styles.farmSelectChipText, isSel && styles.farmSelectChipTextActive]}>
-                            {f.name}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-              )}
-
-              {/* Family Head Selection (Worker Only) */}
-              {newStaffRole === 'Worker' && (
-                <View style={{ marginTop: spacing.md }}>
-                  <Text style={styles.inputLabel}>Family Head (Optional)</Text>
-                  <TouchableOpacity
-                    style={styles.dropdownTrigger}
-                    onPress={() => setShowFamilyHeadDropdown(!showFamilyHeadDropdown)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.dropdownTriggerText}>
-                      {newStaffFamilyHeadId
-                        ? staff.find((s) => s.id === newStaffFamilyHeadId)?.name || 'Selected'
-                        : 'None (Independent Worker)'}
-                    </Text>
-                    <Ionicons
-                      name={showFamilyHeadDropdown ? 'chevron-up' : 'chevron-down'}
-                      size={16}
-                      color={colors.slate500}
-                    />
-                  </TouchableOpacity>
-                  {showFamilyHeadDropdown && (
-                    <View style={styles.dropdownList}>
-                      <TouchableOpacity
-                        style={styles.dropdownItem}
-                        onPress={() => {
-                          setNewStaffFamilyHeadId(null);
-                          setShowFamilyHeadDropdown(false);
-                        }}
-                      >
-                        <Text style={styles.dropdownItemText}>None (Independent Worker)</Text>
-                      </TouchableOpacity>
-                      {staff
-                        .filter((s) => s.roles.some((r) => r.value === 'Worker'))
-                        .map((w) => (
-                          <TouchableOpacity
-                            key={w.id}
-                            style={styles.dropdownItem}
-                            onPress={() => {
-                              setNewStaffFamilyHeadId(w.id);
-                              setShowFamilyHeadDropdown(false);
-                            }}
-                          >
-                            <Text style={styles.dropdownItemText}>{w.name}</Text>
-                          </TouchableOpacity>
-                        ))}
-                    </View>
-                  )}
-                </View>
-              )}
-
-              <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Username (Optional)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. ramesh_farm"
-                placeholderTextColor={colors.slate400}
-                value={newStaffUsername}
-                onChangeText={setNewStaffUsername}
-                autoCapitalize="none"
-              />
-
-              {(newStaffRole === 'Owner' || newStaffRole === 'Manager') && (
-                <>
-                  <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>
-                    Email Address <Text style={{ color: colors.danger }}>*</Text>
-                  </Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g. ramesh@agri.com"
-                    placeholderTextColor={colors.slate400}
-                    value={newStaffEmail}
-                    onChangeText={setNewStaffEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
-
-                  <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Initial Password</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Create a temporary password"
-                    placeholderTextColor={colors.slate400}
-                    secureTextEntry
-                    value={newStaffPassword}
-                    onChangeText={setNewStaffPassword}
-                  />
-                </>
-              )}
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.cancelBtn]}
-                  onPress={() => setAddStaffModalVisible(false)}
-                  disabled={savingStaff}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.saveBtn]}
-                  onPress={handleAddStaff}
-                  disabled={savingStaff}
-                >
-                  {savingStaff ? (
-                    <ActivityIndicator color={colors.white} />
-                  ) : (
-                    <Text style={styles.saveBtnText}>Save Staff</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Add Payment Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={addPaymentModalVisible}
-        onRequestClose={() => setAddPaymentModalVisible(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 30 }}
-            >
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>Record Staff Payment</Text>
-                <TouchableOpacity onPress={() => setAddPaymentModalVisible(false)}>
-                  <Ionicons name="close" size={22} color={colors.slate600} />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.inputLabel}>
-                Staff Member <Text style={{ color: colors.danger }}>*</Text>
-              </Text>
-              <TouchableOpacity
-                style={styles.dropdownTrigger}
-                onPress={() => setShowPayStaffDropdown(!showPayStaffDropdown)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.dropdownTriggerText}>{selectedStaffName}</Text>
-                <Ionicons
-                  name={showPayStaffDropdown ? 'chevron-up' : 'chevron-down'}
-                  size={16}
-                  color={colors.slate500}
-                />
-              </TouchableOpacity>
-
-              {showPayStaffDropdown && (
-                <View style={styles.dropdownList}>
-                  {staff.map((s) => (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+                {farms.map((f) => {
+                  const fId = Number(f.id);
+                  const isSel = newStaffFarms.includes(fId);
+                  return (
                     <TouchableOpacity
-                      key={s.id}
-                      style={styles.dropdownItem}
-                      onPress={() => {
-                        setPayStaffId(s.id);
-                        setShowPayStaffDropdown(false);
-                      }}
+                      key={f.id}
+                      style={[styles.farmSelectChip, isSel && styles.farmSelectChipActive]}
+                      onPress={() => setNewStaffFarms([fId])}
+                      activeOpacity={0.7}
                     >
-                      <Text style={styles.dropdownItemText}>{s.name}</Text>
+                      <Ionicons
+                        name={isSel ? 'checkmark-circle' : 'business-outline'}
+                        size={14}
+                        color={isSel ? colors.white : colors.slate600}
+                      />
+                      <Text style={[styles.farmSelectChipText, isSel && styles.farmSelectChipTextActive]}>
+                        {f.name}
+                      </Text>
                     </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-
+                  );
+                })}
+              </ScrollView>
+            </View>
+          ) : (
+            <View style={{ marginTop: spacing.md }}>
               <Text style={styles.inputLabel}>
-                Payment Amount (₹) <Text style={{ color: colors.danger }}>*</Text>
+                Assigned Farms <Text style={{ color: colors.danger }}>*</Text>
               </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. 5000"
-                placeholderTextColor={colors.slate400}
-                keyboardType="decimal-pad"
-                value={payAmount}
-                onChangeText={setPayAmount}
-              />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 4 }}>
+                {farms.map((f) => {
+                  const fId = Number(f.id);
+                  const isSel = newStaffFarms.includes(fId);
+                  return (
+                    <TouchableOpacity
+                      key={f.id}
+                      style={[styles.farmSelectChip, isSel && styles.farmSelectChipActive]}
+                      onPress={() => {
+                        if (isSel) {
+                          setNewStaffFarms(newStaffFarms.filter((id) => id !== fId));
+                        } else {
+                          setNewStaffFarms([...newStaffFarms, fId]);
+                        }
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={isSel ? 'checkmark-circle' : 'square-outline'}
+                        size={14}
+                        color={isSel ? colors.white : colors.slate600}
+                      />
+                      <Text style={[styles.farmSelectChipText, isSel && styles.farmSelectChipTextActive]}>
+                        {f.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          )}
 
-              <Text style={styles.inputLabel}>Payment Method</Text>
-              <QuickChipGroup
-                options={PAYMENT_METHOD_OPTIONS}
-                selectedValue={payMethod}
-                onSelect={(val) => setPayMethod(val)}
-                size="sm"
-              />
-
-              <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Date (YYYY-MM-DD)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.slate400}
-                value={payDate}
-                onChangeText={setPayDate}
-              />
-
-              <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Given By</Text>
+          {/* Family Head Selection (Worker Only) */}
+          {newStaffRole === 'Worker' && (
+            <View style={{ marginTop: spacing.md }}>
+              <Text style={styles.inputLabel}>Family Head (Optional)</Text>
               <TouchableOpacity
                 style={styles.dropdownTrigger}
-                onPress={() => setShowPayGivenDropdown(!showPayGivenDropdown)}
+                onPress={() => setShowFamilyHeadDropdown(!showFamilyHeadDropdown)}
                 activeOpacity={0.8}
               >
                 <Text style={styles.dropdownTriggerText}>
-                  {payGivenBy
-                    ? staff.find((s) => s.id === payGivenBy)?.name || 'Selected'
-                    : 'Current User (Self)'}
+                  {newStaffFamilyHeadId
+                    ? staff.find((s) => s.id === newStaffFamilyHeadId)?.name || 'Selected'
+                    : 'None (Independent Worker)'}
                 </Text>
                 <Ionicons
-                  name={showPayGivenDropdown ? 'chevron-up' : 'chevron-down'}
+                  name={showFamilyHeadDropdown ? 'chevron-up' : 'chevron-down'}
                   size={16}
                   color={colors.slate500}
                 />
               </TouchableOpacity>
-              {showPayGivenDropdown && (
+              {showFamilyHeadDropdown && (
                 <View style={styles.dropdownList}>
                   <TouchableOpacity
                     style={styles.dropdownItem}
                     onPress={() => {
-                      setPayGivenBy(null);
-                      setShowPayGivenDropdown(false);
+                      setNewStaffFamilyHeadId(null);
+                      setShowFamilyHeadDropdown(false);
                     }}
                   >
-                    <Text style={styles.dropdownItemText}>Current User (Self)</Text>
+                    <Text style={styles.dropdownItemText}>None (Independent Worker)</Text>
                   </TouchableOpacity>
                   {staff
-                    .filter((s) => s.roles.some((r) => r.value === 'Owner' || r.value === 'Manager'))
-                    .map((s) => (
+                    .filter((s) => s.roles.some((r) => r.value === 'Worker'))
+                    .map((w) => (
                       <TouchableOpacity
-                        key={s.id}
+                        key={w.id}
                         style={styles.dropdownItem}
                         onPress={() => {
-                          setPayGivenBy(s.id);
-                          setShowPayGivenDropdown(false);
+                          setNewStaffFamilyHeadId(w.id);
+                          setShowFamilyHeadDropdown(false);
                         }}
                       >
-                        <Text style={styles.dropdownItemText}>
-                          {s.name} ({s.roles.map((r) => r.value).join(', ')})
-                        </Text>
+                        <Text style={styles.dropdownItemText}>{w.name}</Text>
                       </TouchableOpacity>
                     ))}
                 </View>
               )}
+            </View>
+          )}
 
-              <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Notes</Text>
-              <TextInput
-                style={[styles.input, styles.multilineInput]}
-                placeholder="e.g. Weekly wages, harvest bonus..."
+          <ModernInput
+            label="Username (Optional)"
+            placeholder="e.g. ramesh_farm"
+            placeholderTextColor={colors.slate400}
+            value={newStaffUsername}
+            onChangeText={setNewStaffUsername}
+            autoCapitalize="none"
+            containerStyle={{ marginTop: spacing.md }}
+          />
+
+          {(newStaffRole === 'Owner' || newStaffRole === 'Manager') && (
+            <>
+              <ModernInput
+                label="Email Address"
+                required
+                placeholder="e.g. ramesh@agri.com"
                 placeholderTextColor={colors.slate400}
-                value={payNotes}
-                onChangeText={setPayNotes}
-                multiline
-                numberOfLines={2}
+                value={newStaffEmail}
+                onChangeText={setNewStaffEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                containerStyle={{ marginTop: spacing.md }}
               />
 
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.cancelBtn]}
-                  onPress={() => setAddPaymentModalVisible(false)}
-                  disabled={savingPayment}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
+              <ModernInput
+                label="Initial Password"
+                placeholder="Create a temporary password"
+                placeholderTextColor={colors.slate400}
+                secureTextEntry
+                value={newStaffPassword}
+                onChangeText={setNewStaffPassword}
+                containerStyle={{ marginTop: spacing.md }}
+              />
+            </>
+          )}
 
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.saveBtn]}
-                  onPress={handleAddPayment}
-                  disabled={savingPayment}
-                >
-                  {savingPayment ? (
-                    <ActivityIndicator color={colors.white} />
-                  ) : (
-                    <Text style={styles.saveBtnText}>Record Payment</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.cancelBtn]}
+              onPress={() => setAddStaffModalVisible(false)}
+              disabled={savingStaff}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.saveBtn]}
+              onPress={handleAddStaff}
+              disabled={savingStaff}
+              activeOpacity={0.7}
+            >
+              {savingStaff ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <Text style={styles.saveBtnText}>Save Staff</Text>
+              )}
+            </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        </ScrollView>
+      </ModalSheet>
+
+      {/* Add Payment Modal */}
+      <ModalSheet
+        visible={addPaymentModalVisible}
+        onClose={() => setAddPaymentModalVisible(false)}
+        title="Record Staff Payment"
+        maxHeight="88%"
+      >
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 30 }}
+        >
+          <Text style={styles.inputLabel}>
+            Staff Member <Text style={{ color: colors.danger }}>*</Text>
+          </Text>
+          <TouchableOpacity
+            style={styles.dropdownTrigger}
+            onPress={() => setShowPayStaffDropdown(!showPayStaffDropdown)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.dropdownTriggerText}>{selectedStaffName}</Text>
+            <Ionicons
+              name={showPayStaffDropdown ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={colors.slate500}
+            />
+          </TouchableOpacity>
+
+          {showPayStaffDropdown && (
+            <View style={styles.dropdownList}>
+              {staff.map((s) => (
+                <TouchableOpacity
+                  key={s.id}
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    setPayStaffId(s.id);
+                    setShowPayStaffDropdown(false);
+                  }}
+                >
+                  <Text style={styles.dropdownItemText}>{s.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          <ModernInput
+            label="Payment Amount"
+            required
+            placeholder="0.00"
+            placeholderTextColor={colors.slate400}
+            keyboardType="decimal-pad"
+            value={payAmount}
+            onChangeText={setPayAmount}
+            prefix={<Text style={{ color: '#059669', fontWeight: '700', marginRight: 4 }}>₹</Text>}
+            containerStyle={{ marginTop: spacing.md }}
+          />
+
+          <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Payment Method</Text>
+          <QuickChipGroup
+            options={PAYMENT_METHOD_OPTIONS}
+            selectedValue={payMethod}
+            onSelect={(val) => setPayMethod(val)}
+            size="sm"
+          />
+
+          <ModernInput
+            label="Date (YYYY-MM-DD)"
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor={colors.slate400}
+            value={payDate}
+            onChangeText={setPayDate}
+            containerStyle={{ marginTop: spacing.md }}
+          />
+
+          <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Given By</Text>
+          <TouchableOpacity
+            style={styles.dropdownTrigger}
+            onPress={() => setShowPayGivenDropdown(!showPayGivenDropdown)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.dropdownTriggerText}>
+              {payGivenBy
+                ? staff.find((s) => s.id === payGivenBy)?.name || 'Selected'
+                : 'Current User (Self)'}
+            </Text>
+            <Ionicons
+              name={showPayGivenDropdown ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={colors.slate500}
+            />
+          </TouchableOpacity>
+          {showPayGivenDropdown && (
+            <View style={styles.dropdownList}>
+              <TouchableOpacity
+                style={styles.dropdownItem}
+                onPress={() => {
+                  setPayGivenBy(null);
+                  setShowPayGivenDropdown(false);
+                }}
+              >
+                <Text style={styles.dropdownItemText}>Current User (Self)</Text>
+              </TouchableOpacity>
+              {staff
+                .filter((s) => s.roles.some((r) => r.value === 'Owner' || r.value === 'Manager'))
+                .map((s) => (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setPayGivenBy(s.id);
+                      setShowPayGivenDropdown(false);
+                    }}
+                  >
+                    <Text style={styles.dropdownItemText}>
+                      {s.name} ({s.roles.map((r) => r.value).join(', ')})
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+            </View>
+          )}
+
+          <ModernInput
+            label="Notes"
+            placeholder="e.g. Weekly wages, harvest bonus..."
+            placeholderTextColor={colors.slate400}
+            value={payNotes}
+            onChangeText={setPayNotes}
+            multiline
+            numberOfLines={2}
+            containerStyle={{ marginTop: spacing.md, marginBottom: spacing.md }}
+          />
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.cancelBtn]}
+              onPress={() => setAddPaymentModalVisible(false)}
+              disabled={savingPayment}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.saveBtn]}
+              onPress={handleAddPayment}
+              disabled={savingPayment}
+              activeOpacity={0.7}
+            >
+              {savingPayment ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <Text style={styles.saveBtnText}>Record Payment</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </ModalSheet>
     </SafeAreaView>
   );
 }

@@ -24,6 +24,7 @@ import { extractErrorMessage } from '../src/api/client';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
 import { useResponsive } from '../src/utils/responsive';
 import { formatCurrency } from '../src/utils/formatters';
+import { ModalSheet, ModernInput } from '../src/components/ui';
 
 const PAYMENT_METHODS = ['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Other'];
 const PAYMENT_STATUSES = [
@@ -454,216 +455,198 @@ export default function ExpenseViewScreen() {
       </View>
 
       {/* Edit Expense Modal */}
-      <Modal visible={editModalVisible} transparent animationType="slide" onRequestClose={() => setEditModalVisible(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Expense</Text>
-              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-                <Ionicons name="close" size={22} color="#64748b" />
-              </TouchableOpacity>
-            </View>
+      <ModalSheet
+        visible={editModalVisible}
+        onClose={() => setEditModalVisible(false)}
+        title="Edit Expense"
+        maxHeight="85%"
+      >
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <ModernInput
+            label="Category"
+            value={editCategory}
+            onChangeText={setEditCategory}
+            placeholder="e.g. Fertilizer, Seed, Labor"
+            placeholderTextColor="#94a3b8"
+            containerStyle={{ marginBottom: spacing.md }}
+          />
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.inputLabel}>Category</Text>
-              <TextInput
-                style={styles.input}
-                value={editCategory}
-                onChangeText={setEditCategory}
-                placeholder="e.g. Fertilizer, Seed, Labor"
-                placeholderTextColor="#94a3b8"
-              />
+          <ModernInput
+            label="Amount"
+            value={editAmount}
+            onChangeText={setEditAmount}
+            keyboardType="numeric"
+            placeholder="0.00"
+            placeholderTextColor="#94a3b8"
+            prefix={<Text style={{ color: '#059669', fontWeight: '700', marginRight: 4 }}>₹</Text>}
+            containerStyle={{ marginBottom: spacing.md }}
+          />
 
-              <Text style={styles.inputLabel}>Amount (₹)</Text>
-              <TextInput
-                style={styles.input}
-                value={editAmount}
-                onChangeText={setEditAmount}
-                keyboardType="numeric"
-                placeholder="0.00"
-                placeholderTextColor="#94a3b8"
-              />
+          <ModernInput
+            label="Date (YYYY-MM-DD)"
+            value={editDate}
+            onChangeText={setEditDate}
+            placeholder="2026-10-24"
+            placeholderTextColor="#94a3b8"
+            containerStyle={{ marginBottom: spacing.md }}
+          />
 
-              <Text style={styles.inputLabel}>Date (YYYY-MM-DD)</Text>
-              <TextInput
-                style={styles.input}
-                value={editDate}
-                onChangeText={setEditDate}
-                placeholder="2026-10-24"
-                placeholderTextColor="#94a3b8"
-              />
-
-              <Text style={styles.inputLabel}>Payment Method</Text>
-              <View style={styles.chipsRow}>
-                {PAYMENT_METHODS.map((method) => {
-                  const isSelected = editPaymentMethod === method;
-                  return (
-                    <TouchableOpacity
-                      key={method}
-                      style={[styles.chip, isSelected && styles.chipActive]}
-                      onPress={() => setEditPaymentMethod(method)}
-                    >
-                      <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                        {method}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <Text style={styles.inputLabel}>Payment Status</Text>
-              <View style={styles.chipsRow}>
-                {PAYMENT_STATUSES.map((st) => {
-                  const isSelected = editPaymentStatus === st.key;
-                  return (
-                    <TouchableOpacity
-                      key={st.key}
-                      style={[
-                        styles.chip,
-                        isSelected && { backgroundColor: st.bg, borderColor: st.border },
-                      ]}
-                      onPress={() => setEditPaymentStatus(st.key)}
-                    >
-                      <Text style={[styles.chipText, isSelected && { color: st.text, fontWeight: '800' }]}>
-                        {st.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <Text style={styles.inputLabel}>Notes</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={editNotes}
-                onChangeText={setEditNotes}
-                placeholder="Invoice details, vendor name, remarks..."
-                placeholderTextColor="#94a3b8"
-                multiline
-                numberOfLines={3}
-              />
-
-              <View style={styles.modalActions}>
+          <Text style={styles.inputLabel}>Payment Method</Text>
+          <View style={styles.chipsRow}>
+            {PAYMENT_METHODS.map((method) => {
+              const isSelected = editPaymentMethod === method;
+              return (
                 <TouchableOpacity
-                  style={styles.modalCancelBtn}
-                  onPress={() => setEditModalVisible(false)}
+                  key={method}
+                  style={[styles.chip, isSelected && styles.chipActive]}
+                  onPress={() => setEditPaymentMethod(method)}
+                  activeOpacity={0.7}
                 >
-                  <Text style={styles.modalCancelText}>Cancel</Text>
+                  <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                    {method}
+                  </Text>
                 </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.modalSaveBtn}
-                  onPress={handleSaveEdit}
-                  disabled={saving}
-                >
-                  {saving ? (
-                    <ActivityIndicator size="small" color="#ffffff" />
-                  ) : (
-                    <Text style={styles.modalSaveText}>Save Changes</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
+              );
+            })}
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+
+          <Text style={styles.inputLabel}>Payment Status</Text>
+          <View style={styles.chipsRow}>
+            {PAYMENT_STATUSES.map((st) => {
+              const isSelected = editPaymentStatus === st.key;
+              return (
+                <TouchableOpacity
+                  key={st.key}
+                  style={[
+                    styles.chip,
+                    isSelected && { backgroundColor: st.bg, borderColor: st.border },
+                  ]}
+                  onPress={() => setEditPaymentStatus(st.key)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.chipText, isSelected && { color: st.text, fontWeight: '800' }]}>
+                    {st.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <ModernInput
+            label="Notes"
+            value={editNotes}
+            onChangeText={setEditNotes}
+            placeholder="Invoice details, vendor name, remarks..."
+            placeholderTextColor="#94a3b8"
+            multiline
+            numberOfLines={3}
+            containerStyle={{ marginBottom: spacing.md }}
+          />
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={styles.modalCancelBtn}
+              onPress={() => setEditModalVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalSaveBtn}
+              onPress={handleSaveEdit}
+              disabled={saving}
+              activeOpacity={0.7}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.modalSaveText}>Save Changes</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </ModalSheet>
 
       {/* Link Activity Modal */}
-      <Modal
+      <ModalSheet
         visible={linkModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setLinkModalVisible(false)}
+        onClose={() => setLinkModalVisible(false)}
+        title="Link Farm Activity"
+        maxHeight="80%"
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>Link Farm Activity</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setLinkModalVisible(false)}
-                style={styles.modalCloseBtn}
-              >
-                <Ionicons name="close" size={20} color="#64748b" />
-              </TouchableOpacity>
-            </View>
-
-            {loadingAvailableActivities ? (
-              <View style={{ paddingVertical: spacing.xl, alignItems: 'center' }}>
-                <ActivityIndicator size="small" color="#16a34a" />
-                <Text style={styles.loadingText}>Fetching available activities...</Text>
-              </View>
-            ) : availableActivities.length === 0 ? (
-              <View style={{ paddingVertical: spacing.lg, alignItems: 'center' }}>
-                <Ionicons name="clipboard-outline" size={36} color="#94a3b8" />
-                <Text style={[styles.emptyText, { marginTop: 8 }]}>No unlinked activities found for this farm.</Text>
-              </View>
-            ) : (
-              <ScrollView style={{ maxHeight: 320, marginVertical: spacing.xs }}>
-                {availableActivities.map((act) => {
-                  const actId = act.id ?? act.ulid;
-                  if (!actId) return null;
-                  const isSelected = selectedActivityIds.includes(actId);
-                  return (
-                    <TouchableOpacity
-                      key={actId}
-                      style={[
-                        styles.candidateItem,
-                        isSelected && styles.candidateItemSelected,
-                      ]}
-                      onPress={() => handleToggleSelectActivity(actId)}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons
-                        name={isSelected ? 'checkbox' : 'square-outline'}
-                        size={20}
-                        color={isSelected ? '#16a34a' : '#94a3b8'}
-                      />
-                      <View style={{ flex: 1, marginLeft: spacing.sm }}>
-                        <Text style={styles.candidateTitle}>
-                          {act.farm_activity_master?.name || act.activity_type || 'Farm Activity'}
-                        </Text>
-                        <Text style={styles.candidateSub}>
-                          {act.date ? act.date.split('T')[0] : ''} • {act.status || 'scheduled'}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            )}
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => setLinkModalVisible(false)}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.modalSaveBtn,
-                  (selectedActivityIds.length === 0 || linkingActivities) && { opacity: 0.5 },
-                ]}
-                onPress={handleConfirmLinkActivities}
-                disabled={selectedActivityIds.length === 0 || linkingActivities}
-              >
-                {linkingActivities ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <Text style={styles.modalSaveText}>
-                    Link ({selectedActivityIds.length})
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
+        {loadingAvailableActivities ? (
+          <View style={{ paddingVertical: spacing.xl, alignItems: 'center' }}>
+            <ActivityIndicator size="small" color="#16a34a" />
+            <Text style={styles.loadingText}>Fetching available activities...</Text>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        ) : availableActivities.length === 0 ? (
+          <View style={{ paddingVertical: spacing.lg, alignItems: 'center' }}>
+            <Ionicons name="clipboard-outline" size={36} color="#94a3b8" />
+            <Text style={[styles.emptyText, { marginTop: 8 }]}>No unlinked activities found for this farm.</Text>
+          </View>
+        ) : (
+          <ScrollView style={{ maxHeight: 320, marginVertical: spacing.xs }}>
+            {availableActivities.map((act) => {
+              const actId = act.id ?? act.ulid;
+              if (!actId) return null;
+              const isSelected = selectedActivityIds.includes(actId);
+              return (
+                <TouchableOpacity
+                  key={actId}
+                  style={[
+                    styles.candidateItem,
+                    isSelected && styles.candidateItemSelected,
+                  ]}
+                  onPress={() => handleToggleSelectActivity(actId)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={isSelected ? 'checkbox' : 'square-outline'}
+                    size={20}
+                    color={isSelected ? '#16a34a' : '#94a3b8'}
+                  />
+                  <View style={{ flex: 1, marginLeft: spacing.sm }}>
+                    <Text style={styles.candidateTitle}>
+                      {act.farm_activity_master?.name || act.activity_type || 'Farm Activity'}
+                    </Text>
+                    <Text style={styles.candidateSub}>
+                      {act.date ? act.date.split('T')[0] : ''} • {act.status || 'scheduled'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+
+        <View style={styles.modalActions}>
+          <TouchableOpacity
+            style={styles.modalCancelBtn}
+            onPress={() => setLinkModalVisible(false)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.modalCancelText}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.modalSaveBtn,
+              (selectedActivityIds.length === 0 || linkingActivities) && { opacity: 0.5 },
+            ]}
+            onPress={handleConfirmLinkActivities}
+            disabled={selectedActivityIds.length === 0 || linkingActivities}
+            activeOpacity={0.7}
+          >
+            {linkingActivities ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <Text style={styles.modalSaveText}>
+                Link ({selectedActivityIds.length})
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ModalSheet>
     </SafeAreaView>
   );
 }

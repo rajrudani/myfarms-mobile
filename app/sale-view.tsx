@@ -28,6 +28,7 @@ import { colors, radius, spacing, shadows } from '../src/theme/tokens';
 import { useTranslation } from '../src/i18n/I18nContext';
 import { useResponsive } from '../src/utils/responsive';
 import { formatCurrency, formatQuantity } from '../src/utils/formatters';
+import { ModalSheet, ModernInput } from '../src/components/ui';
 
 export const getAbsoluteImageUrl = (urlPath?: string | null) => {
   if (!urlPath) return undefined;
@@ -648,414 +649,408 @@ export default function SaleViewScreen() {
       </View>
 
       {/* Edit Sale Modal */}
-      <Modal visible={editModalVisible} transparent animationType="slide" onRequestClose={() => setEditModalVisible(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{t('Edit Sale')}</Text>
-              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-                <Ionicons name="close" size={22} color="#64748b" />
-              </TouchableOpacity>
-            </View>
+      <ModalSheet
+        visible={editModalVisible}
+        onClose={() => setEditModalVisible(false)}
+        title={t('Edit Sale')}
+        maxHeight="85%"
+      >
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <ModernInput
+            label={t('Buyer Name')}
+            value={editBuyerName}
+            onChangeText={setEditBuyerName}
+            placeholder={t('Buyer Name or APMC Mandi')}
+            placeholderTextColor="#94a3b8"
+            containerStyle={{ marginBottom: spacing.md }}
+          />
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.inputLabel}>{t('Buyer Name')}</Text>
-              <TextInput
-                style={styles.input}
-                value={editBuyerName}
-                onChangeText={setEditBuyerName}
-                placeholder={t('Buyer Name or APMC Mandi')}
-                placeholderTextColor="#94a3b8"
-              />
+          <ModernInput
+            label={`${t('Total Quantity')} (${unit})`}
+            value={editQuantity}
+            onChangeText={setEditQuantity}
+            keyboardType="numeric"
+            placeholder="0.00"
+            placeholderTextColor="#94a3b8"
+            suffix={<Text style={{ color: '#64748b', fontSize: 13, fontWeight: '600', marginLeft: 4 }}>{unit}</Text>}
+            containerStyle={{ marginBottom: spacing.md }}
+          />
 
-              <Text style={styles.inputLabel}>{t('Total Quantity')} ({unit})</Text>
-              <TextInput
-                style={styles.input}
-                value={editQuantity}
-                onChangeText={setEditQuantity}
-                keyboardType="numeric"
-                placeholder="0.00"
-                placeholderTextColor="#94a3b8"
-              />
+          <ModernInput
+            label={`${t('Rate')} (₹ / ${unit})`}
+            value={editRate}
+            onChangeText={setEditRate}
+            keyboardType="numeric"
+            placeholder="0.00"
+            placeholderTextColor="#94a3b8"
+            prefix={<Text style={{ color: '#059669', fontWeight: '700', marginRight: 4 }}>₹</Text>}
+            containerStyle={{ marginBottom: spacing.md }}
+          />
 
-              <Text style={styles.inputLabel}>{t('Rate')} (₹ / {unit})</Text>
-              <TextInput
-                style={styles.input}
-                value={editRate}
-                onChangeText={setEditRate}
-                keyboardType="numeric"
-                placeholder="0.00"
-                placeholderTextColor="#94a3b8"
-              />
+          <ModernInput
+            label={t('Notes')}
+            value={editNotes}
+            onChangeText={setEditNotes}
+            placeholder={t('Remarks, invoice details...')}
+            placeholderTextColor="#94a3b8"
+            multiline
+            numberOfLines={3}
+            containerStyle={{ marginBottom: spacing.md }}
+          />
 
-              <Text style={styles.inputLabel}>{t('Notes')}</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={editNotes}
-                onChangeText={setEditNotes}
-                placeholder={t('Remarks, invoice details...')}
-                placeholderTextColor="#94a3b8"
-                multiline
-                numberOfLines={3}
-              />
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={styles.modalCancelBtn}
+              onPress={() => setEditModalVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
+            </TouchableOpacity>
 
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.modalCancelBtn}
-                  onPress={() => setEditModalVisible(false)}
-                >
-                  <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.modalSaveBtn}
-                  onPress={handleSaveEdit}
-                  disabled={saving}
-                >
-                  {saving ? (
-                    <ActivityIndicator size="small" color="#ffffff" />
-                  ) : (
-                    <Text style={styles.modalSaveText}>{t('Save Changes')}</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
+            <TouchableOpacity
+              style={styles.modalSaveBtn}
+              onPress={handleSaveEdit}
+              disabled={saving}
+              activeOpacity={0.7}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.modalSaveText}>{t('Save Changes')}</Text>
+              )}
+            </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        </ScrollView>
+      </ModalSheet>
 
       {/* Manage Quality Grades Modal */}
-      <Modal visible={gradesModalVisible} transparent animationType="slide" onRequestClose={() => setGradesModalVisible(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>{t('Quality Grades Breakdown')}</Text>
-              </View>
-              <TouchableOpacity onPress={() => setGradesModalVisible(false)}>
-                <Ionicons name="close" size={22} color="#64748b" />
-              </TouchableOpacity>
+      <ModalSheet
+        visible={gradesModalVisible}
+        onClose={() => setGradesModalVisible(false)}
+        title={t('Quality Grades Breakdown')}
+        maxHeight="88%"
+      >
+        <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
+          <View style={styles.toggleRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.toggleTitle}>{t('Enable Quality Grading')}</Text>
+              <Text style={styles.toggleSub}>{t('Record multiple quality tiers at different rates')}</Text>
             </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
-              <View style={styles.toggleRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.toggleTitle}>{t('Enable Quality Grading')}</Text>
-                  <Text style={styles.toggleSub}>{t('Record multiple quality tiers at different rates')}</Text>
-                </View>
-                <Switch
-                  value={modalHasGrades}
-                  onValueChange={setModalHasGrades}
-                  trackColor={{ false: '#cbd5e1', true: '#86efac' }}
-                  thumbColor={modalHasGrades ? '#16a34a' : '#f8fafc'}
-                />
-              </View>
-
-              {modalHasGrades && (
-                <View style={{ marginTop: spacing.md }}>
-                  <View style={styles.rowBetween}>
-                    <Text style={styles.sectionSubTitle}>{t('Grade Tiers')}</Text>
-                    <TouchableOpacity
-                      style={styles.addLineBtn}
-                      onPress={() => setGradeRows([...gradeRows, { grade_name: 'Grade', quantity: '', rate: '' }])}
-                    >
-                      <Ionicons name="add" size={14} color="#166534" />
-                      <Text style={styles.addLineText}>{t('Add Tier')}</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {gradeRows.map((row, idx) => {
-                    const rowTotal = (parseFloat(row.quantity) || 0) * (parseFloat(row.rate) || 0);
-                    return (
-                      <View key={idx} style={styles.editorItemCard}>
-                        <View style={styles.editorItemHead}>
-                          <Text style={styles.editorItemIndex}>Tier #{idx + 1}</Text>
-                          {rowTotal > 0 && (
-                            <Text style={styles.editorItemAmount}>₹{rowTotal.toFixed(2)}</Text>
-                          )}
-                          {gradeRows.length > 1 && (
-                            <TouchableOpacity
-                              onPress={() => setGradeRows(gradeRows.filter((_, i) => i !== idx))}
-                              style={{ padding: 4 }}
-                            >
-                              <Ionicons name="trash-outline" size={16} color="#dc2626" />
-                            </TouchableOpacity>
-                          )}
-                        </View>
-
-                        <Text style={styles.inputMiniLabel}>{t('Grade Name')}</Text>
-                        <TextInput
-                          style={styles.inputSmall}
-                          value={row.grade_name}
-                          onChangeText={(text) => {
-                            const newRows = [...gradeRows];
-                            newRows[idx].grade_name = text;
-                            setGradeRows(newRows);
-                          }}
-                          placeholder="e.g. A+, A, B, Rejection"
-                          placeholderTextColor="#94a3b8"
-                        />
-                        <View style={styles.chipQuickRow}>
-                          {['A+', 'A', 'B+', 'B', 'C', 'Reject'].map((preset) => (
-                            <TouchableOpacity
-                              key={preset}
-                              style={[
-                                styles.quickChip,
-                                row.grade_name === preset && styles.quickChipActive,
-                              ]}
-                              onPress={() => {
-                                const newRows = [...gradeRows];
-                                newRows[idx].grade_name = preset;
-                                setGradeRows(newRows);
-                              }}
-                            >
-                              <Text
-                                style={[
-                                  styles.quickChipText,
-                                  row.grade_name === preset && styles.quickChipTextActive,
-                                ]}
-                              >
-                                {preset}
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-
-                        <View style={styles.rowTwoCols}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.inputMiniLabel}>{t('Quantity')} ({unit})</Text>
-                            <TextInput
-                              style={styles.inputSmall}
-                              value={row.quantity}
-                              onChangeText={(text) => {
-                                const newRows = [...gradeRows];
-                                newRows[idx].quantity = text;
-                                setGradeRows(newRows);
-                              }}
-                              keyboardType="numeric"
-                              placeholder="0"
-                              placeholderTextColor="#94a3b8"
-                            />
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.inputMiniLabel}>{t('Rate')} (₹/{unit})</Text>
-                            <TextInput
-                              style={styles.inputSmall}
-                              value={row.rate}
-                              onChangeText={(text) => {
-                                const newRows = [...gradeRows];
-                                newRows[idx].rate = text;
-                                setGradeRows(newRows);
-                              }}
-                              keyboardType="numeric"
-                              placeholder="0.00"
-                              placeholderTextColor="#94a3b8"
-                            />
-                          </View>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.modalCancelBtn}
-                  onPress={() => setGradesModalVisible(false)}
-                >
-                  <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.modalSaveBtn}
-                  onPress={handleSaveGrades}
-                  disabled={savingGrades}
-                >
-                  {savingGrades ? (
-                    <ActivityIndicator size="small" color="#ffffff" />
-                  ) : (
-                    <Text style={styles.modalSaveText}>{t('Save Grades')}</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
+            <Switch
+              value={modalHasGrades}
+              onValueChange={setModalHasGrades}
+              trackColor={{ false: '#cbd5e1', true: '#86efac' }}
+              thumbColor={modalHasGrades ? '#16a34a' : '#f8fafc'}
+            />
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
 
-      {/* Manage Mandi Deductions Modal */}
-      <Modal visible={chargesModalVisible} transparent animationType="slide" onRequestClose={() => setChargesModalVisible(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>{t('Mandi Deductions & Charges')}</Text>
-              </View>
-              <TouchableOpacity onPress={() => setChargesModalVisible(false)}>
-                <Ionicons name="close" size={22} color="#64748b" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
+          {modalHasGrades && (
+            <View style={{ marginTop: spacing.md }}>
               <View style={styles.rowBetween}>
-                <Text style={styles.sectionSubTitle}>{t('Deduction Entries')}</Text>
+                <Text style={styles.sectionSubTitle}>{t('Grade Tiers')}</Text>
                 <TouchableOpacity
                   style={styles.addLineBtn}
-                  onPress={() =>
-                    setChargeRows([
-                      ...chargeRows,
-                      { charge_name: '', type: 'flat', value: '', applies_on: 'gross' },
-                    ])
-                  }
+                  onPress={() => setGradeRows([...gradeRows, { grade_name: 'Grade', quantity: '', rate: '' }])}
+                  activeOpacity={0.7}
                 >
                   <Ionicons name="add" size={14} color="#166534" />
-                  <Text style={styles.addLineText}>{t('Add Charge')}</Text>
+                  <Text style={styles.addLineText}>{t('Add Tier')}</Text>
                 </TouchableOpacity>
               </View>
 
-              {chargeRows.map((charge, idx) => (
-                <View key={idx} style={styles.editorItemCard}>
-                  <View style={styles.editorItemHead}>
-                    <Text style={styles.editorItemIndex}>Charge #{idx + 1}</Text>
-                    <TouchableOpacity
-                      onPress={() => setChargeRows(chargeRows.filter((_, i) => i !== idx))}
-                      style={{ padding: 4 }}
-                    >
-                      <Ionicons name="trash-outline" size={16} color="#dc2626" />
-                    </TouchableOpacity>
-                  </View>
-
-                  <Text style={styles.inputMiniLabel}>{t('Charge Name')}</Text>
-                  <TextInput
-                    style={styles.inputSmall}
-                    value={charge.charge_name}
-                    onChangeText={(text) => {
-                      const newRows = [...chargeRows];
-                      newRows[idx].charge_name = text;
-                      setChargeRows(newRows);
-                    }}
-                    placeholder="e.g. Mandi Cess, Hamali, Weighing"
-                    placeholderTextColor="#94a3b8"
-                  />
-                  <View style={styles.chipQuickRow}>
-                    {['Mandi Cess', 'Commission', 'Hamali / Labour', 'Weighing', 'Transport'].map((preset) => (
-                      <TouchableOpacity
-                        key={preset}
-                        style={[
-                          styles.quickChip,
-                          charge.charge_name === preset && styles.quickChipActive,
-                        ]}
-                        onPress={() => {
-                          const newRows = [...chargeRows];
-                          newRows[idx].charge_name = preset;
-                          setChargeRows(newRows);
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.quickChipText,
-                            charge.charge_name === preset && styles.quickChipTextActive,
-                          ]}
-                        >
-                          {preset}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-
-                  <View style={styles.rowTwoCols}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.inputMiniLabel}>{t('Type')}</Text>
-                      <View style={styles.typeSegmentRow}>
+              {gradeRows.map((row, idx) => {
+                const rowTotal = (parseFloat(row.quantity) || 0) * (parseFloat(row.rate) || 0);
+                return (
+                  <View key={idx} style={styles.editorItemCard}>
+                    <View style={styles.editorItemHead}>
+                      <Text style={styles.editorItemIndex}>Tier #{idx + 1}</Text>
+                      {rowTotal > 0 && (
+                        <Text style={styles.editorItemAmount}>₹{rowTotal.toFixed(2)}</Text>
+                      )}
+                      {gradeRows.length > 1 && (
                         <TouchableOpacity
+                          onPress={() => setGradeRows(gradeRows.filter((_, i) => i !== idx))}
+                          style={{ padding: 4 }}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="trash-outline" size={16} color="#dc2626" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    <Text style={styles.inputMiniLabel}>{t('Grade Name')}</Text>
+                    <TextInput
+                      style={styles.inputSmall}
+                      value={row.grade_name}
+                      onChangeText={(text) => {
+                        const newRows = [...gradeRows];
+                        newRows[idx].grade_name = text;
+                        setGradeRows(newRows);
+                      }}
+                      placeholder="e.g. A+, A, B, Rejection"
+                      placeholderTextColor="#94a3b8"
+                    />
+                    <View style={styles.chipQuickRow}>
+                      {['A+', 'A', 'B+', 'B', 'C', 'Reject'].map((preset) => (
+                        <TouchableOpacity
+                          key={preset}
                           style={[
-                            styles.typeSegmentBtn,
-                            charge.type === 'flat' && styles.typeSegmentBtnActive,
+                            styles.quickChip,
+                            row.grade_name === preset && styles.quickChipActive,
                           ]}
                           onPress={() => {
-                            const newRows = [...chargeRows];
-                            newRows[idx].type = 'flat';
-                            setChargeRows(newRows);
+                            const newRows = [...gradeRows];
+                            newRows[idx].grade_name = preset;
+                            setGradeRows(newRows);
                           }}
+                          activeOpacity={0.7}
                         >
                           <Text
                             style={[
-                              styles.typeSegmentText,
-                              charge.type === 'flat' && styles.typeSegmentTextActive,
+                              styles.quickChipText,
+                              row.grade_name === preset && styles.quickChipTextActive,
                             ]}
                           >
-                            Fixed (₹)
+                            {preset}
                           </Text>
                         </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[
-                            styles.typeSegmentBtn,
-                            charge.type === 'percentage' && styles.typeSegmentBtnActive,
-                          ]}
-                          onPress={() => {
-                            const newRows = [...chargeRows];
-                            newRows[idx].type = 'percentage';
-                            setChargeRows(newRows);
+                      ))}
+                    </View>
+
+                    <View style={styles.rowTwoCols}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.inputMiniLabel}>{t('Quantity')} ({unit})</Text>
+                        <TextInput
+                          style={styles.inputSmall}
+                          value={row.quantity}
+                          onChangeText={(text) => {
+                            const newRows = [...gradeRows];
+                            newRows[idx].quantity = text;
+                            setGradeRows(newRows);
                           }}
-                        >
-                          <Text
-                            style={[
-                              styles.typeSegmentText,
-                              charge.type === 'percentage' && styles.typeSegmentTextActive,
-                            ]}
-                          >
-                            Percent (%)
-                          </Text>
-                        </TouchableOpacity>
+                          keyboardType="numeric"
+                          placeholder="0"
+                          placeholderTextColor="#94a3b8"
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.inputMiniLabel}>{t('Rate')} (₹/{unit})</Text>
+                        <TextInput
+                          style={styles.inputSmall}
+                          value={row.rate}
+                          onChangeText={(text) => {
+                            const newRows = [...gradeRows];
+                            newRows[idx].rate = text;
+                            setGradeRows(newRows);
+                          }}
+                          keyboardType="numeric"
+                          placeholder="0.00"
+                          placeholderTextColor="#94a3b8"
+                        />
                       </View>
                     </View>
-
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.inputMiniLabel}>
-                        {charge.type === 'percentage' ? t('Rate (%)') : t('Amount (₹)')}
-                      </Text>
-                      <TextInput
-                        style={styles.inputSmall}
-                        value={charge.value}
-                        onChangeText={(text) => {
-                          const newRows = [...chargeRows];
-                          newRows[idx].value = text;
-                          setChargeRows(newRows);
-                        }}
-                        keyboardType="numeric"
-                        placeholder="0.00"
-                        placeholderTextColor="#94a3b8"
-                      />
-                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
+            </View>
+          )}
 
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.modalCancelBtn}
-                  onPress={() => setChargesModalVisible(false)}
-                >
-                  <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
-                </TouchableOpacity>
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={styles.modalCancelBtn}
+              onPress={() => setGradesModalVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
+            </TouchableOpacity>
 
+            <TouchableOpacity
+              style={styles.modalSaveBtn}
+              onPress={handleSaveGrades}
+              disabled={savingGrades}
+              activeOpacity={0.7}
+            >
+              {savingGrades ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.modalSaveText}>{t('Save Grades')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </ModalSheet>
+
+      {/* Manage Mandi Deductions Modal */}
+      <ModalSheet
+        visible={chargesModalVisible}
+        onClose={() => setChargesModalVisible(false)}
+        title={t('Mandi Deductions & Charges')}
+        maxHeight="88%"
+      >
+        <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
+          <View style={styles.rowBetween}>
+            <Text style={styles.sectionSubTitle}>{t('Deduction Entries')}</Text>
+            <TouchableOpacity
+              style={styles.addLineBtn}
+              onPress={() =>
+                setChargeRows([
+                  ...chargeRows,
+                  { charge_name: '', type: 'flat', value: '', applies_on: 'gross' },
+                ])
+              }
+              activeOpacity={0.7}
+            >
+              <Ionicons name="add" size={14} color="#166534" />
+              <Text style={styles.addLineText}>{t('Add Charge')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {chargeRows.map((charge, idx) => (
+            <View key={idx} style={styles.editorItemCard}>
+              <View style={styles.editorItemHead}>
+                <Text style={styles.editorItemIndex}>Charge #{idx + 1}</Text>
                 <TouchableOpacity
-                  style={styles.modalSaveBtn}
-                  onPress={handleSaveCharges}
-                  disabled={savingCharges}
+                  onPress={() => setChargeRows(chargeRows.filter((_, i) => i !== idx))}
+                  style={{ padding: 4 }}
+                  activeOpacity={0.7}
                 >
-                  {savingCharges ? (
-                    <ActivityIndicator size="small" color="#ffffff" />
-                  ) : (
-                    <Text style={styles.modalSaveText}>{t('Save Deductions')}</Text>
-                  )}
+                  <Ionicons name="trash-outline" size={16} color="#dc2626" />
                 </TouchableOpacity>
               </View>
-            </ScrollView>
+
+              <Text style={styles.inputMiniLabel}>{t('Charge Name')}</Text>
+              <TextInput
+                style={styles.inputSmall}
+                value={charge.charge_name}
+                onChangeText={(text) => {
+                  const newRows = [...chargeRows];
+                  newRows[idx].charge_name = text;
+                  setChargeRows(newRows);
+                }}
+                placeholder="e.g. Mandi Cess, Hamali, Weighing"
+                placeholderTextColor="#94a3b8"
+              />
+              <View style={styles.chipQuickRow}>
+                {['Mandi Cess', 'Commission', 'Hamali / Labour', 'Weighing', 'Transport'].map((preset) => (
+                  <TouchableOpacity
+                    key={preset}
+                    style={[
+                      styles.quickChip,
+                      charge.charge_name === preset && styles.quickChipActive,
+                    ]}
+                    onPress={() => {
+                      const newRows = [...chargeRows];
+                      newRows[idx].charge_name = preset;
+                      setChargeRows(newRows);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.quickChipText,
+                        charge.charge_name === preset && styles.quickChipTextActive,
+                      ]}
+                    >
+                      {preset}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={styles.rowTwoCols}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputMiniLabel}>{t('Type')}</Text>
+                  <View style={styles.typeSegmentRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.typeSegmentBtn,
+                        charge.type === 'flat' && styles.typeSegmentBtnActive,
+                      ]}
+                      onPress={() => {
+                        const newRows = [...chargeRows];
+                        newRows[idx].type = 'flat';
+                        setChargeRows(newRows);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.typeSegmentText,
+                          charge.type === 'flat' && styles.typeSegmentTextActive,
+                        ]}
+                      >
+                        Fixed (₹)
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.typeSegmentBtn,
+                        charge.type === 'percentage' && styles.typeSegmentBtnActive,
+                      ]}
+                      onPress={() => {
+                        const newRows = [...chargeRows];
+                        newRows[idx].type = 'percentage';
+                        setChargeRows(newRows);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.typeSegmentText,
+                          charge.type === 'percentage' && styles.typeSegmentTextActive,
+                        ]}
+                      >
+                        Percent (%)
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputMiniLabel}>
+                    {charge.type === 'percentage' ? t('Rate (%)') : t('Amount (₹)')}
+                  </Text>
+                  <TextInput
+                    style={styles.inputSmall}
+                    value={charge.value}
+                    onChangeText={(text) => {
+                      const newRows = [...chargeRows];
+                      newRows[idx].value = text;
+                      setChargeRows(newRows);
+                    }}
+                    keyboardType="numeric"
+                    placeholder="0.00"
+                    placeholderTextColor="#94a3b8"
+                  />
+                </View>
+              </View>
+            </View>
+          ))}
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={styles.modalCancelBtn}
+              onPress={() => setChargesModalVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalSaveBtn}
+              onPress={handleSaveCharges}
+              disabled={savingCharges}
+              activeOpacity={0.7}
+            >
+              {savingCharges ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.modalSaveText}>{t('Save Deductions')}</Text>
+              )}
+            </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        </ScrollView>
+      </ModalSheet>
     </SafeAreaView>
   );
 }

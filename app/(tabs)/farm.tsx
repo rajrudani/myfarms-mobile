@@ -13,6 +13,7 @@ import {
   Platform,
   KeyboardAvoidingView,
   StatusBar,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,6 +30,8 @@ import {
   StatusBadge,
   QuickChipGroup,
   ChipOption,
+  ModalSheet,
+  ModernInput,
 } from '../../src/components/ui';
 
 const AREA_UNIT_OPTIONS: ChipOption<string>[] = [
@@ -493,391 +496,357 @@ export default function FarmsScreen() {
       </View>
 
       {/* Filter Bottom Sheet Modal */}
-      <Modal
-        animationType="fade"
-        transparent={true}
+      <ModalSheet
         visible={filterModalVisible}
-        onRequestClose={() => setFilterModalVisible(false)}
+        onClose={() => setFilterModalVisible(false)}
+        title="Filter by Status"
+        maxHeight="50%"
       >
-        <TouchableOpacity
-          style={styles.filterModalOverlay}
-          activeOpacity={1}
-          onPress={() => setFilterModalVisible(false)}
-        >
-          <View style={styles.filterModalContent} onStartShouldSetResponder={() => true}>
-            <View style={styles.filterModalHandle} />
-
-            <View style={styles.filterModalHeader}>
-              <Text style={styles.filterModalTitle}>Filter by Status</Text>
-              {statusFilter !== 'active' && (
-                <TouchableOpacity
-                  onPress={() => {
-                    setStatusFilter('active');
-                    setFilterModalVisible(false);
-                  }}
-                >
-                  <Text style={styles.filterResetBtn}>RESET</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
+        <View style={{ gap: spacing.sm, paddingBottom: spacing.lg }}>
+          {statusFilter !== 'active' && (
             <TouchableOpacity
-              style={[
-                styles.filterOptionItem,
-                statusFilter === 'active' && styles.filterOptionItemActive,
-              ]}
+              style={{ alignSelf: 'flex-end', paddingVertical: 4, paddingHorizontal: 8, marginBottom: 4 }}
               onPress={() => {
                 setStatusFilter('active');
                 setFilterModalVisible(false);
               }}
               activeOpacity={0.7}
             >
-              <View style={styles.filterOptionLeft}>
-                <View
-                  style={[
-                    styles.filterOptionDot,
-                    { backgroundColor: '#22c55e' },
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.filterOptionText,
-                    statusFilter === 'active' && styles.filterOptionTextActive,
-                  ]}
-                >
-                  Active Farms
-                </Text>
-              </View>
-              <View style={styles.filterOptionRight}>
-                <Text style={styles.filterOptionBadge}>{activeCount}</Text>
-                {statusFilter === 'active' && (
-                  <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
-                )}
-              </View>
+              <Text style={styles.filterResetBtn}>RESET TO ACTIVE</Text>
             </TouchableOpacity>
+          )}
 
-            <TouchableOpacity
-              style={[
-                styles.filterOptionItem,
-                statusFilter === 'inactive' && styles.filterOptionItemActive,
-              ]}
-              onPress={() => {
-                setStatusFilter('inactive');
-                setFilterModalVisible(false);
-              }}
-              activeOpacity={0.7}
-            >
-              <View style={styles.filterOptionLeft}>
-                <View
-                  style={[
-                    styles.filterOptionDot,
-                    { backgroundColor: '#ef4444' },
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.filterOptionText,
-                    statusFilter === 'inactive' && styles.filterOptionTextActive,
-                  ]}
-                >
-                  Inactive Farms
-                </Text>
-              </View>
-              <View style={styles.filterOptionRight}>
-                <Text style={styles.filterOptionBadge}>{inactiveCount}</Text>
-                {statusFilter === 'inactive' && (
-                  <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
-                )}
-              </View>
-            </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.filterOptionItem,
+              statusFilter === 'active' && styles.filterOptionItemActive,
+            ]}
+            onPress={() => {
+              setStatusFilter('active');
+              setFilterModalVisible(false);
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={styles.filterOptionLeft}>
+              <View
+                style={[
+                  styles.filterOptionDot,
+                  { backgroundColor: '#22c55e' },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.filterOptionText,
+                  statusFilter === 'active' && styles.filterOptionTextActive,
+                ]}
+              >
+                Active Farms
+              </Text>
+            </View>
+            <View style={styles.filterOptionRight}>
+              <Text style={styles.filterOptionBadge}>{activeCount}</Text>
+              {statusFilter === 'active' && (
+                <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+              )}
+            </View>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.filterOptionItem,
-                statusFilter === 'all' && styles.filterOptionItemActive,
-              ]}
-              onPress={() => {
-                setStatusFilter('all');
-                setFilterModalVisible(false);
-              }}
-              activeOpacity={0.7}
-            >
-              <View style={styles.filterOptionLeft}>
-                <View
-                  style={[
-                    styles.filterOptionDot,
-                    { backgroundColor: '#64748b' },
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.filterOptionText,
-                    statusFilter === 'all' && styles.filterOptionTextActive,
-                  ]}
-                >
-                  All Farms
-                </Text>
-              </View>
-              <View style={styles.filterOptionRight}>
-                <Text style={styles.filterOptionBadge}>{farms.length}</Text>
-                {statusFilter === 'all' && (
-                  <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
-                )}
-              </View>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+          <TouchableOpacity
+            style={[
+              styles.filterOptionItem,
+              statusFilter === 'inactive' && styles.filterOptionItemActive,
+            ]}
+            onPress={() => {
+              setStatusFilter('inactive');
+              setFilterModalVisible(false);
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={styles.filterOptionLeft}>
+              <View
+                style={[
+                  styles.filterOptionDot,
+                  { backgroundColor: '#ef4444' },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.filterOptionText,
+                  statusFilter === 'inactive' && styles.filterOptionTextActive,
+                ]}
+              >
+                Inactive Farms
+              </Text>
+            </View>
+            <View style={styles.filterOptionRight}>
+              <Text style={styles.filterOptionBadge}>{inactiveCount}</Text>
+              {statusFilter === 'inactive' && (
+                <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+              )}
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterOptionItem,
+              statusFilter === 'all' && styles.filterOptionItemActive,
+            ]}
+            onPress={() => {
+              setStatusFilter('all');
+              setFilterModalVisible(false);
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={styles.filterOptionLeft}>
+              <View
+                style={[
+                  styles.filterOptionDot,
+                  { backgroundColor: '#64748b' },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.filterOptionText,
+                  statusFilter === 'all' && styles.filterOptionTextActive,
+                ]}
+              >
+                All Farms
+              </Text>
+            </View>
+            <View style={styles.filterOptionRight}>
+              <Text style={styles.filterOptionBadge}>{farms.length}</Text>
+              {statusFilter === 'all' && (
+                <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+              )}
+            </View>
+          </TouchableOpacity>
+        </View>
+      </ModalSheet>
 
       {/* Create Farm Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
+      <ModalSheet
         visible={createModalVisible}
-        onRequestClose={() => setCreateModalVisible(false)}
+        onClose={() => setCreateModalVisible(false)}
+        title="Add New Farm Plot"
+        maxHeight="82%"
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>Add New Farm Plot</Text>
-              <TouchableOpacity onPress={() => setCreateModalVisible(false)}>
-                <Ionicons name="close" size={22} color={colors.slate600} />
-              </TouchableOpacity>
-            </View>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <ModernInput
+            label="Farm Name"
+            required
+            placeholder="e.g. Green Acres"
+            value={name}
+            onChangeText={(text) => {
+              setName(text);
+              if (text.trim()) setNameError('');
+            }}
+            error={nameError}
+            containerStyle={{ marginBottom: spacing.md }}
+          />
 
-            <Text style={styles.inputLabel}>
-              Farm Name <Text style={styles.asterisk}>*</Text>
+          <ModernInput
+            label="Area Size"
+            required
+            placeholder="e.g. 10.5"
+            keyboardType="decimal-pad"
+            value={area}
+            onChangeText={(text) => {
+              setArea(text);
+              if (text.trim()) setAreaError('');
+            }}
+            error={areaError}
+            suffix={<Text style={{ color: '#166534', fontWeight: '700', marginLeft: 4 }}>{formatUnitLabel(preferredAreaUnit)}</Text>}
+            containerStyle={{ marginBottom: spacing.xs }}
+          />
+
+          <View style={[styles.lockedUnitBadge, { marginBottom: spacing.md }]}>
+            <Ionicons name="lock-closed" size={13} color="#166534" />
+            <Text style={styles.lockedUnitText}>
+              Unit: {formatUnitLabel(preferredAreaUnit)} (Locked to Farm Group)
             </Text>
-            <TextInput
-              style={[styles.input, nameError ? styles.inputErrorBorder : null]}
-              placeholder="e.g. Green Acres"
-              placeholderTextColor={colors.slate400}
-              value={name}
-              onChangeText={(text) => {
-                setName(text);
-                if (text.trim()) setNameError('');
-              }}
-            />
-            {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
-
-            <Text style={styles.inputLabel}>
-              Area Size <Text style={styles.asterisk}>*</Text>
-            </Text>
-            <TextInput
-              style={[styles.input, areaError ? styles.inputErrorBorder : null]}
-              placeholder="e.g. 10.5"
-              placeholderTextColor={colors.slate400}
-              keyboardType="decimal-pad"
-              value={area}
-              onChangeText={(text) => {
-                setArea(text);
-                if (text.trim()) setAreaError('');
-              }}
-            />
-            {areaError ? <Text style={styles.errorText}>{areaError}</Text> : null}
-
-            <View style={styles.lockedUnitBadge}>
-              <Ionicons name="lock-closed" size={13} color="#166534" />
-              <Text style={styles.lockedUnitText}>
-                Unit: {formatUnitLabel(preferredAreaUnit)} (Locked to Farm Group)
-              </Text>
-            </View>
-
-            <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Location (Optional)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. California Valley"
-              placeholderTextColor={colors.slate400}
-              value={location}
-              onChangeText={setLocation}
-            />
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.cancelBtn]}
-                onPress={() => setCreateModalVisible(false)}
-                disabled={saving}
-              >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.saveBtn]}
-                onPress={handleCreateFarm}
-                disabled={saving}
-              >
-                {saving ? (
-                  <ActivityIndicator color={colors.white} />
-                ) : (
-                  <Text style={styles.saveBtnText}>Save Farm</Text>
-                )}
-              </TouchableOpacity>
-            </View>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+
+          <ModernInput
+            label="Location (Optional)"
+            placeholder="e.g. California Valley"
+            value={location}
+            onChangeText={setLocation}
+            containerStyle={{ marginBottom: spacing.lg }}
+          />
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.cancelBtn]}
+              onPress={() => setCreateModalVisible(false)}
+              disabled={saving}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.saveBtn]}
+              onPress={handleCreateFarm}
+              disabled={saving}
+              activeOpacity={0.7}
+            >
+              {saving ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <Text style={styles.saveBtnText}>Save Farm</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </ModalSheet>
 
       {/* View & Manage Detail Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
+      <ModalSheet
         visible={detailModalVisible}
-        onRequestClose={() => setDetailModalVisible(false)}
+        onClose={() => setDetailModalVisible(false)}
+        title={isEditing ? 'Manage Farm' : 'Farm Details'}
+        maxHeight="85%"
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>
-                {isEditing ? 'Manage Farm' : 'Farm Details'}
-              </Text>
-              <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
-                <Ionicons name="close" size={22} color={colors.slate600} />
-              </TouchableOpacity>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {isEditing ? (
+            <View>
+              <ModernInput
+                label="Farm Name"
+                required
+                value={editName}
+                onChangeText={(text) => {
+                  setEditName(text);
+                  if (text.trim()) setEditNameError('');
+                }}
+                error={editNameError}
+                containerStyle={{ marginBottom: spacing.md }}
+              />
+
+              <ModernInput
+                label="Area Size"
+                required
+                keyboardType="decimal-pad"
+                value={editArea}
+                onChangeText={(text) => {
+                  setEditArea(text);
+                  if (text.trim()) setEditAreaError('');
+                }}
+                error={editAreaError}
+                suffix={<Text style={{ color: '#166534', fontWeight: '700', marginLeft: 4 }}>{formatUnitLabel(editAreaUnit)}</Text>}
+                containerStyle={{ marginBottom: spacing.xs }}
+              />
+
+              <View style={[styles.lockedUnitBadge, { marginBottom: spacing.md }]}>
+                <Ionicons name="lock-closed" size={13} color="#166534" />
+                <Text style={styles.lockedUnitText}>
+                  Unit: {formatUnitLabel(editAreaUnit)} (Locked to Farm Group)
+                </Text>
+              </View>
+
+              <ModernInput
+                label="Location"
+                value={editLocation}
+                onChangeText={setEditLocation}
+                containerStyle={{ marginBottom: spacing.md }}
+              />
+
+              <View style={[styles.row, { justifyContent: 'space-between', marginBottom: spacing.lg, alignItems: 'center' }]}>
+                <Text style={styles.statusLabelText}>Status:</Text>
+                <TouchableOpacity
+                  onPress={() => selectedFarm && handleToggleFarmStatus(selectedFarm)}
+                  activeOpacity={0.7}
+                >
+                  <StatusBadge
+                    label={selectedFarm?.is_active ? 'Active' : 'Inactive'}
+                    variant={selectedFarm?.is_active ? 'success' : 'neutral'}
+                    dot
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.cancelBtn]}
+                  onPress={() => setIsEditing(false)}
+                  disabled={updating}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.cancelBtnText}>Back to View</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.saveBtn]}
+                  onPress={handleUpdateFarm}
+                  disabled={updating}
+                  activeOpacity={0.7}
+                >
+                  {updating ? (
+                    <ActivityIndicator color={colors.white} />
+                  ) : (
+                    <Text style={styles.saveBtnText}>Save</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
-
-            {isEditing ? (
-              <View>
-                <Text style={styles.inputLabel}>
-                  Farm Name <Text style={styles.asterisk}>*</Text>
-                </Text>
-                <TextInput
-                  style={[styles.input, editNameError ? styles.inputErrorBorder : null]}
-                  value={editName}
-                  onChangeText={(text) => {
-                    setEditName(text);
-                    if (text.trim()) setEditNameError('');
-                  }}
-                />
-                {editNameError ? <Text style={styles.errorText}>{editNameError}</Text> : null}
-
-                <Text style={styles.inputLabel}>
-                  Area Size <Text style={styles.asterisk}>*</Text>
-                </Text>
-                <TextInput
-                  style={[styles.input, editAreaError ? styles.inputErrorBorder : null]}
-                  keyboardType="decimal-pad"
-                  value={editArea}
-                  onChangeText={(text) => {
-                    setEditArea(text);
-                    if (text.trim()) setEditAreaError('');
-                  }}
-                />
-                {editAreaError ? <Text style={styles.errorText}>{editAreaError}</Text> : null}
-
-                <View style={styles.lockedUnitBadge}>
-                  <Ionicons name="lock-closed" size={13} color="#166534" />
-                  <Text style={styles.lockedUnitText}>
-                    Unit: {formatUnitLabel(editAreaUnit)} (Locked to Farm Group)
+          ) : (
+            <View style={styles.detailsView}>
+              <View style={styles.detailCard}>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Name:</Text>
+                  <Text style={styles.detailValue}>{selectedFarm?.name}</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Location:</Text>
+                  <Text style={styles.detailValue}>{selectedFarm?.location || 'Location not set'}</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Total Area:</Text>
+                  <Text style={styles.detailValue}>
+                    {selectedFarm?.area} {selectedFarm?.area_unit}
                   </Text>
                 </View>
-
-                <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Location</Text>
-                <TextInput
-                  style={styles.input}
-                  value={editLocation}
-                  onChangeText={setEditLocation}
-                />
-
-                <View style={[styles.row, { justifyContent: 'space-between', marginTop: 15, alignItems: 'center' }]}>
-                  <Text style={styles.statusLabelText}>Status:</Text>
-                  <TouchableOpacity
-                    onPress={() => selectedFarm && handleToggleFarmStatus(selectedFarm)}
-                    activeOpacity={0.7}
-                  >
-                    <StatusBadge
-                      label={selectedFarm?.is_active ? 'Active' : 'Inactive'}
-                      variant={selectedFarm?.is_active ? 'success' : 'neutral'}
-                      dot
-                    />
-                  </TouchableOpacity>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Status:</Text>
+                  <StatusBadge
+                    label={selectedFarm?.is_active ? 'Active' : 'Inactive'}
+                    variant={selectedFarm?.is_active ? 'success' : 'neutral'}
+                    dot
+                  />
                 </View>
-
-                <View style={styles.modalActions}>
-                  <TouchableOpacity
-                    style={[styles.modalBtn, styles.cancelBtn]}
-                    onPress={() => setIsEditing(false)}
-                    disabled={updating}
-                  >
-                    <Text style={styles.cancelBtnText}>Back to View</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.modalBtn, styles.saveBtn]}
-                    onPress={handleUpdateFarm}
-                    disabled={updating}
-                  >
-                    {updating ? (
-                      <ActivityIndicator color={colors.white} />
-                    ) : (
-                      <Text style={styles.saveBtnText}>Save</Text>
-                    )}
-                  </TouchableOpacity>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Staff Assigned:</Text>
+                  <Text style={styles.detailValue}>
+                    {selectedFarm?.assigned_staff_count ?? 0} staff members
+                  </Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Active Crops:</Text>
+                  <Text style={styles.detailValue}>
+                    {selectedFarm?.active_cycles_count ?? 0} active cycles
+                  </Text>
                 </View>
               </View>
-            ) : (
-              <View style={styles.detailsView}>
-                <View style={styles.detailCard}>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Name:</Text>
-                    <Text style={styles.detailValue}>{selectedFarm?.name}</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Location:</Text>
-                    <Text style={styles.detailValue}>{selectedFarm?.location || 'Location not set'}</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Total Area:</Text>
-                    <Text style={styles.detailValue}>
-                      {selectedFarm?.area} {selectedFarm?.area_unit}
-                    </Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Status:</Text>
-                    <StatusBadge
-                      label={selectedFarm?.is_active ? 'Active' : 'Inactive'}
-                      variant={selectedFarm?.is_active ? 'success' : 'neutral'}
-                      dot
-                    />
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Staff Assigned:</Text>
-                    <Text style={styles.detailValue}>
-                      {selectedFarm?.assigned_staff_count ?? 0} staff members
-                    </Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Active Crops:</Text>
-                    <Text style={styles.detailValue}>
-                      {selectedFarm?.active_cycles_count ?? 0} active cycles
-                    </Text>
-                  </View>
-                </View>
 
-                <View style={styles.modalActions}>
-                  <TouchableOpacity
-                    style={[styles.modalBtn, styles.cancelBtn, { marginRight: 0 }]}
-                    onPress={() => setDetailModalVisible(false)}
-                  >
-                    <Text style={styles.cancelBtnText}>Close</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.modalBtn, styles.saveBtn, { marginLeft: 12 }]}
-                    onPress={() => selectedFarm && handleOpenManage(selectedFarm)}
-                  >
-                    <Text style={styles.saveBtnText}>Open Farm Hub</Text>
-                  </TouchableOpacity>
-                </View>
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.cancelBtn, { marginRight: 0 }]}
+                  onPress={() => setDetailModalVisible(false)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.cancelBtnText}>Close</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.saveBtn, { marginLeft: 12 }]}
+                  onPress={() => selectedFarm && handleOpenManage(selectedFarm)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.saveBtnText}>Open Farm Hub</Text>
+                </TouchableOpacity>
               </View>
-            )}
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+            </View>
+          )}
+        </ScrollView>
+      </ModalSheet>
     </SafeAreaView>
   );
 }
