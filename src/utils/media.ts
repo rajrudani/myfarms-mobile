@@ -1,4 +1,5 @@
 import { Alert } from 'react-native';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 import apiClient from '../api/client';
 import { UploadResponse } from '../types';
 
@@ -130,9 +131,12 @@ export async function pickImage(): Promise<PickedMediaResult | null> {
  */
 function getDocumentPickerModule(): typeof import('expo-document-picker') | null {
   try {
+    const hasNativeModule = Boolean(requireOptionalNativeModule('ExpoDocumentPicker'));
+    if (!hasNativeModule) {
+      return null;
+    }
     return require('expo-document-picker');
-  } catch (err) {
-    console.warn("Native module 'expo-document-picker' is not available in the current runtime:", err);
+  } catch {
     return null;
   }
 }

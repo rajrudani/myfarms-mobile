@@ -1,31 +1,60 @@
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 import apiClient from '../api/client';
 import { storage } from './storage';
 
-// Configure foreground presentation behavior
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+/**
+ * Safely load expo-notifications module only if native module is linked in binary.
+ */
+function getNotificationsModule(): typeof import('expo-notifications') | null {
+  try {
+    const hasNativeModule = Boolean(requireOptionalNativeModule('ExpoPushTokenManager'));
+    if (!hasNativeModule) {
+      return null;
+    }
+    return require('expo-notifications');
+  } catch {
+    return null;
+  }
+}
+
+// Configure foreground presentation behavior if module is available
+const NotificationsModule = getNotificationsModule();
+if (NotificationsModule?.setNotificationHandler) {
+  try {
+    NotificationsModule.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  } catch (err) {
+    console.warn('Failed to set notification handler:', err);
+  }
+}
 
 /**
  * Configure Android notification channels.
  */
 export async function setupNotificationChannels(): Promise<void> {
+  const Notifications = getNotificationsModule();
+  if (!Notifications) return;
+
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('farm-reminders', {
-      name: 'Farm Reminders & Alerts',
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#166534',
-    });
+    try {
+      await Notifications.setNotificationChannelAsync('farm-reminders', {
+        name: 'Farm Reminders & Alerts',
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#166534',
+      });
+    } catch (err) {
+      console.warn('Failed to set notification channel:', err);
+    }
   }
 }
 
@@ -33,6 +62,11 @@ export async function setupNotificationChannels(): Promise<void> {
  * Request notification permissions and register push token with backend.
  */
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
+  const Notifications = getNotificationsModule();
+  if (!Notifications) {
+    return null;
+  }
+
   try {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
@@ -92,6 +126,9 @@ export async function scheduleLocalReminder(options: {
   triggerDate: Date;
   data?: Record<string, any>;
 }): Promise<string | null> {
+  const Notifications = getNotificationsModule();
+  if (!Notifications) return null;
+
   try {
     const id = await Notifications.scheduleNotificationAsync({
       content: {
@@ -117,9 +154,30 @@ export async function scheduleLocalReminder(options: {
  * Cancel a scheduled reminder.
  */
 export async function cancelReminder(notificationId: string): Promise<void> {
+  const Notifications = getNotificationsModule();
+  if (!Notifications) return;
+
   try {
     await Notifications.cancelScheduledNotificationAsync(notificationId);
   } catch (error) {
     console.warn('Failed to cancel notification:', error);
   }
+}
+
+/**
+ * Safely subscribe to notification tap responses.
+ */
+export function addNotificationResponseListener(
+  listener: (response: any) => void
+): { remove: () => void } {
+  const Notifications = getNotificationsModule();
+  if (Notifications?.addNotificationResponseReceivedListener) {
+    try {
+      const subscription = Notifications.addNotificationResponseReceivedListener(listener);
+      return subscription;
+    } catch (err) {
+      console.warn('Failed to add notification response listener:', err);
+    }
+  }
+  return { remove: () => {} };
 }

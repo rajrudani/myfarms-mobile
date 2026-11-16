@@ -1,9 +1,21 @@
 import { Alert, Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
-import * as Sharing from 'expo-sharing';
 import { File, Paths } from 'expo-file-system';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 import { getBaseUrl, getApiLocale } from '../api/client';
 import { storage } from '../utils/storage';
+
+function getSharingModule(): typeof import('expo-sharing') | null {
+  try {
+    const hasNativeModule = Boolean(requireOptionalNativeModule('ExpoSharing'));
+    if (!hasNativeModule) {
+      return null;
+    }
+    return require('expo-sharing');
+  } catch {
+    return null;
+  }
+}
 
 export type ReportExportType = 'attendance' | 'payment' | 'activity' | 'expense';
 export type ReportExportFormat = 'pdf' | 'xlsx';
@@ -103,8 +115,9 @@ export async function downloadAndShareReport(
       },
     });
 
-    const isAvailable = await Sharing.isAvailableAsync();
-    if (!isAvailable) {
+    const Sharing = getSharingModule();
+    const isAvailable = Sharing ? await Sharing.isAvailableAsync() : false;
+    if (!isAvailable || !Sharing) {
       // Fallback: open via system browser or viewer
       await WebBrowser.openBrowserAsync(downloadedFile.uri);
       return { success: true, uri: downloadedFile.uri };

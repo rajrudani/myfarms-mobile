@@ -11,8 +11,7 @@ import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { I18nProvider } from '../src/i18n/I18nContext';
 import { OfflineBanner } from '../src/components/OfflineBanner';
 import { PWABottomNav } from '../src/components/PWABottomNav';
-import * as Notifications from 'expo-notifications';
-import { registerForPushNotificationsAsync } from '../src/utils/notifications';
+import { registerForPushNotificationsAsync, addNotificationResponseListener } from '../src/utils/notifications';
 import { setupDeepLinking, handleDeepLink } from '../src/utils/deepLinking';
 
 export {
@@ -81,7 +80,7 @@ function RootLayoutNav() {
       registerForPushNotificationsAsync();
 
       // Listen for notification tap responses
-      const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const responseSub = addNotificationResponseListener((response) => {
         const data = response.notification.request.content.data;
         if (data?.url) {
           handleDeepLink(data.url as string);
