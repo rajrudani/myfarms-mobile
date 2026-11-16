@@ -7,3 +7,4 @@ export * from './SearchFilterBar';
 export * from './ModalSheet';
 export * from './ModernInput';
 export * from './ResponsiveContainer';
+export * from './SearchableSelect';

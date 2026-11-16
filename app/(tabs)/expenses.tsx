@@ -33,6 +33,7 @@ import {
   SearchFilterBar,
   QuickChipGroup,
   ChipOption,
+  SearchableSelect,
 } from '../../src/components/ui';
 
 const CATEGORIES = ['Labor', 'Seed', 'Fertilizer', 'Pesticide', 'Equipment', 'Fuel', 'Other'];
@@ -592,84 +593,41 @@ export default function ExpensesScreen() {
               </View>
 
               {/* Farm Selector */}
-              <Text style={styles.inputLabel}>
-                Associate Farm <Text style={{ color: colors.danger }}>*</Text>
-              </Text>
-              <TouchableOpacity
-                style={styles.dropdownTrigger}
-                onPress={() => setShowFarmDropdown(!showFarmDropdown)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.dropdownTriggerText}>{selectedFarmName}</Text>
-                <Ionicons
-                  name={showFarmDropdown ? 'chevron-up' : 'chevron-down'}
-                  size={16}
-                  color={colors.slate500}
-                />
-              </TouchableOpacity>
-
-              {showFarmDropdown && (
-                <View style={styles.dropdownList}>
-                  {activeFarms.map((f) => (
-                    <TouchableOpacity
-                      key={f.ulid || f.id}
-                      style={styles.dropdownItem}
-                      onPress={() => {
-                        setFarmId((f.ulid || f.id!).toString());
-                        setCropCycleId('');
-                        setShowFarmDropdown(false);
-                      }}
-                    >
-                      <Text style={styles.dropdownItemText}>{f.name}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
+              <SearchableSelect
+                label="Associate Farm"
+                required
+                placeholder="Select Farm"
+                searchPlaceholder="Search active farms..."
+                items={activeFarms.map((f) => ({
+                  value: (f.ulid || f.id!).toString(),
+                  label: f.name,
+                  sublabel: `${f.area} ${f.area_unit}`,
+                  icon: 'business-outline',
+                }))}
+                value={farmId || null}
+                onSelect={(val) => {
+                  setFarmId(val);
+                  setCropCycleId('');
+                }}
+                emptyMessage="No active farms found"
+              />
 
               {/* Crop Cycle Selector (Optional) */}
-              <Text style={[styles.inputLabel, { marginTop: spacing.sm }]}>
-                Crop Cycle (Optional)
-              </Text>
-              <TouchableOpacity
-                style={styles.dropdownTrigger}
-                onPress={() => setShowCycleDropdown(!showCycleDropdown)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.dropdownTriggerText}>{selectedCycleName}</Text>
-                <Ionicons
-                  name={showCycleDropdown ? 'chevron-up' : 'chevron-down'}
-                  size={16}
-                  color={colors.slate500}
-                />
-              </TouchableOpacity>
-
-              {showCycleDropdown && (
-                <View style={styles.dropdownList}>
-                  <TouchableOpacity
-                    style={styles.dropdownItem}
-                    onPress={() => {
-                      setCropCycleId('');
-                      setShowCycleDropdown(false);
-                    }}
-                  >
-                    <Text style={styles.dropdownItemText}>None / General Farm Expense</Text>
-                  </TouchableOpacity>
-                  {filteredCycles.map((c) => (
-                    <TouchableOpacity
-                      key={c.ulid || c.id}
-                      style={styles.dropdownItem}
-                      onPress={() => {
-                        setCropCycleId((c.ulid || c.id!).toString());
-                        setShowCycleDropdown(false);
-                      }}
-                    >
-                      <Text style={styles.dropdownItemText}>
-                        {c.crop_name || c.crop_type} ({c.season_name || 'Current'})
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
+              <SearchableSelect
+                label="Crop Cycle (Optional)"
+                allowClear
+                clearLabel="None / General Farm Expense"
+                placeholder="None / General Farm Expense"
+                searchPlaceholder="Search crop cycles..."
+                items={filteredCycles.map((c) => ({
+                  value: (c.ulid || c.id!).toString(),
+                  label: `${c.crop_name || c.crop_type} (${c.season_name || 'Current'})`,
+                  icon: 'leaf-outline',
+                }))}
+                value={cropCycleId || null}
+                onSelect={(val) => setCropCycleId(val || '')}
+                emptyMessage={farmId ? "No active crop cycles found for this farm" : "Select a farm first"}
+              />
 
               <Text style={[styles.inputLabel, { marginTop: spacing.sm }]}>
                 Expense Category <Text style={{ color: colors.danger }}>*</Text>
@@ -792,79 +750,39 @@ export default function ExpensesScreen() {
 
               {isEditing ? (
                 <View>
-                  <Text style={styles.inputLabel}>Associate Farm</Text>
-                  <TouchableOpacity
-                    style={styles.dropdownTrigger}
-                    onPress={() => setShowEditFarmDropdown(!showEditFarmDropdown)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.dropdownTriggerText}>{editSelectedFarmName}</Text>
-                    <Ionicons
-                      name={showEditFarmDropdown ? 'chevron-up' : 'chevron-down'}
-                      size={16}
-                      color={colors.slate500}
-                    />
-                  </TouchableOpacity>
+                  <SearchableSelect
+                    label="Associate Farm"
+                    placeholder="Select Farm"
+                    searchPlaceholder="Search farms..."
+                    items={farms.map((f) => ({
+                      value: (f.ulid || f.id!).toString(),
+                      label: f.name,
+                      sublabel: `${f.area} ${f.area_unit}`,
+                      icon: 'business-outline',
+                    }))}
+                    value={editFarmId || null}
+                    onSelect={(val) => {
+                      setEditFarmId(val);
+                      setEditCropCycleId('');
+                    }}
+                    emptyMessage="No farms found"
+                  />
 
-                  {showEditFarmDropdown && (
-                    <View style={styles.dropdownList}>
-                      {farms.map((f) => (
-                        <TouchableOpacity
-                          key={f.ulid || f.id}
-                          style={styles.dropdownItem}
-                          onPress={() => {
-                            setEditFarmId((f.ulid || f.id!).toString());
-                            setEditCropCycleId('');
-                            setShowEditFarmDropdown(false);
-                          }}
-                        >
-                          <Text style={styles.dropdownItemText}>{f.name}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
-
-                  <Text style={[styles.inputLabel, { marginTop: spacing.sm }]}>Crop Cycle</Text>
-                  <TouchableOpacity
-                    style={styles.dropdownTrigger}
-                    onPress={() => setShowEditCycleDropdown(!showEditCycleDropdown)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.dropdownTriggerText}>{editSelectedCycleName}</Text>
-                    <Ionicons
-                      name={showEditCycleDropdown ? 'chevron-up' : 'chevron-down'}
-                      size={16}
-                      color={colors.slate500}
-                    />
-                  </TouchableOpacity>
-
-                  {showEditCycleDropdown && (
-                    <View style={styles.dropdownList}>
-                      <TouchableOpacity
-                        style={styles.dropdownItem}
-                        onPress={() => {
-                          setEditCropCycleId('');
-                          setShowEditCycleDropdown(false);
-                        }}
-                      >
-                        <Text style={styles.dropdownItemText}>None / General Farm Expense</Text>
-                      </TouchableOpacity>
-                      {editFilteredCycles.map((c) => (
-                        <TouchableOpacity
-                          key={c.ulid || c.id}
-                          style={styles.dropdownItem}
-                          onPress={() => {
-                            setEditCropCycleId((c.ulid || c.id!).toString());
-                            setShowEditCycleDropdown(false);
-                          }}
-                        >
-                          <Text style={styles.dropdownItemText}>
-                            {c.crop_name || c.crop_type}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
+                  <SearchableSelect
+                    label="Crop Cycle"
+                    allowClear
+                    clearLabel="None / General Farm Expense"
+                    placeholder="None / General Farm Expense"
+                    searchPlaceholder="Search crop cycles..."
+                    items={editFilteredCycles.map((c) => ({
+                      value: (c.ulid || c.id!).toString(),
+                      label: c.crop_name || c.crop_type || 'Crop Cycle',
+                      icon: 'leaf-outline',
+                    }))}
+                    value={editCropCycleId || null}
+                    onSelect={(val) => setEditCropCycleId(val || '')}
+                    emptyMessage="No crop cycles found"
+                  />
 
                   <Text style={[styles.inputLabel, { marginTop: spacing.sm }]}>
                     Expense Category

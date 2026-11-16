@@ -32,6 +32,7 @@ import {
   SearchFilterBar,
   QuickChipGroup,
   ChipOption,
+  SearchableSelect,
 } from '../../src/components/ui';
 
 export default function CropCyclesScreen() {
@@ -573,97 +574,53 @@ export default function CropCyclesScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Farm Selector Dropdown */}
-              <Text style={styles.inputLabel}>
-                {t('Associate Farm')} <Text style={{ color: colors.danger }}>*</Text>
-              </Text>
-              <TouchableOpacity
-                style={styles.dropdownTrigger}
-                onPress={() => setShowFarmDropdown(!showFarmDropdown)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.dropdownTriggerText}>{selectedFarmName}</Text>
-                <Ionicons
-                  name={showFarmDropdown ? 'chevron-up' : 'chevron-down'}
-                  size={16}
-                  color={colors.slate500}
-                />
-              </TouchableOpacity>
-
-              {showFarmDropdown && (
-                <View style={styles.dropdownList}>
-                  {activeFarms.length === 0 ? (
-                    <Text style={styles.dropdownEmptyText}>
-                      {t('No active farms found. Create one first.')}
-                    </Text>
-                  ) : (
-                    activeFarms.map((f) => (
-                      <TouchableOpacity
-                        key={f.ulid || f.id}
-                        style={styles.dropdownItem}
-                        onPress={() => {
-                          const targetId = (f.ulid || f.id!).toString();
-                          setFarmId(targetId);
-                          setAllocatedAreaUnit(f.area_unit || 'ACRE');
-                          setShowFarmDropdown(false);
-                        }}
-                      >
-                        <Text style={styles.dropdownItemText}>
-                          {f.name} ({f.area} {t(f.area_unit.toLowerCase())})
-                        </Text>
-                      </TouchableOpacity>
-                    ))
-                  )}
-                </View>
-              )}
+              {/* Farm Selector */}
+              <SearchableSelect
+                label={t('Associate Farm')}
+                required
+                placeholder={t('Select Farm')}
+                searchPlaceholder="Search active farms..."
+                items={activeFarms.map((f) => ({
+                  value: (f.ulid || f.id!).toString(),
+                  label: f.name,
+                  sublabel: `${f.area} ${t(f.area_unit.toLowerCase())}`,
+                  icon: 'business-outline',
+                }))}
+                value={farmId || null}
+                onSelect={(targetId) => {
+                  setFarmId(targetId);
+                  const selectedFarm = activeFarms.find(f => (f.ulid || f.id!).toString() === targetId);
+                  if (selectedFarm) {
+                    setAllocatedAreaUnit(selectedFarm.area_unit || 'ACRE');
+                  }
+                }}
+                emptyMessage={t('No active farms found. Create one first.')}
+              />
 
               {/* Crop Master Selector */}
-              <Text style={styles.inputLabel}>
-                {t('Crop')} <Text style={{ color: colors.danger }}>*</Text>
-              </Text>
-              <TouchableOpacity
-                style={styles.dropdownTrigger}
-                onPress={() => setShowCropDropdown(!showCropDropdown)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.dropdownTriggerText}>
-                  {crops.find((c) => (c.ulid || c.id)?.toString() === cropId.toString())?.name || t('Select Crop')}
-                </Text>
-                <Ionicons
-                  name={showCropDropdown ? 'chevron-up' : 'chevron-down'}
-                  size={16}
-                  color={colors.slate500}
-                />
-              </TouchableOpacity>
-
-              {showCropDropdown && (
-                <View style={styles.dropdownList}>
-                  {crops.length === 0 ? (
-                    <View style={styles.dropdownItem}>
-                      <Text style={styles.dropdownItemText}>{t('No crops available. Create a crop in Masters first.')}</Text>
-                    </View>
-                  ) : (
-                    crops.map((c) => (
-                      <TouchableOpacity
-                        key={c.ulid || c.id}
-                        style={styles.dropdownItem}
-                        onPress={() => {
-                          const cid = (c.ulid || c.id!).toString();
-                          setCropId(cid);
-                          setShowCropDropdown(false);
-                          const year = new Date(startedOn).getFullYear() || new Date().getFullYear();
-                          const varText = cropType.trim() ? ` ${cropType.trim()}` : '';
-                          setSeasonName(`${c.name}${varText} ${year}`);
-                        }}
-                      >
-                        <Text style={styles.dropdownItemText}>
-                          {c.name} {c.category ? `(${c.category})` : ''}
-                        </Text>
-                      </TouchableOpacity>
-                    ))
-                  )}
-                </View>
-              )}
+              <SearchableSelect
+                label={t('Crop')}
+                required
+                placeholder={t('Select Crop')}
+                searchPlaceholder="Search crops by name or category..."
+                items={crops.map((c) => ({
+                  value: (c.ulid || c.id!).toString(),
+                  label: c.name,
+                  sublabel: c.category || undefined,
+                  icon: 'leaf-outline',
+                }))}
+                value={cropId || null}
+                onSelect={(cid) => {
+                  setCropId(cid);
+                  const c = crops.find(crop => (crop.ulid || crop.id!).toString() === cid);
+                  if (c) {
+                    const year = new Date(startedOn).getFullYear() || new Date().getFullYear();
+                    const varText = cropType.trim() ? ` ${cropType.trim()}` : '';
+                    setSeasonName(`${c.name}${varText} ${year}`);
+                  }
+                }}
+                emptyMessage={t('No crops available. Create a crop in Masters first.')}
+              />
 
               <Text style={styles.inputLabel}>{t('Variety / Crop Type (Optional)')}</Text>
               <TextInput
@@ -801,75 +758,36 @@ export default function CropCyclesScreen() {
 
               {isEditing ? (
                 <View>
-                  <Text style={styles.inputLabel}>{t('Associate Farm')}</Text>
-                  <TouchableOpacity
-                    style={styles.dropdownTrigger}
-                    onPress={() => setShowEditFarmDropdown(!showEditFarmDropdown)}
-                  >
-                    <Text style={styles.dropdownTriggerText}>{editSelectedFarmName}</Text>
-                    <Ionicons
-                      name={showEditFarmDropdown ? 'chevron-up' : 'chevron-down'}
-                      size={16}
-                      color={colors.slate500}
-                    />
-                  </TouchableOpacity>
-
-                  {showEditFarmDropdown && (
-                    <View style={styles.dropdownList}>
-                      {farms.map((f) => (
-                        <TouchableOpacity
-                          key={f.ulid || f.id}
-                          style={styles.dropdownItem}
-                          onPress={() => {
-                            setEditFarmId((f.ulid || f.id!).toString());
-                            setShowEditFarmDropdown(false);
-                          }}
-                        >
-                          <Text style={styles.dropdownItemText}>
-                            {f.name} ({f.area} {t(f.area_unit.toLowerCase())})
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
+                  <SearchableSelect
+                    label={t('Associate Farm')}
+                    placeholder={t('Select Farm')}
+                    searchPlaceholder="Search farms..."
+                    items={farms.map((f) => ({
+                      value: (f.ulid || f.id!).toString(),
+                      label: f.name,
+                      sublabel: `${f.area} ${t(f.area_unit.toLowerCase())}`,
+                      icon: 'business-outline',
+                    }))}
+                    value={editFarmId || null}
+                    onSelect={(targetId) => setEditFarmId(targetId)}
+                    emptyMessage="No farms found"
+                  />
 
                   {/* Edit Crop Selector */}
-                  <Text style={styles.inputLabel}>{t('Crop')}</Text>
-                  <TouchableOpacity
-                    style={styles.dropdownTrigger}
-                    onPress={() => setShowEditCropDropdown(!showEditCropDropdown)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.dropdownTriggerText}>
-                      {crops.find((c) => (c.ulid || c.id)?.toString() === editCropId.toString())?.name ||
-                        selectedCycle?.crop_name ||
-                        t('Select Crop')}
-                    </Text>
-                    <Ionicons
-                      name={showEditCropDropdown ? 'chevron-up' : 'chevron-down'}
-                      size={16}
-                      color={colors.slate500}
-                    />
-                  </TouchableOpacity>
-
-                  {showEditCropDropdown && (
-                    <View style={styles.dropdownList}>
-                      {crops.map((c) => (
-                        <TouchableOpacity
-                          key={c.ulid || c.id}
-                          style={styles.dropdownItem}
-                          onPress={() => {
-                            setEditCropId((c.ulid || c.id!).toString());
-                            setShowEditCropDropdown(false);
-                          }}
-                        >
-                          <Text style={styles.dropdownItemText}>
-                            {c.name} {c.category ? `(${c.category})` : ''}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
+                  <SearchableSelect
+                    label={t('Crop')}
+                    placeholder={t('Select Crop')}
+                    searchPlaceholder="Search crops by name or category..."
+                    items={crops.map((c) => ({
+                      value: (c.ulid || c.id!).toString(),
+                      label: c.name,
+                      sublabel: c.category || undefined,
+                      icon: 'leaf-outline',
+                    }))}
+                    value={editCropId || null}
+                    onSelect={(cid) => setEditCropId(cid)}
+                    emptyMessage="No crops found"
+                  />
 
                   <Text style={styles.inputLabel}>{t('Variety / Crop Type (Optional)')}</Text>
                   <TextInput

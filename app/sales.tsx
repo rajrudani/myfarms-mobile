@@ -28,7 +28,7 @@ import { extractErrorMessage } from '../src/api/client';
 import { useAuth } from '../src/hooks/useAuth';
 import { permissions } from '../src/utils/permissions';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
-import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar } from '../src/components/ui';
+import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect } from '../src/components/ui';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
 import { useTranslation } from '../src/i18n/I18nContext';
 
@@ -730,109 +730,75 @@ export default function SalesScreen() {
                 onChangeText={setSaleDate}
               />
 
-              <Text style={styles.inputLabel}>Select Farm *</Text>
-              <QuickChipGroup
-                options={farms.map((f) => ({ label: f.name, value: f.id || '' }))}
-                selectedValue={farmId}
+              <SearchableSelect
+                label="Select Farm"
+                required
+                placeholder="Select Farm"
+                searchPlaceholder="Search farms..."
+                items={farms.map((f) => ({
+                  value: (f.ulid || f.id || '').toString(),
+                  label: f.name,
+                  sublabel: `${f.area} ${f.area_unit}`,
+                  icon: 'business-outline',
+                }))}
+                value={farmId || null}
                 onSelect={(val) => {
                   setFarmId(val);
                   setCropCycleId('');
                 }}
-                scrollable
+                emptyMessage="No farms found"
               />
 
-              <Text style={styles.inputLabel}>Select Crop Cycle *</Text>
-              {filteredModalCropCycles.length > 0 ? (
-                <QuickChipGroup
-                  options={filteredModalCropCycles.map((cc) => {
-                    const cropName = cc.crop_name || cc.crop_type || 'Crop';
-                    return {
-                      label: `${cropName} (${cc.season_name || 'Active'})`,
-                      value: cc.id || '',
-                    };
-                  })}
-                  selectedValue={cropCycleId}
-                  onSelect={(val) => setCropCycleId(val)}
-                  scrollable
-                />
-              ) : (
-                <View style={styles.emptyCyclesNotice}>
-                  <Ionicons name="alert-circle-outline" size={16} color={colors.warningText} />
-                  <Text style={styles.emptyCyclesText}>
-                    Selected farm has no active crop cycles.
-                  </Text>
-                </View>
-              )}
+              <SearchableSelect
+                label="Select Crop Cycle"
+                required
+                placeholder={farmId ? "Select Crop Cycle" : "Select a farm first"}
+                searchPlaceholder="Search active crop cycles..."
+                items={filteredModalCropCycles.map((cc) => {
+                  const cropName = cc.crop_name || cc.crop_type || 'Crop';
+                  return {
+                    value: (cc.ulid || cc.id || '').toString(),
+                    label: `${cropName} (${cc.season_name || 'Active'})`,
+                    icon: 'leaf-outline',
+                  };
+                })}
+                value={cropCycleId || null}
+                onSelect={(val) => setCropCycleId(val)}
+                disabled={!farmId}
+                emptyMessage={farmId ? "Selected farm has no active crop cycles" : "Please select a farm first"}
+              />
 
               {/* Buyer / Trader Selector with Quick-Create */}
-              <View style={styles.buyerHeaderRow}>
-                <Text style={styles.inputLabel}>Buyer / Trader *</Text>
-                <TouchableOpacity
-                  style={styles.addBuyerTriggerBtn}
-                  onPress={() => setAddBuyerModalVisible(true)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="person-add-outline" size={13} color={colors.primary} />
-                  <Text style={styles.addBuyerTriggerText}>+ New Buyer</Text>
-                </TouchableOpacity>
-              </View>
-
-              <TouchableOpacity
-                style={styles.dropdownTrigger}
-                onPress={() => setShowBuyerDropdown(!showBuyerDropdown)}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="business-outline" size={18} color={colors.slate500} />
-                <View style={{ flex: 1, marginLeft: 8 }}>
-                  <Text style={buyerName ? styles.dropdownSelectedText : styles.dropdownPlaceholderText}>
-                    {buyerName || 'Select a registered buyer'}
-                  </Text>
-                </View>
-                <Ionicons
-                  name={showBuyerDropdown ? 'chevron-up' : 'chevron-down'}
-                  size={18}
-                  color={colors.slate400}
-                />
-              </TouchableOpacity>
-
-              {showBuyerDropdown && (
-                <View style={styles.dropdownMenu}>
-                  <ScrollView style={{ maxHeight: 180 }} nestedScrollEnabled>
-                    {buyers.map((b) => {
-                      const bId = (b.ulid || b.id).toString();
-                      const isSelected = buyerId?.toString() === bId;
-                      return (
-                        <TouchableOpacity
-                          key={bId}
-                          style={[styles.dropdownItem, isSelected && styles.dropdownItemSelected]}
-                          onPress={() => {
-                            setBuyerId(bId);
-                            setBuyerName(b.name);
-                            setShowBuyerDropdown(false);
-                          }}
-                        >
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.dropdownItemText, isSelected && styles.dropdownItemTextSelected]}>
-                              {b.name}
-                            </Text>
-                            {(b.company_name || b.phone) ? (
-                              <Text style={styles.dropdownItemSubtext}>
-                                {[b.company_name, b.phone].filter(Boolean).join(' • ')}
-                              </Text>
-                            ) : null}
-                          </View>
-                          {isSelected && <Ionicons name="checkmark" size={16} color={colors.primary} />}
-                        </TouchableOpacity>
-                      );
-                    })}
-                    {buyers.length === 0 && (
-                      <View style={{ padding: 12, alignItems: 'center' }}>
-                        <Text style={styles.dropdownPlaceholderText}>No registered buyers found.</Text>
-                      </View>
-                    )}
-                  </ScrollView>
-                </View>
-              )}
+              <SearchableSelect
+                label="Buyer / Trader"
+                required
+                allowClear
+                placeholder="Select a registered buyer"
+                searchPlaceholder="Search registered buyers..."
+                items={buyers.map((b) => ({
+                  value: (b.ulid || b.id).toString(),
+                  label: b.name,
+                  sublabel: [b.company_name, b.phone].filter(Boolean).join(' • ') || undefined,
+                  icon: 'person-outline',
+                }))}
+                value={buyerId?.toString() || null}
+                onSelect={(val) => {
+                  setBuyerId(val || '');
+                  const chosen = buyers.find((b) => (b.ulid || b.id).toString() === String(val));
+                  if (chosen) setBuyerName(chosen.name);
+                }}
+                headerRight={
+                  <TouchableOpacity
+                    style={styles.addBuyerTriggerBtn}
+                    onPress={() => setAddBuyerModalVisible(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="person-add-outline" size={13} color={colors.primary} />
+                    <Text style={styles.addBuyerTriggerText}>+ New Buyer</Text>
+                  </TouchableOpacity>
+                }
+                emptyMessage="No registered buyers found"
+              />
 
               <TextInput
                 style={[styles.input, { marginTop: spacing.xs }]}

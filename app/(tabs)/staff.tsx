@@ -38,6 +38,7 @@ import {
   ChipOption,
   ModalSheet,
   ModernInput,
+  SearchableSelect,
 } from '../../src/components/ui';
 
 const ROLE_OPTIONS: ChipOption<StaffRoleValue>[] = [
@@ -1127,119 +1128,63 @@ export default function StaffScreen() {
               <Text style={styles.roleInfoText}>Owners automatically have full access to all farms.</Text>
             </View>
           ) : newStaffRole === 'Worker' ? (
-            <View style={{ marginTop: spacing.md }}>
-              <Text style={styles.inputLabel}>
-                Assigned Farm <Text style={{ color: colors.danger }}>*</Text>
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
-                {farms.map((f) => {
-                  const fId = Number(f.id);
-                  const isSel = newStaffFarms.includes(fId);
-                  return (
-                    <TouchableOpacity
-                      key={f.id}
-                      style={[styles.farmSelectChip, isSel && styles.farmSelectChipActive]}
-                      onPress={() => setNewStaffFarms([fId])}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons
-                        name={isSel ? 'checkmark-circle' : 'business-outline'}
-                        size={14}
-                        color={isSel ? colors.white : colors.slate600}
-                      />
-                      <Text style={[styles.farmSelectChipText, isSel && styles.farmSelectChipTextActive]}>
-                        {f.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
+            <SearchableSelect
+              label="Assigned Farm"
+              required
+              placeholder="Select assigned farm"
+              searchPlaceholder="Search farms..."
+              items={farms.map((f) => ({
+                value: Number(f.id),
+                label: f.name,
+                sublabel: `${f.area} ${f.area_unit}`,
+                icon: 'business-outline',
+              }))}
+              value={newStaffFarms[0] ?? null}
+              onSelect={(val) => setNewStaffFarms(val ? [val] : [])}
+              containerStyle={{ marginTop: spacing.md }}
+              emptyMessage="No farms found"
+            />
           ) : (
-            <View style={{ marginTop: spacing.md }}>
-              <Text style={styles.inputLabel}>
-                Assigned Farms <Text style={{ color: colors.danger }}>*</Text>
-              </Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 4 }}>
-                {farms.map((f) => {
-                  const fId = Number(f.id);
-                  const isSel = newStaffFarms.includes(fId);
-                  return (
-                    <TouchableOpacity
-                      key={f.id}
-                      style={[styles.farmSelectChip, isSel && styles.farmSelectChipActive]}
-                      onPress={() => {
-                        if (isSel) {
-                          setNewStaffFarms(newStaffFarms.filter((id) => id !== fId));
-                        } else {
-                          setNewStaffFarms([...newStaffFarms, fId]);
-                        }
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons
-                        name={isSel ? 'checkmark-circle' : 'square-outline'}
-                        size={14}
-                        color={isSel ? colors.white : colors.slate600}
-                      />
-                      <Text style={[styles.farmSelectChipText, isSel && styles.farmSelectChipTextActive]}>
-                        {f.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
+            <SearchableSelect
+              label="Assigned Farms"
+              required
+              multiple
+              placeholder="Select assigned farms"
+              searchPlaceholder="Search farms to assign..."
+              items={farms.map((f) => ({
+                value: Number(f.id),
+                label: f.name,
+                sublabel: `${f.area} ${f.area_unit}`,
+                icon: 'business-outline',
+              }))}
+              selectedValues={newStaffFarms}
+              onMultiSelect={setNewStaffFarms}
+              containerStyle={{ marginTop: spacing.md }}
+              emptyMessage="No farms found"
+            />
           )}
 
           {/* Family Head Selection (Worker Only) */}
           {newStaffRole === 'Worker' && (
-            <View style={{ marginTop: spacing.md }}>
-              <Text style={styles.inputLabel}>Family Head (Optional)</Text>
-              <TouchableOpacity
-                style={styles.dropdownTrigger}
-                onPress={() => setShowFamilyHeadDropdown(!showFamilyHeadDropdown)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.dropdownTriggerText}>
-                  {newStaffFamilyHeadId
-                    ? staff.find((s) => s.id === newStaffFamilyHeadId)?.name || 'Selected'
-                    : 'None (Independent Worker)'}
-                </Text>
-                <Ionicons
-                  name={showFamilyHeadDropdown ? 'chevron-up' : 'chevron-down'}
-                  size={16}
-                  color={colors.slate500}
-                />
-              </TouchableOpacity>
-              {showFamilyHeadDropdown && (
-                <View style={styles.dropdownList}>
-                  <TouchableOpacity
-                    style={styles.dropdownItem}
-                    onPress={() => {
-                      setNewStaffFamilyHeadId(null);
-                      setShowFamilyHeadDropdown(false);
-                    }}
-                  >
-                    <Text style={styles.dropdownItemText}>None (Independent Worker)</Text>
-                  </TouchableOpacity>
-                  {staff
-                    .filter((s) => s.roles.some((r) => r.value === 'Worker'))
-                    .map((w) => (
-                      <TouchableOpacity
-                        key={w.id}
-                        style={styles.dropdownItem}
-                        onPress={() => {
-                          setNewStaffFamilyHeadId(w.id);
-                          setShowFamilyHeadDropdown(false);
-                        }}
-                      >
-                        <Text style={styles.dropdownItemText}>{w.name}</Text>
-                      </TouchableOpacity>
-                    ))}
-                </View>
-              )}
-            </View>
+            <SearchableSelect
+              label="Family Head (Optional)"
+              allowClear
+              clearLabel="None (Independent Worker)"
+              placeholder="None (Independent Worker)"
+              searchPlaceholder="Search workers..."
+              items={staff
+                .filter((s) => s.roles.some((r) => r.value === 'Worker'))
+                .map((w) => ({
+                  value: w.id,
+                  label: w.name,
+                  sublabel: w.phone || undefined,
+                  icon: 'person-outline',
+                }))}
+              value={newStaffFamilyHeadId}
+              onSelect={setNewStaffFamilyHeadId}
+              containerStyle={{ marginTop: spacing.md }}
+              emptyMessage="No workers found"
+            />
           )}
 
           <ModernInput
@@ -1377,52 +1322,25 @@ export default function StaffScreen() {
             containerStyle={{ marginTop: spacing.md }}
           />
 
-          <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Given By</Text>
-          <TouchableOpacity
-            style={styles.dropdownTrigger}
-            onPress={() => setShowPayGivenDropdown(!showPayGivenDropdown)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.dropdownTriggerText}>
-              {payGivenBy
-                ? staff.find((s) => s.id === payGivenBy)?.name || 'Selected'
-                : 'Current User (Self)'}
-            </Text>
-            <Ionicons
-              name={showPayGivenDropdown ? 'chevron-up' : 'chevron-down'}
-              size={16}
-              color={colors.slate500}
-            />
-          </TouchableOpacity>
-          {showPayGivenDropdown && (
-            <View style={styles.dropdownList}>
-              <TouchableOpacity
-                style={styles.dropdownItem}
-                onPress={() => {
-                  setPayGivenBy(null);
-                  setShowPayGivenDropdown(false);
-                }}
-              >
-                <Text style={styles.dropdownItemText}>Current User (Self)</Text>
-              </TouchableOpacity>
-              {staff
-                .filter((s) => s.roles.some((r) => r.value === 'Owner' || r.value === 'Manager'))
-                .map((s) => (
-                  <TouchableOpacity
-                    key={s.id}
-                    style={styles.dropdownItem}
-                    onPress={() => {
-                      setPayGivenBy(s.id);
-                      setShowPayGivenDropdown(false);
-                    }}
-                  >
-                    <Text style={styles.dropdownItemText}>
-                      {s.name} ({s.roles.map((r) => r.value).join(', ')})
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-            </View>
-          )}
+          <SearchableSelect
+            label="Given By"
+            allowClear
+            clearLabel="Current User (Self)"
+            placeholder="Current User (Self)"
+            searchPlaceholder="Search owners or managers..."
+            items={staff
+              .filter((s) => s.roles.some((r) => r.value === 'Owner' || r.value === 'Manager'))
+              .map((s) => ({
+                value: s.id,
+                label: s.name,
+                sublabel: s.roles.map((r) => r.value).join(', '),
+                icon: 'person-circle-outline',
+              }))}
+            value={payGivenBy}
+            onSelect={setPayGivenBy}
+            containerStyle={{ marginTop: spacing.md }}
+            emptyMessage="No managers found"
+          />
 
           <ModernInput
             label="Notes"
