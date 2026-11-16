@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import 'react-native-reanimated';
 
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { I18nProvider } from '../src/i18n/I18nContext';
@@ -48,11 +49,13 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
-      <I18nProvider>
-        <RootLayoutNav />
-      </I18nProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <I18nProvider>
+          <RootLayoutNav />
+        </I18nProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
 

@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StyleProp, ViewStyle } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, radius, spacing, typography } from '../../theme/tokens';
+import { formatCurrency, formatQuantity, formatCompactCurrency } from '../../utils/formatters';
 
-interface MetricTileProps {
+export interface MetricTileProps {
   label: string;
   value: string | number;
   subtext?: string;
@@ -13,6 +14,9 @@ interface MetricTileProps {
   badgeText?: string;
   badgeColor?: string;
   onPress?: () => void;
+  formatAs?: 'currency' | 'compact-currency' | 'quantity' | 'none';
+  style?: StyleProp<ViewStyle>;
+  cardStyle?: StyleProp<ViewStyle>;
 }
 
 export const MetricTile: React.FC<MetricTileProps> = ({
@@ -25,9 +29,26 @@ export const MetricTile: React.FC<MetricTileProps> = ({
   badgeText,
   badgeColor = colors.primary,
   onPress,
+  formatAs,
+  style,
+  cardStyle,
 }) => {
+  let displayValue = value;
+  if (formatAs && formatAs !== 'none') {
+    const num = typeof value === 'number' ? value : parseFloat(String(value).replace(/[^0-9.-]+/g, ''));
+    if (!isNaN(num)) {
+      if (formatAs === 'currency') {
+        displayValue = formatCurrency(num);
+      } else if (formatAs === 'compact-currency') {
+        displayValue = formatCompactCurrency(num);
+      } else if (formatAs === 'quantity') {
+        displayValue = formatQuantity(num);
+      }
+    }
+  }
+
   const content = (
-    <View style={styles.card}>
+    <View style={[styles.card, cardStyle]}>
       <View style={styles.topRow}>
         {iconName ? (
           <View style={[styles.iconBox, { backgroundColor: iconBg }]}>
@@ -42,8 +63,13 @@ export const MetricTile: React.FC<MetricTileProps> = ({
         ) : null}
       </View>
 
-      <Text style={styles.valueText} numberOfLines={1}>
-        {value}
+      <Text
+        style={styles.valueText}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.72}
+      >
+        {displayValue}
       </Text>
       <Text style={styles.labelText} numberOfLines={1}>
         {label}
@@ -58,13 +84,17 @@ export const MetricTile: React.FC<MetricTileProps> = ({
 
   if (onPress) {
     return (
-      <TouchableOpacity activeOpacity={0.7} onPress={onPress} style={styles.touchable}>
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={onPress}
+        style={[styles.touchable, style]}
+      >
         {content}
       </TouchableOpacity>
     );
   }
 
-  return <View style={styles.touchable}>{content}</View>;
+  return <View style={[styles.touchable, style]}>{content}</View>;
 };
 
 const styles = StyleSheet.create({
@@ -79,6 +109,11 @@ const styles = StyleSheet.create({
     borderColor: colors.slate200,
     padding: spacing.md,
     gap: 4,
+    shadowColor: colors.slate900,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
   },
   topRow: {
     flexDirection: 'row',
