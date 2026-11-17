@@ -10,11 +10,11 @@ import {
   Modal,
   TextInput,
   RefreshControl,
-  SafeAreaView,
   Platform,
   KeyboardAvoidingView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { farmsApi } from '../src/api/farms';
@@ -461,7 +461,7 @@ export default function FarmViewScreen() {
 
   if (!farm) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <View style={styles.topbar}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={20} color="#475569" />
@@ -501,7 +501,7 @@ export default function FarmViewScreen() {
   const staffTo = staffMeta?.to ?? staffList.length;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
 
       {/* Sticky Topbar matching PWA */}

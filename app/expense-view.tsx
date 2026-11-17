@@ -255,7 +255,7 @@ export default function ExpenseViewScreen() {
   const linkedActivities = expense.activities || [];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
 
       <View style={[styles.mainWrapper, { maxWidth: containerMaxWidth }]}>

@@ -429,7 +429,7 @@ export default function StaffViewScreen() {
     : 'Select Owner/Manager';
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={[styles.mainWrapper, { maxWidth: containerMaxWidth }]}>
         {/* Sticky Header */}
         <View style={styles.navbar}>

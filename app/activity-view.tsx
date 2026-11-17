@@ -260,7 +260,7 @@ export default function ActivityViewScreen() {
   const linkedExpensesTotal = linkedExpenses.reduce((sum: number, e: any) => sum + (parseFloat(e.amount) || 0), 0);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
 
       <View style={[styles.mainWrapper, { maxWidth: containerMaxWidth }]}>

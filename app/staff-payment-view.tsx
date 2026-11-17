@@ -9,12 +9,12 @@ import {
   Alert,
   Modal,
   TextInput,
-  SafeAreaView,
   Platform,
   KeyboardAvoidingView,
   StatusBar,
   Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { staffPaymentsApi, CreatePaymentData } from '../src/api/staffPayments';
@@ -179,7 +179,7 @@ export default function StaffPaymentViewScreen() {
     : 'CASH';
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       {/* Sticky Header */}

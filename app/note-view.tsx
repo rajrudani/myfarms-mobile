@@ -10,13 +10,13 @@ import {
   Modal,
   TextInput,
   Switch,
-  SafeAreaView,
   StatusBar,
   Platform,
   Image,
   Linking,
   useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { notesApi } from '../src/api/notes';
@@ -199,7 +199,7 @@ export default function NoteViewScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
         <View style={styles.topbar}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
@@ -218,7 +218,7 @@ export default function NoteViewScreen() {
 
   if (!note) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
         <View style={styles.topbar}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
@@ -241,7 +241,7 @@ export default function NoteViewScreen() {
   const isReminder = Boolean(note.notify_enabled && note.notify_at);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
 
       {/* Sticky Topbar */}
@@ -652,7 +652,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 8 : 10,
+    paddingTop: 10,
     paddingBottom: 10,
     backgroundColor: '#f8fafc',
     borderBottomWidth: 1,

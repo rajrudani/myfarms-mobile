@@ -1263,7 +1263,7 @@ export default function ReportsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       <View style={[styles.mainWrapper, { maxWidth: containerMaxWidth }]}>
@@ -1423,7 +1423,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 12 : 16,
+    paddingTop: 12,
     paddingBottom: 14,
     backgroundColor: '#f8fafc',
     borderBottomWidth: 1,

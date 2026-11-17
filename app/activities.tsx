@@ -5,7 +5,6 @@ import {
   View,
   FlatList,
   TouchableOpacity,
-  SafeAreaView,
   Alert,
   Modal,
   TextInput,
@@ -16,6 +15,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { mastersApi } from '../src/api/masters';
@@ -137,7 +137,7 @@ export default function ActivitiesScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       {/* Header */}
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 8 : 12,
+    paddingTop: 12,
     paddingBottom: 8,
     backgroundColor: '#f8fafc',
     borderBottomWidth: 1,

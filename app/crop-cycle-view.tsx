@@ -687,7 +687,7 @@ export default function CropCycleViewScreen() {
   const farmLocation = farm?.location || 'Location not set';
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
 
       <View style={[styles.mainWrapper, { maxWidth: containerMaxWidth }]}>
@@ -1848,7 +1848,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 10 : 10,
+    paddingTop: 10,
     paddingBottom: 12,
     backgroundColor: '#f8fafc',
     borderBottomWidth: 1,

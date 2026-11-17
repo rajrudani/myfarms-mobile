@@ -5,7 +5,6 @@ import {
   View,
   FlatList,
   TouchableOpacity,
-  SafeAreaView,
   Alert,
   Modal,
   TextInput,
@@ -17,6 +16,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { salesApi } from '../src/api/sales';
@@ -442,7 +442,7 @@ export default function SalesScreen() {
   }, [accessibleFarms, t]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       {/* Header */}
@@ -1260,7 +1260,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: spacing.lg,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 8 : 12,
+    paddingTop: 12,
     paddingBottom: spacing.sm,
     backgroundColor: '#f8fafc',
     borderBottomWidth: 1,

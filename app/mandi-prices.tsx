@@ -5,13 +5,13 @@ import {
   View,
   FlatList,
   TouchableOpacity,
-  SafeAreaView,
   ActivityIndicator,
   RefreshControl,
   Platform,
   StatusBar,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { dailyCropPricesApi } from '../src/api/dailyCropPrices';
@@ -206,7 +206,7 @@ export default function MandiPricesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       {/* Modern Futuristic Header */}
@@ -380,7 +380,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.slate50,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
     flexDirection: 'row',

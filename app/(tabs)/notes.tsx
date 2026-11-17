@@ -321,7 +321,7 @@ export default function NotesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
 
       <View style={[styles.mainWrapper, { maxWidth: containerMaxWidth }]}>
@@ -748,7 +748,7 @@ const styles = StyleSheet.create({
   stickyHeader: {
     backgroundColor: '#f8fafc',
     paddingHorizontal: spacing.lg,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 12 : 12,
+    paddingTop: 12,
     paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(148, 163, 184, 0.2)',

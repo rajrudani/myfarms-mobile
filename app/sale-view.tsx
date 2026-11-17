@@ -316,7 +316,7 @@ export default function SaleViewScreen() {
   const billUrl = getAbsoluteImageUrl((sale as any).bill_photo_url || sale.bill_photo_path);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
 
       <View style={[styles.mainWrapper, { maxWidth: containerMaxWidth }]}>

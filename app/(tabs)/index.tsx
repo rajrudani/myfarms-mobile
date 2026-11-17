@@ -122,7 +122,7 @@ export default function DashboardScreen() {
   }, [width, isTablet, horizontalPadding]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 60 }]}
@@ -566,7 +566,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 12 : 12,
+    paddingTop: 10,
     paddingBottom: 6,
     backgroundColor: '#f8fafc',
   },

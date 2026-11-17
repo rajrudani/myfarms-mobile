@@ -784,7 +784,7 @@ export default function AgroShopScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       <View style={[styles.mainWrapper, { maxWidth: containerMaxWidth }]}>
@@ -1587,7 +1587,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: spacing.lg,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 8 : 12,
+    paddingTop: 12,
     paddingBottom: spacing.sm,
     backgroundColor: '#f8fafc',
     borderBottomWidth: 1,

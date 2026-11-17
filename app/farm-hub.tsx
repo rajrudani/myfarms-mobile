@@ -10,7 +10,6 @@ import {
   Modal,
   TextInput,
   RefreshControl,
-  SafeAreaView,
   Platform,
   KeyboardAvoidingView,
   FlatList,
@@ -19,6 +18,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { farmsApi } from '../src/api/farms';
@@ -1294,7 +1294,7 @@ export default function FarmHubScreen() {
 
   if (!farm) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <View style={styles.navbar}>
           <TouchableOpacity style={styles.navBackBtn} onPress={() => router.back()} activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={22} color="#475569" />
@@ -1332,7 +1332,7 @@ export default function FarmHubScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
 
       {/* Navbar */}
       <View style={styles.navbar}>

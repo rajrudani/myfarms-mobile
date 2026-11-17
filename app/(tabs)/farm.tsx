@@ -382,7 +382,7 @@ export default function FarmsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
 
       <View style={[styles.mainWrapper, { maxWidth: containerMaxWidth }]}>
@@ -875,7 +875,7 @@ const styles = StyleSheet.create({
   },
   stickyHeader: {
     backgroundColor: '#f8fafc',
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 14 : 14,
+    paddingTop: 12,
     paddingHorizontal: 16,
     paddingBottom: 14,
     gap: 14,

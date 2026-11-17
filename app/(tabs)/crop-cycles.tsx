@@ -11,12 +11,12 @@ import {
   Modal,
   TextInput,
   RefreshControl,
-  SafeAreaView,
   Platform,
   KeyboardAvoidingView,
   ScrollView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { cropCyclesApi } from '../../src/api/cropCycles';
 import { farmsApi } from '../../src/api/farms';
@@ -484,7 +484,7 @@ export default function CropCyclesScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       {/* Sticky Header Panel */}
@@ -1042,7 +1042,7 @@ const styles = StyleSheet.create({
   },
   stickyHeader: {
     backgroundColor: colors.white,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 12 : 12,
+    paddingTop: 12,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
     borderBottomWidth: 1,
