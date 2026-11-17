@@ -110,6 +110,12 @@ export default function StaffScreen() {
 
   // Filter bottom sheet modal state
   const [filterModalTab, setFilterModalTab] = useState<'staff' | 'attendance' | 'payments' | null>(null);
+  const [staffFilterOpenDropdown, setStaffFilterOpenDropdown] = useState<'status' | 'farm' | 'role' | null>(null);
+  const [attendanceFilterOpenDropdown, setAttendanceFilterOpenDropdown] = useState<'status' | 'farm' | null>(null);
+  const [paymentFilterOpenDropdown, setPaymentFilterOpenDropdown] = useState<'method' | 'staff' | null>(null);
+  const [farmFilterSearch, setFarmFilterSearch] = useState('');
+  const [attendanceFarmFilterSearch, setAttendanceFarmFilterSearch] = useState('');
+  const [paymentStaffSearch, setPaymentStaffSearch] = useState('');
 
   // Modals state
   const [addStaffModalVisible, setAddStaffModalVisible] = useState(false);
@@ -884,7 +890,10 @@ export default function StaffScreen() {
                   (statusFilter !== 'active' || farmFilter !== 'all' || roleFilter !== 'all') &&
                     styles.filterBtnActive,
                 ]}
-                onPress={() => setFilterModalTab('staff')}
+                onPress={() => {
+                  setStaffFilterOpenDropdown(null);
+                  setFilterModalTab('staff');
+                }}
                 activeOpacity={0.7}
                 accessibilityLabel="Filter staff"
               >
@@ -920,7 +929,12 @@ export default function StaffScreen() {
                 {farmFilter !== 'all' && (
                   <View style={styles.activeFilterChip}>
                     <Text style={styles.activeFilterChipText}>
-                      {t('Farm')}: {activeFarms.find((f) => (f.ulid || f.id!.toString()) === farmFilter)?.name || farmFilter}
+                      {t('Farm')}:{' '}
+                      {activeFarms.find(
+                        (f) =>
+                          (f.ulid || (f.id ? f.id.toString() : '')) === farmFilter ||
+                          (f.id ? f.id.toString() === farmFilter : false)
+                      )?.name || farmFilter}
                     </Text>
                     <TouchableOpacity
                       onPress={() => setFarmFilter('all')}
@@ -1096,7 +1110,10 @@ export default function StaffScreen() {
                   (attendanceFarmFilter !== 'all' || attendanceStatusFilter !== 'all') &&
                     styles.filterBtnActive,
                 ]}
-                onPress={() => setFilterModalTab('attendance')}
+                onPress={() => {
+                  setAttendanceFilterOpenDropdown(null);
+                  setFilterModalTab('attendance');
+                }}
                 activeOpacity={0.7}
                 accessibilityLabel="Filter attendance"
               >
@@ -1252,7 +1269,10 @@ export default function StaffScreen() {
                   (paymentMethodFilter !== 'all' || paymentStaffFilter !== 'all') &&
                     styles.filterBtnActive,
                 ]}
-                onPress={() => setFilterModalTab('payments')}
+                onPress={() => {
+                  setPaymentFilterOpenDropdown(null);
+                  setFilterModalTab('payments');
+                }}
                 activeOpacity={0.7}
                 accessibilityLabel="Filter payments"
               >
@@ -1746,7 +1766,12 @@ export default function StaffScreen() {
       {/* Manage Staff Filter Bottom Sheet */}
       <ModalSheet
         visible={filterModalTab !== null}
-        onClose={() => setFilterModalTab(null)}
+        onClose={() => {
+          setStaffFilterOpenDropdown(null);
+          setAttendanceFilterOpenDropdown(null);
+          setPaymentFilterOpenDropdown(null);
+          setFilterModalTab(null);
+        }}
         title={
           filterModalTab === 'staff'
             ? t('Filter Staff')
@@ -1754,12 +1779,12 @@ export default function StaffScreen() {
             ? t('Filter Attendance')
             : t('Filter Payments')
         }
-        maxHeight="65%"
+        maxHeight="80%"
       >
-        <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
-          {/* TAB 1: STAFF FILTERS */}
+        <View style={{ paddingBottom: 20 }}>
+          {/* TAB 1: STAFF FILTERS (3 Dropdowns: Status, Assigned Farm, Role) */}
           {filterModalTab === 'staff' && (
-            <View style={{ gap: 12, paddingBottom: 24 }}>
+            <View>
               {(statusFilter !== 'active' || farmFilter !== 'all' || roleFilter !== 'all') && (
                 <TouchableOpacity
                   style={styles.filterResetBtnContainer}
@@ -1767,6 +1792,7 @@ export default function StaffScreen() {
                     setStatusFilter('active');
                     setFarmFilter('all');
                     setRoleFilter('all');
+                    setStaffFilterOpenDropdown(null);
                     setFilterModalTab(null);
                   }}
                   activeOpacity={0.7}
@@ -1775,141 +1801,326 @@ export default function StaffScreen() {
                 </TouchableOpacity>
               )}
 
-              {/* Status Section */}
-              <Text style={styles.filterSectionHeader}>{t('STATUS')}</Text>
-              {[
-                { label: t('Active Staff'), value: 'active', color: '#22c55e' },
-                { label: t('Inactive Staff'), value: 'inactive', color: '#ef4444' },
-                { label: t('All Staff'), value: 'all', color: '#64748b' },
-              ].map((opt) => (
+              {/* 1. Status Dropdown */}
+              <View style={styles.filterDropdownGroup}>
+                <Text style={styles.filterDropdownLabel}>{t('STATUS')}</Text>
                 <TouchableOpacity
-                  key={opt.value}
                   style={[
-                    styles.filterOptionItem,
-                    statusFilter === opt.value && styles.filterOptionItemActive,
+                    styles.filterDropdownTrigger,
+                    staffFilterOpenDropdown === 'status' && styles.filterDropdownTriggerActive,
                   ]}
-                  onPress={() => setStatusFilter(opt.value as any)}
+                  onPress={() =>
+                    setStaffFilterOpenDropdown(
+                      staffFilterOpenDropdown === 'status' ? null : 'status'
+                    )
+                  }
                   activeOpacity={0.7}
                 >
-                  <View style={styles.filterOptionLeft}>
-                    <View style={[styles.filterOptionDot, { backgroundColor: opt.color }]} />
-                    <Text
+                  <View style={styles.filterDropdownTriggerLeft}>
+                    <View
                       style={[
-                        styles.filterOptionText,
-                        statusFilter === opt.value && styles.filterOptionTextActive,
+                        styles.filterOptionDot,
+                        {
+                          backgroundColor:
+                            statusFilter === 'active'
+                              ? '#22c55e'
+                              : statusFilter === 'inactive'
+                              ? '#ef4444'
+                              : '#64748b',
+                        },
                       ]}
-                    >
-                      {opt.label}
+                    />
+                    <Text style={styles.filterDropdownTriggerText} numberOfLines={1}>
+                      {statusFilter === 'active'
+                        ? t('Active Staff')
+                        : statusFilter === 'inactive'
+                        ? t('Inactive Staff')
+                        : t('All Staff')}
                     </Text>
                   </View>
-                  {statusFilter === opt.value && (
-                    <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
-                  )}
+                  <Ionicons
+                    name={staffFilterOpenDropdown === 'status' ? 'chevron-up' : 'chevron-down'}
+                    size={18}
+                    color="#64748b"
+                  />
                 </TouchableOpacity>
-              ))}
 
-              {/* Assigned Farm Section */}
-              <Text style={[styles.filterSectionHeader, { marginTop: 8 }]}>{t('ASSIGNED FARM')}</Text>
-              <TouchableOpacity
-                style={[
-                  styles.filterOptionItem,
-                  farmFilter === 'all' && styles.filterOptionItemActive,
-                ]}
-                onPress={() => setFarmFilter('all')}
-                activeOpacity={0.7}
-              >
-                <View style={styles.filterOptionLeft}>
-                  <Ionicons name="grid-outline" size={18} color="#64748b" />
-                  <Text
-                    style={[
-                      styles.filterOptionText,
-                      farmFilter === 'all' && styles.filterOptionTextActive,
-                    ]}
-                  >
-                    {t('All Farms')}
-                  </Text>
-                </View>
-                {farmFilter === 'all' && (
-                  <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
-                )}
-              </TouchableOpacity>
-              {activeFarms.map((f) => {
-                const fVal = f.ulid || f.id!.toString();
-                const isSelected = farmFilter === fVal;
-                return (
-                  <TouchableOpacity
-                    key={fVal}
-                    style={[
-                      styles.filterOptionItem,
-                      isSelected && styles.filterOptionItemActive,
-                    ]}
-                    onPress={() => setFarmFilter(fVal)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.filterOptionLeft}>
-                      <Ionicons name="business-outline" size={18} color="#16a34a" />
-                      <Text
+                {staffFilterOpenDropdown === 'status' && (
+                  <View style={styles.filterDropdownMenu}>
+                    {[
+                      { label: t('Active Staff'), value: 'active', color: '#22c55e' },
+                      { label: t('Inactive Staff'), value: 'inactive', color: '#ef4444' },
+                      { label: t('All Staff'), value: 'all', color: '#64748b' },
+                    ].map((opt) => (
+                      <TouchableOpacity
+                        key={opt.value}
                         style={[
-                          styles.filterOptionText,
-                          isSelected && styles.filterOptionTextActive,
+                          styles.filterDropdownItem,
+                          statusFilter === opt.value && styles.filterDropdownItemActive,
                         ]}
+                        onPress={() => {
+                          setStatusFilter(opt.value as any);
+                          setStaffFilterOpenDropdown(null);
+                        }}
+                        activeOpacity={0.7}
                       >
-                        {f.name}
-                      </Text>
-                    </View>
-                    {isSelected && (
-                      <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
+                        <View style={styles.filterDropdownItemLeft}>
+                          <View
+                            style={[styles.filterOptionDot, { backgroundColor: opt.color }]}
+                          />
+                          <Text
+                            style={[
+                              styles.filterDropdownItemText,
+                              statusFilter === opt.value && styles.filterDropdownItemTextActive,
+                            ]}
+                          >
+                            {opt.label}
+                          </Text>
+                        </View>
+                        {statusFilter === opt.value && (
+                          <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
 
-              {/* Role Section */}
-              <Text style={[styles.filterSectionHeader, { marginTop: 8 }]}>{t('ROLE')}</Text>
-              {[
-                { label: t('All Roles'), value: 'all', color: '#64748b' },
-                { label: t('Worker'), value: 'Worker', color: '#d97706' },
-                { label: t('Manager'), value: 'Manager', color: '#7e22ce' },
-                { label: t('Owner'), value: 'Owner', color: '#2563eb' },
-                { label: t('Consultant'), value: 'Consultant', color: '#16a34a' },
-              ].map((opt) => (
+              {/* 2. Assigned Farm Dropdown */}
+              <View style={styles.filterDropdownGroup}>
+                <Text style={styles.filterDropdownLabel}>{t('ASSIGNED FARM')}</Text>
                 <TouchableOpacity
-                  key={opt.value}
                   style={[
-                    styles.filterOptionItem,
-                    roleFilter === opt.value && styles.filterOptionItemActive,
+                    styles.filterDropdownTrigger,
+                    staffFilterOpenDropdown === 'farm' && styles.filterDropdownTriggerActive,
                   ]}
-                  onPress={() => setRoleFilter(opt.value)}
+                  onPress={() =>
+                    setStaffFilterOpenDropdown(
+                      staffFilterOpenDropdown === 'farm' ? null : 'farm'
+                    )
+                  }
                   activeOpacity={0.7}
                 >
-                  <View style={styles.filterOptionLeft}>
-                    <View style={[styles.filterOptionDot, { backgroundColor: opt.color }]} />
-                    <Text
-                      style={[
-                        styles.filterOptionText,
-                        roleFilter === opt.value && styles.filterOptionTextActive,
-                      ]}
-                    >
-                      {opt.label}
+                  <View style={styles.filterDropdownTriggerLeft}>
+                    <Ionicons name="business-outline" size={18} color="#16a34a" />
+                    <Text style={styles.filterDropdownTriggerText} numberOfLines={1}>
+                      {farmFilter === 'all'
+                        ? t('All Farms')
+                        : activeFarms.find(
+                            (f) =>
+                              (f.ulid || (f.id ? f.id.toString() : '')) === farmFilter ||
+                              (f.id ? f.id.toString() === farmFilter : false)
+                          )?.name || farmFilter}
                     </Text>
                   </View>
-                  {roleFilter === opt.value && (
-                    <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
-                  )}
+                  <Ionicons
+                    name={staffFilterOpenDropdown === 'farm' ? 'chevron-up' : 'chevron-down'}
+                    size={18}
+                    color="#64748b"
+                  />
                 </TouchableOpacity>
-              ))}
+
+                {staffFilterOpenDropdown === 'farm' && (
+                  <View style={styles.filterDropdownMenu}>
+                    {activeFarms.length > 5 && (
+                      <View style={styles.filterDropdownSearchBox}>
+                        <Ionicons name="search-outline" size={16} color="#64748b" />
+                        <TextInput
+                          style={styles.filterDropdownSearchInput}
+                          placeholder={t('Search farms...')}
+                          placeholderTextColor="#94a3b8"
+                          value={farmFilterSearch}
+                          onChangeText={setFarmFilterSearch}
+                          autoCorrect={false}
+                        />
+                        {farmFilterSearch.length > 0 && (
+                          <TouchableOpacity onPress={() => setFarmFilterSearch('')}>
+                            <Ionicons name="close-circle" size={16} color="#94a3b8" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    )}
+
+                    <ScrollView
+                      style={{ maxHeight: 200 }}
+                      nestedScrollEnabled={true}
+                      showsVerticalScrollIndicator={true}
+                    >
+                      <TouchableOpacity
+                        style={[
+                          styles.filterDropdownItem,
+                          farmFilter === 'all' && styles.filterDropdownItemActive,
+                        ]}
+                        onPress={() => {
+                          setFarmFilter('all');
+                          setStaffFilterOpenDropdown(null);
+                          setFarmFilterSearch('');
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.filterDropdownItemLeft}>
+                          <Ionicons name="grid-outline" size={16} color="#64748b" />
+                          <Text
+                            style={[
+                              styles.filterDropdownItemText,
+                              farmFilter === 'all' && styles.filterDropdownItemTextActive,
+                            ]}
+                          >
+                            {t('All Farms')}
+                          </Text>
+                        </View>
+                        {farmFilter === 'all' && (
+                          <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
+                        )}
+                      </TouchableOpacity>
+
+                      {activeFarms
+                        .filter((f) =>
+                          farmFilterSearch.trim()
+                            ? f.name.toLowerCase().includes(farmFilterSearch.toLowerCase())
+                            : true
+                        )
+                        .map((f) => {
+                          const fVal = (f.ulid || (f.id ? f.id.toString() : ''));
+                          const isSelected =
+                            farmFilter === fVal ||
+                            (f.id ? farmFilter === f.id.toString() : false);
+                          return (
+                            <TouchableOpacity
+                              key={f.id ?? f.ulid ?? fVal}
+                              style={[
+                                styles.filterDropdownItem,
+                                isSelected && styles.filterDropdownItemActive,
+                              ]}
+                              onPress={() => {
+                                setFarmFilter(fVal);
+                                setStaffFilterOpenDropdown(null);
+                                setFarmFilterSearch('');
+                              }}
+                              activeOpacity={0.7}
+                            >
+                              <View style={styles.filterDropdownItemLeft}>
+                                <Ionicons name="business-outline" size={16} color="#16a34a" />
+                                <View style={{ flex: 1 }}>
+                                  <Text
+                                    style={[
+                                      styles.filterDropdownItemText,
+                                      isSelected && styles.filterDropdownItemTextActive,
+                                    ]}
+                                    numberOfLines={1}
+                                  >
+                                    {f.name}
+                                  </Text>
+                                  {f.area ? (
+                                    <Text style={{ fontSize: 11, color: '#94a3b8' }}>
+                                      {f.area} {f.area_unit}
+                                    </Text>
+                                  ) : null}
+                                </View>
+                              </View>
+                              {isSelected && (
+                                <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
+                              )}
+                            </TouchableOpacity>
+                          );
+                        })}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+
+              {/* 3. Role Dropdown */}
+              <View style={styles.filterDropdownGroup}>
+                <Text style={styles.filterDropdownLabel}>{t('ROLE')}</Text>
+                <TouchableOpacity
+                  style={[
+                    styles.filterDropdownTrigger,
+                    staffFilterOpenDropdown === 'role' && styles.filterDropdownTriggerActive,
+                  ]}
+                  onPress={() =>
+                    setStaffFilterOpenDropdown(
+                      staffFilterOpenDropdown === 'role' ? null : 'role'
+                    )
+                  }
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.filterDropdownTriggerLeft}>
+                    <Ionicons name="shield-checkmark-outline" size={18} color="#64748b" />
+                    <Text style={styles.filterDropdownTriggerText} numberOfLines={1}>
+                      {roleFilter === 'all' ? t('All Roles') : roleFilter}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name={staffFilterOpenDropdown === 'role' ? 'chevron-up' : 'chevron-down'}
+                    size={18}
+                    color="#64748b"
+                  />
+                </TouchableOpacity>
+
+                {staffFilterOpenDropdown === 'role' && (
+                  <View style={styles.filterDropdownMenu}>
+                    {[
+                      { label: t('All Roles'), value: 'all', color: '#64748b' },
+                      { label: t('Worker'), value: 'Worker', color: '#d97706' },
+                      { label: t('Manager'), value: 'Manager', color: '#7e22ce' },
+                      { label: t('Owner'), value: 'Owner', color: '#2563eb' },
+                      { label: t('Consultant'), value: 'Consultant', color: '#16a34a' },
+                    ].map((opt) => (
+                      <TouchableOpacity
+                        key={opt.value}
+                        style={[
+                          styles.filterDropdownItem,
+                          roleFilter === opt.value && styles.filterDropdownItemActive,
+                        ]}
+                        onPress={() => {
+                          setRoleFilter(opt.value);
+                          setStaffFilterOpenDropdown(null);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.filterDropdownItemLeft}>
+                          <View
+                            style={[styles.filterOptionDot, { backgroundColor: opt.color }]}
+                          />
+                          <Text
+                            style={[
+                              styles.filterDropdownItemText,
+                              roleFilter === opt.value && styles.filterDropdownItemTextActive,
+                            ]}
+                          >
+                            {opt.label}
+                          </Text>
+                        </View>
+                        {roleFilter === opt.value && (
+                          <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {/* Apply Filters Button */}
+              <TouchableOpacity
+                style={styles.filterApplyBtn}
+                onPress={() => setFilterModalTab(null)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.filterApplyBtnText}>{t('Apply Filters')}</Text>
+              </TouchableOpacity>
             </View>
           )}
 
-          {/* TAB 2: ATTENDANCE FILTERS */}
+          {/* TAB 2: ATTENDANCE FILTERS (2 Dropdowns: Status, Assigned Farm) */}
           {filterModalTab === 'attendance' && (
-            <View style={{ gap: 12, paddingBottom: 24 }}>
+            <View>
               {(attendanceFarmFilter !== 'all' || attendanceStatusFilter !== 'all') && (
                 <TouchableOpacity
                   style={styles.filterResetBtnContainer}
                   onPress={() => {
                     setAttendanceFarmFilter('all');
                     setAttendanceStatusFilter('all');
+                    setAttendanceFilterOpenDropdown(null);
                     setFilterModalTab(null);
                   }}
                   activeOpacity={0.7}
@@ -1918,112 +2129,263 @@ export default function StaffScreen() {
                 </TouchableOpacity>
               )}
 
-              {/* Status Section */}
-              <Text style={styles.filterSectionHeader}>{t('ATTENDANCE STATUS')}</Text>
-              {[
-                { label: t('All Staff'), value: 'all', count: staff.length, color: '#64748b' },
-                { label: t('Present'), value: 'present', count: presentCount, color: '#22c55e' },
-                { label: t('Half Day'), value: 'half_day', count: halfDayCount, color: '#d97706' },
-                { label: t('Absent'), value: 'absent', count: absentCount, color: '#ef4444' },
-              ].map((opt) => (
+              {/* 1. Status Dropdown */}
+              <View style={styles.filterDropdownGroup}>
+                <Text style={styles.filterDropdownLabel}>{t('ATTENDANCE STATUS')}</Text>
                 <TouchableOpacity
-                  key={opt.value}
                   style={[
-                    styles.filterOptionItem,
-                    attendanceStatusFilter === opt.value && styles.filterOptionItemActive,
+                    styles.filterDropdownTrigger,
+                    attendanceFilterOpenDropdown === 'status' && styles.filterDropdownTriggerActive,
                   ]}
-                  onPress={() => setAttendanceStatusFilter(opt.value as any)}
+                  onPress={() =>
+                    setAttendanceFilterOpenDropdown(
+                      attendanceFilterOpenDropdown === 'status' ? null : 'status'
+                    )
+                  }
                   activeOpacity={0.7}
                 >
-                  <View style={styles.filterOptionLeft}>
-                    <View style={[styles.filterOptionDot, { backgroundColor: opt.color }]} />
-                    <Text
+                  <View style={styles.filterDropdownTriggerLeft}>
+                    <View
                       style={[
-                        styles.filterOptionText,
-                        attendanceStatusFilter === opt.value && styles.filterOptionTextActive,
+                        styles.filterOptionDot,
+                        {
+                          backgroundColor:
+                            attendanceStatusFilter === 'present'
+                              ? '#22c55e'
+                              : attendanceStatusFilter === 'half_day'
+                              ? '#d97706'
+                              : attendanceStatusFilter === 'absent'
+                              ? '#ef4444'
+                              : '#64748b',
+                        },
                       ]}
-                    >
-                      {opt.label}
+                    />
+                    <Text style={styles.filterDropdownTriggerText} numberOfLines={1}>
+                      {attendanceStatusFilter === 'present'
+                        ? `${t('Present')} (${presentCount})`
+                        : attendanceStatusFilter === 'half_day'
+                        ? `${t('Half Day')} (${halfDayCount})`
+                        : attendanceStatusFilter === 'absent'
+                        ? `${t('Absent')} (${absentCount})`
+                        : `${t('All Staff')} (${staff.length})`}
                     </Text>
                   </View>
-                  <View style={styles.filterOptionRight}>
-                    <Text style={styles.filterOptionBadge}>{opt.count}</Text>
-                    {attendanceStatusFilter === opt.value && (
-                      <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
-                    )}
-                  </View>
+                  <Ionicons
+                    name={attendanceFilterOpenDropdown === 'status' ? 'chevron-up' : 'chevron-down'}
+                    size={18}
+                    color="#64748b"
+                  />
                 </TouchableOpacity>
-              ))}
 
-              {/* Farm Section */}
-              <Text style={[styles.filterSectionHeader, { marginTop: 8 }]}>{t('ASSIGNED FARM')}</Text>
-              <TouchableOpacity
-                style={[
-                  styles.filterOptionItem,
-                  attendanceFarmFilter === 'all' && styles.filterOptionItemActive,
-                ]}
-                onPress={() => setAttendanceFarmFilter('all')}
-                activeOpacity={0.7}
-              >
-                <View style={styles.filterOptionLeft}>
-                  <Ionicons name="grid-outline" size={18} color="#64748b" />
-                  <Text
-                    style={[
-                      styles.filterOptionText,
-                      attendanceFarmFilter === 'all' && styles.filterOptionTextActive,
-                    ]}
-                  >
-                    {t('All Farms')}
-                  </Text>
-                </View>
-                {attendanceFarmFilter === 'all' && (
-                  <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
-                )}
-              </TouchableOpacity>
-              {activeFarms.map((f) => {
-                const fVal = (f.ulid || (f.id ? f.id.toString() : ''));
-                const isSelected =
-                  attendanceFarmFilter === fVal ||
-                  (f.id ? attendanceFarmFilter === f.id.toString() : false);
-                return (
-                  <TouchableOpacity
-                    key={f.id ?? f.ulid ?? fVal}
-                    style={[
-                      styles.filterOptionItem,
-                      isSelected && styles.filterOptionItemActive,
-                    ]}
-                    onPress={() => setAttendanceFarmFilter(fVal)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.filterOptionLeft}>
-                      <Ionicons name="business-outline" size={18} color="#16a34a" />
-                      <Text
+                {attendanceFilterOpenDropdown === 'status' && (
+                  <View style={styles.filterDropdownMenu}>
+                    {[
+                      { label: t('All Staff'), value: 'all', count: staff.length, color: '#64748b' },
+                      { label: t('Present'), value: 'present', count: presentCount, color: '#22c55e' },
+                      { label: t('Half Day'), value: 'half_day', count: halfDayCount, color: '#d97706' },
+                      { label: t('Absent'), value: 'absent', count: absentCount, color: '#ef4444' },
+                    ].map((opt) => (
+                      <TouchableOpacity
+                        key={opt.value}
                         style={[
-                          styles.filterOptionText,
-                          isSelected && styles.filterOptionTextActive,
+                          styles.filterDropdownItem,
+                          attendanceStatusFilter === opt.value && styles.filterDropdownItemActive,
                         ]}
+                        onPress={() => {
+                          setAttendanceStatusFilter(opt.value as any);
+                          setAttendanceFilterOpenDropdown(null);
+                        }}
+                        activeOpacity={0.7}
                       >
-                        {f.name}
-                      </Text>
-                    </View>
-                    {isSelected && (
-                      <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                        <View style={styles.filterDropdownItemLeft}>
+                          <View
+                            style={[styles.filterOptionDot, { backgroundColor: opt.color }]}
+                          />
+                          <Text
+                            style={[
+                              styles.filterDropdownItemText,
+                              attendanceStatusFilter === opt.value && styles.filterDropdownItemTextActive,
+                            ]}
+                          >
+                            {opt.label}
+                          </Text>
+                        </View>
+                        <View style={styles.filterOptionRight}>
+                          <Text style={styles.filterOptionBadge}>{opt.count}</Text>
+                          {attendanceStatusFilter === opt.value && (
+                            <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {/* 2. Assigned Farm Dropdown */}
+              <View style={styles.filterDropdownGroup}>
+                <Text style={styles.filterDropdownLabel}>{t('ASSIGNED FARM')}</Text>
+                <TouchableOpacity
+                  style={[
+                    styles.filterDropdownTrigger,
+                    attendanceFilterOpenDropdown === 'farm' && styles.filterDropdownTriggerActive,
+                  ]}
+                  onPress={() =>
+                    setAttendanceFilterOpenDropdown(
+                      attendanceFilterOpenDropdown === 'farm' ? null : 'farm'
+                    )
+                  }
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.filterDropdownTriggerLeft}>
+                    <Ionicons name="business-outline" size={18} color="#16a34a" />
+                    <Text style={styles.filterDropdownTriggerText} numberOfLines={1}>
+                      {attendanceFarmFilter === 'all'
+                        ? t('All Farms')
+                        : activeFarms.find(
+                            (f) =>
+                              (f.id ? f.id.toString() === attendanceFarmFilter : false) ||
+                              f.ulid === attendanceFarmFilter
+                          )?.name || attendanceFarmFilter}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name={attendanceFilterOpenDropdown === 'farm' ? 'chevron-up' : 'chevron-down'}
+                    size={18}
+                    color="#64748b"
+                  />
+                </TouchableOpacity>
+
+                {attendanceFilterOpenDropdown === 'farm' && (
+                  <View style={styles.filterDropdownMenu}>
+                    {activeFarms.length > 5 && (
+                      <View style={styles.filterDropdownSearchBox}>
+                        <Ionicons name="search-outline" size={16} color="#64748b" />
+                        <TextInput
+                          style={styles.filterDropdownSearchInput}
+                          placeholder={t('Search farms...')}
+                          placeholderTextColor="#94a3b8"
+                          value={attendanceFarmFilterSearch}
+                          onChangeText={setAttendanceFarmFilterSearch}
+                          autoCorrect={false}
+                        />
+                        {attendanceFarmFilterSearch.length > 0 && (
+                          <TouchableOpacity onPress={() => setAttendanceFarmFilterSearch('')}>
+                            <Ionicons name="close-circle" size={16} color="#94a3b8" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     )}
-                  </TouchableOpacity>
-                );
-              })}
+
+                    <ScrollView
+                      style={{ maxHeight: 200 }}
+                      nestedScrollEnabled={true}
+                      showsVerticalScrollIndicator={true}
+                    >
+                      <TouchableOpacity
+                        style={[
+                          styles.filterDropdownItem,
+                          attendanceFarmFilter === 'all' && styles.filterDropdownItemActive,
+                        ]}
+                        onPress={() => {
+                          setAttendanceFarmFilter('all');
+                          setAttendanceFilterOpenDropdown(null);
+                          setAttendanceFarmFilterSearch('');
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.filterDropdownItemLeft}>
+                          <Ionicons name="grid-outline" size={16} color="#64748b" />
+                          <Text
+                            style={[
+                              styles.filterDropdownItemText,
+                              attendanceFarmFilter === 'all' && styles.filterDropdownItemTextActive,
+                            ]}
+                          >
+                            {t('All Farms')}
+                          </Text>
+                        </View>
+                        {attendanceFarmFilter === 'all' && (
+                          <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
+                        )}
+                      </TouchableOpacity>
+
+                      {activeFarms
+                        .filter((f) =>
+                          attendanceFarmFilterSearch.trim()
+                            ? f.name.toLowerCase().includes(attendanceFarmFilterSearch.toLowerCase())
+                            : true
+                        )
+                        .map((f) => {
+                          const fVal = (f.ulid || (f.id ? f.id.toString() : ''));
+                          const isSelected =
+                            attendanceFarmFilter === fVal ||
+                            (f.id ? attendanceFarmFilter === f.id.toString() : false);
+                          return (
+                            <TouchableOpacity
+                              key={f.id ?? f.ulid ?? fVal}
+                              style={[
+                                styles.filterDropdownItem,
+                                isSelected && styles.filterDropdownItemActive,
+                              ]}
+                              onPress={() => {
+                                setAttendanceFarmFilter(fVal);
+                                setAttendanceFilterOpenDropdown(null);
+                                setAttendanceFarmFilterSearch('');
+                              }}
+                              activeOpacity={0.7}
+                            >
+                              <View style={styles.filterDropdownItemLeft}>
+                                <Ionicons name="business-outline" size={16} color="#16a34a" />
+                                <View style={{ flex: 1 }}>
+                                  <Text
+                                    style={[
+                                      styles.filterDropdownItemText,
+                                      isSelected && styles.filterDropdownItemTextActive,
+                                    ]}
+                                    numberOfLines={1}
+                                  >
+                                    {f.name}
+                                  </Text>
+                                  {f.area ? (
+                                    <Text style={{ fontSize: 11, color: '#94a3b8' }}>
+                                      {f.area} {f.area_unit}
+                                    </Text>
+                                  ) : null}
+                                </View>
+                              </View>
+                              {isSelected && (
+                                <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
+                              )}
+                            </TouchableOpacity>
+                          );
+                        })}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+
+              {/* Apply Filters Button */}
+              <TouchableOpacity
+                style={styles.filterApplyBtn}
+                onPress={() => setFilterModalTab(null)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.filterApplyBtnText}>{t('Apply Filters')}</Text>
+              </TouchableOpacity>
             </View>
           )}
 
-          {/* TAB 3: PAYMENT FILTERS */}
+          {/* TAB 3: PAYMENT FILTERS (2 Dropdowns: Method, Staff Member) */}
           {filterModalTab === 'payments' && (
-            <View style={{ gap: 12, paddingBottom: 24 }}>
+            <View>
               {(paymentMethodFilter !== 'all' || paymentStaffFilter !== 'all') && (
                 <TouchableOpacity
                   style={styles.filterResetBtnContainer}
                   onPress={() => {
                     setPaymentMethodFilter('all');
                     setPaymentStaffFilter('all');
+                    setPaymentFilterOpenDropdown(null);
                     setFilterModalTab(null);
                   }}
                   activeOpacity={0.7}
@@ -2032,99 +2394,227 @@ export default function StaffScreen() {
                 </TouchableOpacity>
               )}
 
-              {/* Payment Method Section */}
-              <Text style={styles.filterSectionHeader}>{t('PAYMENT METHOD')}</Text>
-              {[
-                { label: t('All Methods'), value: 'all' },
-                { label: 'Cash', value: 'cash' },
-                { label: 'Google Pay', value: 'google_pay' },
-                { label: 'PhonePe', value: 'phonepe' },
-                { label: 'UPI', value: 'other_upi' },
-                { label: 'Bank Transfer', value: 'bank_transfer' },
-              ].map((opt) => (
+              {/* 1. Payment Method Dropdown */}
+              <View style={styles.filterDropdownGroup}>
+                <Text style={styles.filterDropdownLabel}>{t('PAYMENT METHOD')}</Text>
                 <TouchableOpacity
-                  key={opt.value}
                   style={[
-                    styles.filterOptionItem,
-                    paymentMethodFilter === opt.value && styles.filterOptionItemActive,
+                    styles.filterDropdownTrigger,
+                    paymentFilterOpenDropdown === 'method' && styles.filterDropdownTriggerActive,
                   ]}
-                  onPress={() => setPaymentMethodFilter(opt.value)}
+                  onPress={() =>
+                    setPaymentFilterOpenDropdown(
+                      paymentFilterOpenDropdown === 'method' ? null : 'method'
+                    )
+                  }
                   activeOpacity={0.7}
                 >
-                  <View style={styles.filterOptionLeft}>
+                  <View style={styles.filterDropdownTriggerLeft}>
                     <Ionicons name="card-outline" size={18} color="#16a34a" />
-                    <Text
-                      style={[
-                        styles.filterOptionText,
-                        paymentMethodFilter === opt.value && styles.filterOptionTextActive,
-                      ]}
-                    >
-                      {opt.label}
+                    <Text style={styles.filterDropdownTriggerText} numberOfLines={1}>
+                      {paymentMethodFilter === 'cash'
+                        ? 'Cash'
+                        : paymentMethodFilter === 'google_pay'
+                        ? 'Google Pay'
+                        : paymentMethodFilter === 'phonepe'
+                        ? 'PhonePe'
+                        : paymentMethodFilter === 'other_upi'
+                        ? 'UPI'
+                        : paymentMethodFilter === 'bank_transfer'
+                        ? 'Bank Transfer'
+                        : t('All Methods')}
                     </Text>
                   </View>
-                  {paymentMethodFilter === opt.value && (
-                    <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
-                  )}
+                  <Ionicons
+                    name={paymentFilterOpenDropdown === 'method' ? 'chevron-up' : 'chevron-down'}
+                    size={18}
+                    color="#64748b"
+                  />
                 </TouchableOpacity>
-              ))}
 
-              {/* Staff Member Section */}
-              <Text style={[styles.filterSectionHeader, { marginTop: 8 }]}>{t('STAFF MEMBER')}</Text>
-              <TouchableOpacity
-                style={[
-                  styles.filterOptionItem,
-                  paymentStaffFilter === 'all' && styles.filterOptionItemActive,
-                ]}
-                onPress={() => setPaymentStaffFilter('all')}
-                activeOpacity={0.7}
-              >
-                <View style={styles.filterOptionLeft}>
-                  <Ionicons name="people-outline" size={18} color="#64748b" />
-                  <Text
-                    style={[
-                      styles.filterOptionText,
-                      paymentStaffFilter === 'all' && styles.filterOptionTextActive,
-                    ]}
-                  >
-                    {t('All Staff Members')}
-                  </Text>
-                </View>
-                {paymentStaffFilter === 'all' && (
-                  <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
-                )}
-              </TouchableOpacity>
-              {staff.map((s) => {
-                const isSelected = paymentStaffFilter === s.id.toString();
-                return (
-                  <TouchableOpacity
-                    key={s.id}
-                    style={[
-                      styles.filterOptionItem,
-                      isSelected && styles.filterOptionItemActive,
-                    ]}
-                    onPress={() => setPaymentStaffFilter(s.id.toString())}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.filterOptionLeft}>
-                      <Ionicons name="person-outline" size={18} color="#16a34a" />
-                      <Text
+                {paymentFilterOpenDropdown === 'method' && (
+                  <View style={styles.filterDropdownMenu}>
+                    {[
+                      { label: t('All Methods'), value: 'all' },
+                      { label: 'Cash', value: 'cash' },
+                      { label: 'Google Pay', value: 'google_pay' },
+                      { label: 'PhonePe', value: 'phonepe' },
+                      { label: 'UPI', value: 'other_upi' },
+                      { label: 'Bank Transfer', value: 'bank_transfer' },
+                    ].map((opt) => (
+                      <TouchableOpacity
+                        key={opt.value}
                         style={[
-                          styles.filterOptionText,
-                          isSelected && styles.filterOptionTextActive,
+                          styles.filterDropdownItem,
+                          paymentMethodFilter === opt.value && styles.filterDropdownItemActive,
                         ]}
+                        onPress={() => {
+                          setPaymentMethodFilter(opt.value);
+                          setPaymentFilterOpenDropdown(null);
+                        }}
+                        activeOpacity={0.7}
                       >
-                        {s.name}
-                      </Text>
-                    </View>
-                    {isSelected && (
-                      <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                        <View style={styles.filterDropdownItemLeft}>
+                          <Ionicons name="card-outline" size={16} color="#16a34a" />
+                          <Text
+                            style={[
+                              styles.filterDropdownItemText,
+                              paymentMethodFilter === opt.value && styles.filterDropdownItemTextActive,
+                            ]}
+                          >
+                            {opt.label}
+                          </Text>
+                        </View>
+                        {paymentMethodFilter === opt.value && (
+                          <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {/* 2. Staff Member Dropdown */}
+              <View style={styles.filterDropdownGroup}>
+                <Text style={styles.filterDropdownLabel}>{t('STAFF MEMBER')}</Text>
+                <TouchableOpacity
+                  style={[
+                    styles.filterDropdownTrigger,
+                    paymentFilterOpenDropdown === 'staff' && styles.filterDropdownTriggerActive,
+                  ]}
+                  onPress={() =>
+                    setPaymentFilterOpenDropdown(
+                      paymentFilterOpenDropdown === 'staff' ? null : 'staff'
+                    )
+                  }
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.filterDropdownTriggerLeft}>
+                    <Ionicons name="person-outline" size={18} color="#16a34a" />
+                    <Text style={styles.filterDropdownTriggerText} numberOfLines={1}>
+                      {paymentStaffFilter === 'all'
+                        ? t('All Staff Members')
+                        : staff.find((s) => s.id.toString() === paymentStaffFilter)?.name ||
+                          paymentStaffFilter}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name={paymentFilterOpenDropdown === 'staff' ? 'chevron-up' : 'chevron-down'}
+                    size={18}
+                    color="#64748b"
+                  />
+                </TouchableOpacity>
+
+                {paymentFilterOpenDropdown === 'staff' && (
+                  <View style={styles.filterDropdownMenu}>
+                    {staff.length > 5 && (
+                      <View style={styles.filterDropdownSearchBox}>
+                        <Ionicons name="search-outline" size={16} color="#64748b" />
+                        <TextInput
+                          style={styles.filterDropdownSearchInput}
+                          placeholder={t('Search staff members...')}
+                          placeholderTextColor="#94a3b8"
+                          value={paymentStaffSearch}
+                          onChangeText={setPaymentStaffSearch}
+                          autoCorrect={false}
+                        />
+                        {paymentStaffSearch.length > 0 && (
+                          <TouchableOpacity onPress={() => setPaymentStaffSearch('')}>
+                            <Ionicons name="close-circle" size={16} color="#94a3b8" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     )}
-                  </TouchableOpacity>
-                );
-              })}
+
+                    <ScrollView
+                      style={{ maxHeight: 200 }}
+                      nestedScrollEnabled={true}
+                      showsVerticalScrollIndicator={true}
+                    >
+                      <TouchableOpacity
+                        style={[
+                          styles.filterDropdownItem,
+                          paymentStaffFilter === 'all' && styles.filterDropdownItemActive,
+                        ]}
+                        onPress={() => {
+                          setPaymentStaffFilter('all');
+                          setPaymentFilterOpenDropdown(null);
+                          setPaymentStaffSearch('');
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.filterDropdownItemLeft}>
+                          <Ionicons name="people-outline" size={16} color="#64748b" />
+                          <Text
+                            style={[
+                              styles.filterDropdownItemText,
+                              paymentStaffFilter === 'all' && styles.filterDropdownItemTextActive,
+                            ]}
+                          >
+                            {t('All Staff Members')}
+                          </Text>
+                        </View>
+                        {paymentStaffFilter === 'all' && (
+                          <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
+                        )}
+                      </TouchableOpacity>
+
+                      {staff
+                        .filter((s) =>
+                          paymentStaffSearch.trim()
+                            ? s.name.toLowerCase().includes(paymentStaffSearch.toLowerCase())
+                            : true
+                        )
+                        .map((s) => {
+                          const isSelected = paymentStaffFilter === s.id.toString();
+                          return (
+                            <TouchableOpacity
+                              key={s.id}
+                              style={[
+                                styles.filterDropdownItem,
+                                isSelected && styles.filterDropdownItemActive,
+                              ]}
+                              onPress={() => {
+                                setPaymentStaffFilter(s.id.toString());
+                                setPaymentFilterOpenDropdown(null);
+                                setPaymentStaffSearch('');
+                              }}
+                              activeOpacity={0.7}
+                            >
+                              <View style={styles.filterDropdownItemLeft}>
+                                <Ionicons name="person-outline" size={16} color="#16a34a" />
+                                <Text
+                                  style={[
+                                    styles.filterDropdownItemText,
+                                    isSelected && styles.filterDropdownItemTextActive,
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {s.name}
+                                </Text>
+                              </View>
+                              {isSelected && (
+                                <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
+                              )}
+                            </TouchableOpacity>
+                          );
+                        })}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+
+              {/* Apply Filters Button */}
+              <TouchableOpacity
+                style={styles.filterApplyBtn}
+                onPress={() => setFilterModalTab(null)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.filterApplyBtnText}>{t('Apply Filters')}</Text>
+              </TouchableOpacity>
             </View>
           )}
-        </ScrollView>
+        </View>
       </ModalSheet>
     </SafeAreaView>
   );
@@ -3233,12 +3723,14 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   filterSection: {
-    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 6,
   },
   searchFilterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   searchBox: {
     flex: 1,
@@ -3247,16 +3739,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    height: 44,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    height: 48,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   searchIcon: {
     marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 15,
     color: '#0f172a',
     height: '100%',
     padding: 0,
@@ -3265,9 +3762,9 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   filterBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     backgroundColor: '#f1f5f9',
     borderWidth: 1,
     borderColor: '#e2e8f0',
@@ -3290,9 +3787,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     backgroundColor: '#16a34a',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 20,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: radius.pill,
   },
   activeFilterChipText: {
     color: '#ffffff',
@@ -3301,7 +3798,7 @@ const styles = StyleSheet.create({
   },
   activeFilterChipClear: {
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderRadius: 10,
+    borderRadius: radius.pill,
     width: 16,
     height: 16,
     alignItems: 'center',
@@ -3311,7 +3808,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     paddingVertical: 4,
     paddingHorizontal: 8,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   filterResetBtn: {
     fontSize: 12,
@@ -3319,13 +3816,117 @@ const styles = StyleSheet.create({
     color: '#16a34a',
     letterSpacing: 0.5,
   },
-  filterSectionHeader: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#64748b',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
+  filterDropdownGroup: {
+    marginBottom: 14,
+  },
+  filterDropdownLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
     marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  filterDropdownTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 48,
+  },
+  filterDropdownTriggerActive: {
+    borderColor: '#16a34a',
+    backgroundColor: '#f0fdf4',
+  },
+  filterDropdownTriggerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    marginRight: 8,
+  },
+  filterDropdownTriggerText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  filterDropdownMenu: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 14,
+    marginTop: 6,
+    overflow: 'hidden',
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  filterDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  filterDropdownItemActive: {
+    backgroundColor: '#f0fdf4',
+  },
+  filterDropdownItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  filterDropdownItemText: {
+    fontSize: 14,
+    color: '#334155',
+    fontWeight: '500',
+  },
+  filterDropdownItemTextActive: {
+    color: '#15803d',
+    fontWeight: '700',
+  },
+  filterDropdownSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+    gap: 8,
+  },
+  filterDropdownSearchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: '#0f172a',
+    padding: 0,
+  },
+  filterApplyBtn: {
+    backgroundColor: '#16a34a',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+    shadowColor: '#16a34a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  filterApplyBtnText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
   },
   filterOptionItem: {
     flexDirection: 'row',
