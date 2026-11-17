@@ -1016,8 +1016,15 @@ export default function FarmViewScreen() {
                   placeholder="e.g. 25.5"
                   placeholderTextColor="#94a3b8"
                   keyboardType="decimal-pad"
+                  inputMode="decimal"
                   value={editArea}
-                  onChangeText={setEditArea}
+                  onChangeText={(text) => {
+                    const normalized = text.replace(/,/g, '.');
+                    const cleaned = normalized.replace(/[^0-9.]/g, '');
+                    const parts = cleaned.split('.');
+                    const sanitized = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : cleaned;
+                    setEditArea(sanitized);
+                  }}
                 />
               </View>
 

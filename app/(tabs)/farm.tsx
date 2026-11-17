@@ -89,6 +89,13 @@ export default function FarmsScreen() {
     return t(unit) || (unit.charAt(0).toUpperCase() + unit.slice(1).toLowerCase());
   };
 
+  const sanitizeNumericInput = (text: string) => {
+    const normalized = text.replace(/,/g, '.');
+    const cleaned = normalized.replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    return parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : cleaned;
+  };
+
   const fetchFarms = async () => {
     try {
       const data = await farmsApi.getAll();
@@ -667,10 +674,12 @@ export default function FarmsScreen() {
             required
             placeholder={t('e.g. 10.5')}
             keyboardType="decimal-pad"
+            inputMode="decimal"
             value={area}
             onChangeText={(text) => {
-              setArea(text);
-              if (text.trim()) setAreaError('');
+              const sanitized = sanitizeNumericInput(text);
+              setArea(sanitized);
+              if (sanitized.trim()) setAreaError('');
             }}
             error={areaError}
             suffix={<Text style={{ color: '#166534', fontWeight: '700', marginLeft: 4 }}>{formatUnitLabel(preferredAreaUnit)}</Text>}
@@ -738,10 +747,12 @@ export default function FarmsScreen() {
                 required
                 placeholder={t('e.g. 10.5')}
                 keyboardType="decimal-pad"
+                inputMode="decimal"
                 value={editArea}
                 onChangeText={(text) => {
-                  setEditArea(text);
-                  if (text.trim()) setEditAreaError('');
+                  const sanitized = sanitizeNumericInput(text);
+                  setEditArea(sanitized);
+                  if (sanitized.trim()) setEditAreaError('');
                 }}
                 error={editAreaError}
                 suffix={<Text style={{ color: '#166534', fontWeight: '700', marginLeft: 4 }}>{formatUnitLabel(editAreaUnit)}</Text>}
