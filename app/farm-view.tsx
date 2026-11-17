@@ -122,6 +122,7 @@ export default function FarmViewScreen() {
   const [farm, setFarm] = useState<Farm | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   // Confirm delete modal state
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
@@ -290,7 +291,55 @@ export default function FarmViewScreen() {
     fetchFarmDetails();
   };
 
+  const isAssignedToThisFarm = (s: StaffMember) => {
+    return (
+      (s.id && initialAssignedIds.has(Number(s.id))) ||
+      (s.id && selectedStaffIds.has(Number(s.id))) ||
+      s.farms?.some(
+        (f) => Number(f.id) === Number(farm?.id) || (farm?.ulid && f.ulid === farm.ulid)
+      )
+    );
+  };
+
+  const isAssignedToOtherFarm = (s: StaffMember) => {
+    return s.farms?.some(
+      (f) => Number(f.id) !== Number(farm?.id) && (!farm?.ulid || f.ulid !== farm.ulid)
+    );
+  };
+
+  const canStaffHaveMultipleFarms = (s: StaffMember) => {
+    if (!s.roles || (Array.isArray(s.roles) && s.roles.length === 0)) return false;
+    const rolesList = Array.isArray(s.roles) ? s.roles : [s.roles];
+    return rolesList.some((r: any) => {
+      const roleName = (typeof r === 'object' ? r.value || r.name : String(r)).toLowerCase();
+      return roleName === 'manager' || roleName === 'supervisor' || roleName === 'consultant';
+    });
+  };
+
+  const isOwner = (s: StaffMember) => {
+    if (!s.roles) return false;
+    const rolesList = Array.isArray(s.roles) ? s.roles : [s.roles];
+    return rolesList.some((r: any) => {
+      const roleName = (typeof r === 'object' ? r.value || r.name : String(r)).toLowerCase();
+      return roleName === 'owner';
+    });
+  };
+
   const filteredModalStaff = allStaff.filter((s) => {
+    // Owners have global access in PWA and are not assigned to individual farms
+    if (isOwner(s)) {
+      return false;
+    }
+
+    const assignedHere = isAssignedToThisFarm(s);
+    const assignedElsewhere = isAssignedToOtherFarm(s);
+
+    // If staff is not assigned to this farm, but already assigned to another farm:
+    // In PWA, Workers are strictly 1:1, so if already assigned to another farm, do not show in this list.
+    if (!assignedHere && assignedElsewhere && !canStaffHaveMultipleFarms(s)) {
+      return false;
+    }
+
     if (!modalStaffSearch.trim()) return true;
     const q = modalStaffSearch.toLowerCase();
     return (
@@ -674,13 +723,24 @@ export default function FarmViewScreen() {
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
           <Ionicons name="arrow-back" size={20} color="#475569" />
         </TouchableOpacity>
-        <Text style={styles.topbarTitle}>{t('Farm Overview')}</Text>
+        <Text style={styles.topbarTitle} numberOfLines={1} ellipsizeMode="tail">
+          {isScrolled && farm?.name ? farm.name : t('Farm Overview')}
+        </Text>
         <View style={styles.topbarSpacer} />
       </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        onScroll={(event) => {
+          const offsetY = event.nativeEvent.contentOffset.y;
+          if (offsetY > 40 && !isScrolled) {
+            setIsScrolled(true);
+          } else if (offsetY <= 40 && isScrolled) {
+            setIsScrolled(false);
+          }
+        }}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#16a34a']} tintColor="#16a34a" />
         }
@@ -1296,12 +1356,20 @@ export default function FarmViewScreen() {
                       </View>
                       <View style={{ flex: 1, marginLeft: 10 }}>
                         <Text style={{ fontSize: 14, fontWeight: '700', color: '#1e293b' }}>{s.name}</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
                           <Text style={{ fontSize: 12, color: '#64748b' }}>{roleStyle.label}</Text>
                           {s.phone ? (
                             <>
                               <Text style={{ fontSize: 10, color: '#94a3b8' }}>•</Text>
                               <Text style={{ fontSize: 12, color: '#64748b' }}>{s.phone}</Text>
+                            </>
+                          ) : null}
+                          {!isAssigned && s.farms && s.farms.length > 0 ? (
+                            <>
+                              <Text style={{ fontSize: 10, color: '#94a3b8' }}>•</Text>
+                              <Text style={{ fontSize: 11, color: '#0284c7', fontWeight: '600' }}>
+                                {s.farms.map((f) => f.name).join(', ')}
+                              </Text>
                             </>
                           ) : null}
                         </View>
@@ -1507,6 +1575,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: '#0f172a',
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: 8,
   },
   topbarSpacer: {
     width: 36,
