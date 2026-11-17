@@ -25,6 +25,8 @@ import { Farm, FarmActivity, FarmExpense, StaffMember, PaginationMeta } from '..
 import { extractErrorMessage } from '../src/api/client';
 import { useAuth } from '../src/hooks/useAuth';
 import { permissions } from '../src/utils/permissions';
+import { useToast } from '../src/context/ToastContext';
+import { ConfirmModal } from '../src/components/ui';
 
 const AREA_UNITS = ['ACRE', 'HECTARE', 'BIGHAS', 'GUNTHAS'];
 
@@ -93,10 +95,15 @@ export default function FarmViewScreen() {
   const { farm_id, farm_ulid } = useLocalSearchParams();
   const farmIdentifier = (farm_ulid as string) || (farm_id as string);
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   const [farm, setFarm] = useState<Farm | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Confirm delete modal state
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Edit Farm Modal State
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -280,10 +287,10 @@ export default function FarmViewScreen() {
       });
       setFarm(updated);
       setEditModalVisible(false);
-      Alert.alert('Success', 'Farm details updated successfully.');
+      showToast('Farm details updated successfully.', 'success');
     } catch (error) {
       console.error('Error updating farm:', error);
-      Alert.alert('Error', extractErrorMessage(error));
+      showToast(extractErrorMessage(error), 'error');
     } finally {
       setUpdatingFarm(false);
     }
@@ -299,10 +306,10 @@ export default function FarmViewScreen() {
         is_active: nextStatus,
       });
       setFarm(updated);
-      Alert.alert('Success', `Farm ${nextStatus ? 'activated' : 'deactivated'} successfully.`);
+      showToast(`Farm ${nextStatus ? 'activated' : 'deactivated'} successfully.`, 'success');
     } catch (error) {
       console.error('Error toggling farm status:', error);
-      Alert.alert('Error', extractErrorMessage(error));
+      showToast(extractErrorMessage(error), 'error');
     } finally {
       setUpdatingFarm(false);
     }
@@ -310,29 +317,23 @@ export default function FarmViewScreen() {
 
   const handleDeleteFarm = () => {
     if (!farm || !farmIdentifier) return;
-    Alert.alert(
-      'Delete Farm',
-      'Are you sure you want to delete this farm? This will remove the farm, but keep all old records.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setLoading(true);
-              await farmsApi.delete(farmIdentifier);
-              Alert.alert('Success', 'Farm deleted successfully.');
-              router.back();
-            } catch (error) {
-              console.error('Error deleting farm:', error);
-              Alert.alert('Error', extractErrorMessage(error));
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
+    setDeleteConfirmVisible(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!farmIdentifier) return;
+    setDeleting(true);
+    try {
+      await farmsApi.delete(farmIdentifier);
+      setDeleteConfirmVisible(false);
+      showToast('Farm deleted successfully.', 'success');
+      router.back();
+    } catch (error) {
+      console.error('Error deleting farm:', error);
+      showToast(extractErrorMessage(error), 'error');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleOpenAddStaffModal = async () => {
@@ -363,14 +364,14 @@ export default function FarmViewScreen() {
     setAssigningStaff(true);
     try {
       await staffApi.assignFarm(selectedStaffIdToAssign, Number(farm.id));
-      Alert.alert('Success', 'Staff member assigned successfully.');
+      showToast('Staff member assigned successfully.', 'success');
       setAddStaffModalVisible(false);
       fetchStaffMembers(farm.id, 1, staffSearchQuery);
       // Update farm count
       fetchFarmDetails();
     } catch (error) {
       console.error('Error assigning staff:', error);
-      Alert.alert('Error', extractErrorMessage(error));
+      showToast(extractErrorMessage(error), 'error');
     } finally {
       setAssigningStaff(false);
     }
@@ -1147,6 +1148,17 @@ export default function FarmViewScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <ConfirmModal
+        visible={deleteConfirmVisible}
+        title="Delete Farm"
+        message={`Are you sure you want to delete "${farm?.name || 'this farm'}"? This will remove the farm, but keep all old records.`}
+        confirmText="Delete Farm"
+        destructive
+        loading={deleting}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteConfirmVisible(false)}
+      />
     </SafeAreaView>
   );
 }

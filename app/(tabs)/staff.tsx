@@ -42,6 +42,7 @@ import {
   ModernDatePicker,
   EmptyState,
 } from '../../src/components/ui';
+import { useToast } from '../../src/context/ToastContext';
 
 const ROLE_OPTIONS: ChipOption<StaffRoleValue>[] = [
   { label: 'Worker', value: 'Worker' },
@@ -61,6 +62,7 @@ const PAYMENT_METHOD_OPTIONS: ChipOption<'cash' | 'google_pay' | 'phonepe' | 'ot
 export default function StaffScreen() {
   const router = useRouter();
   const { t } = useTranslation();
+  const { showToast } = useToast();
   const { tab } = useLocalSearchParams<{ tab?: 'staff' | 'attendance' | 'payments' }>();
   const { isAuthenticated, user } = useAuth();
   const { containerMaxWidth, isTablet } = useResponsive();
@@ -235,7 +237,7 @@ export default function StaffScreen() {
       };
 
       await staffApi.create(staffPayload as any);
-      Alert.alert('Success', 'Staff member registered successfully!');
+      showToast('Staff member registered successfully!', 'success');
       setAddStaffModalVisible(false);
 
       setNewStaffName('');
@@ -249,7 +251,7 @@ export default function StaffScreen() {
       fetchData();
     } catch (error: any) {
       console.error('Error creating staff:', error);
-      Alert.alert('Error', extractErrorMessage(error));
+      showToast(extractErrorMessage(error), 'error');
     } finally {
       setSavingStaff(false);
     }
@@ -257,11 +259,11 @@ export default function StaffScreen() {
 
   const handleAddPayment = async () => {
     if (!payStaffId) {
-      Alert.alert('Validation Error', 'Staff member is required.');
+      showToast('Staff member is required.', 'warning');
       return;
     }
     if (!payAmount || isNaN(Number(payAmount)) || Number(payAmount) <= 0) {
-      Alert.alert('Validation Error', 'Please enter a valid amount.');
+      showToast('Please enter a valid amount.', 'warning');
       return;
     }
 
@@ -277,7 +279,7 @@ export default function StaffScreen() {
       };
 
       await staffPaymentsApi.create(paymentPayload);
-      Alert.alert('Success', 'Payment recorded successfully!');
+      showToast('Payment recorded successfully!', 'success');
       setAddPaymentModalVisible(false);
 
       setPayStaffId(null);
@@ -290,7 +292,7 @@ export default function StaffScreen() {
       fetchData();
     } catch (error: any) {
       console.error('Error creating payment:', error);
-      Alert.alert('Error', extractErrorMessage(error));
+      showToast(extractErrorMessage(error), 'error');
     } finally {
       setSavingPayment(false);
     }
@@ -316,11 +318,11 @@ export default function StaffScreen() {
       };
 
       const res = await attendanceApi.bulkMark(payload);
-      Alert.alert('Success', res.message || 'Attendance saved successfully.');
+      showToast(res.message || 'Attendance saved successfully.', 'success');
       fetchData();
     } catch (error: any) {
       console.error('Error saving attendance:', error);
-      Alert.alert('Error', extractErrorMessage(error));
+      showToast(extractErrorMessage(error), 'error');
     } finally {
       setSavingAttendance(false);
     }

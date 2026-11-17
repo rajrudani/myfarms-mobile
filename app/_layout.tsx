@@ -9,6 +9,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { I18nProvider } from '../src/i18n/I18nContext';
+import { ToastProvider } from '../src/context/ToastContext';
 import { OfflineBanner } from '../src/components/OfflineBanner';
 import { PWABottomNav } from '../src/components/PWABottomNav';
 import { registerForPushNotificationsAsync, addNotificationResponseListener } from '../src/utils/notifications';
@@ -51,7 +52,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <I18nProvider>
-          <RootLayoutNav />
+          <ToastProvider>
+            <RootLayoutNav />
+          </ToastProvider>
         </I18nProvider>
       </AuthProvider>
     </SafeAreaProvider>

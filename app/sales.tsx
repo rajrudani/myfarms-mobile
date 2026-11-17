@@ -28,15 +28,22 @@ import { extractErrorMessage } from '../src/api/client';
 import { useAuth } from '../src/hooks/useAuth';
 import { permissions } from '../src/utils/permissions';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
-import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput, EmptyState } from '../src/components/ui';
+import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput, EmptyState, ConfirmModal } from '../src/components/ui';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
 import { useTranslation } from '../src/i18n/I18nContext';
+import { useToast } from '../src/context/ToastContext';
 
 const COMMON_UNITS = ['BAG', 'KG', 'QUINTAL', 'TON', 'CRATE'];
 
 export default function SalesScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const { showToast } = useToast();
+
+  // Confirm delete modal state
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const GRADE_OPTIONS = [
     { label: t('Grade A+'), value: 'a_plus' },
@@ -230,7 +237,7 @@ export default function SalesScreen() {
       setNewBuyerCompany('');
       setNewBuyerAddress('');
       setNewBuyerNotes('');
-      Alert.alert('Success', 'Buyer created and selected.');
+      showToast(t('Buyer created and selected.'), { type: 'success' });
     } catch (error) {
       console.error('Error creating buyer:', error);
       Alert.alert('Error', extractErrorMessage(error, 'Failed to create buyer.'));
@@ -343,10 +350,10 @@ export default function SalesScreen() {
     try {
       if (editingSale) {
         await salesApi.updateSale(editingSale.id, payload);
-        Alert.alert(t('Success'), t('Sale updated successfully.'));
+        showToast(t('Sale updated successfully.'), { type: 'success' });
       } else {
         await salesApi.createSale(payload);
-        Alert.alert(t('Success'), t('Sale recorded successfully.'));
+        showToast(t('Sale recorded successfully.'), { type: 'success' });
       }
       setSaleModalVisible(false);
       fetchSales(false);
@@ -358,22 +365,25 @@ export default function SalesScreen() {
 
   // Delete Sale
   const handleDeleteSale = (sale: Sale) => {
-    Alert.alert(t('Confirm Delete'), t('Are you sure you want to delete this sale record?'), [
-      { text: t('Cancel'), style: 'cancel' },
-      {
-        text: t('Delete'),
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await salesApi.deleteSale(sale.id);
-            fetchSales(false);
-          } catch (error) {
-            console.error('Error deleting sale:', error);
-            Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to delete sale.')));
-          }
-        },
-      },
-    ]);
+    setSaleToDelete(sale);
+    setDeleteConfirmVisible(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!saleToDelete) return;
+    try {
+      setDeleting(true);
+      await salesApi.deleteSale(saleToDelete.id);
+      showToast(t('Sale deleted successfully.'), { type: 'success' });
+      setDeleteConfirmVisible(false);
+      setSaleToDelete(null);
+      fetchSales(false);
+    } catch (error) {
+      console.error('Error deleting sale:', error);
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to delete sale.')));
+    } finally {
+      setDeleting(false);
+    }
   };
 
   // Filtered crop cycles for the modal
@@ -1251,6 +1261,22 @@ export default function SalesScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Confirm Delete Bottom Sheet Modal */}
+      <ConfirmModal
+        visible={deleteConfirmVisible}
+        onClose={() => {
+          if (!deleting) setDeleteConfirmVisible(false);
+        }}
+        onConfirm={handleConfirmDelete}
+        loading={deleting}
+        title={t('Delete Sale Record')}
+        message={t('Are you sure you want to delete this sale record? This action cannot be undone.')}
+        confirmLabel={t('Delete Sale')}
+        cancelLabel={t('Cancel')}
+        variant="danger"
+        icon="trash-outline"
+      />
     </SafeAreaView>
   );
 }

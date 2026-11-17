@@ -27,6 +27,7 @@ import { extractErrorMessage } from '../../src/api/client';
 import { permissions } from '../../src/utils/permissions';
 import { useTranslation } from '../../src/i18n/I18nContext';
 import { colors, radius, spacing, shadows } from '../../src/theme/tokens';
+import { useToast } from '../../src/context/ToastContext';
 import {
   BentoCard,
   StatusBadge,
@@ -37,6 +38,7 @@ import {
   ModernDatePicker,
   ModernInput,
   EmptyState,
+  ConfirmModal,
 } from '../../src/components/ui';
 
 const CATEGORIES = ['Labor', 'Seed', 'Fertilizer', 'Pesticide', 'Equipment', 'Fuel', 'Other'];
@@ -63,11 +65,17 @@ const PAYMENT_METHODS: ChipOption<string>[] = [
 export default function ExpensesScreen() {
   const { isAuthenticated, user } = useAuth();
   const { t } = useTranslation();
+  const { showToast } = useToast();
   const [expenses, setExpenses] = useState<FarmExpense[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
   const [cycles, setCycles] = useState<CropCycle[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Confirm delete modal state
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState<FarmExpense | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Search & Filter state
   const [search, setSearch] = useState('');
@@ -169,7 +177,7 @@ export default function ExpensesScreen() {
       };
 
       await expensesApi.create(newExpense);
-      Alert.alert('Success', 'Expense recorded successfully!');
+      showToast(t('Expense recorded successfully!'), { type: 'success' });
 
       setFarmId('');
       setCropCycleId('');
@@ -214,7 +222,7 @@ export default function ExpensesScreen() {
       };
 
       const result = await expensesApi.update(identifier, updatedExpense);
-      Alert.alert('Success', 'Expense updated successfully!');
+      showToast(t('Expense updated successfully!'), { type: 'success' });
       setIsEditing(false);
       setSelectedExpense(result);
       fetchData();
@@ -226,32 +234,29 @@ export default function ExpensesScreen() {
     }
   };
 
-  const handleDeleteExpense = async (expense: FarmExpense) => {
+  const handleDeleteExpense = (expense: FarmExpense) => {
     if (!expense.id && !expense.ulid) return;
-    const identifier = expense.ulid || expense.id!;
+    setExpenseToDelete(expense);
+    setDeleteConfirmVisible(true);
+  };
 
-    Alert.alert(
-      'Confirm Delete',
-      'Are you sure you want to delete this expense? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await expensesApi.delete(identifier);
-              Alert.alert('Success', 'Expense deleted successfully!');
-              setDetailModalVisible(false);
-              fetchData();
-            } catch (error: any) {
-              console.error('Error deleting expense:', error);
-              Alert.alert('Error', extractErrorMessage(error, 'Failed to delete expense.'));
-            }
-          },
-        },
-      ]
-    );
+  const handleConfirmDelete = async () => {
+    if (!expenseToDelete) return;
+    const identifier = expenseToDelete.ulid || expenseToDelete.id!;
+    try {
+      setDeleting(true);
+      await expensesApi.delete(identifier);
+      showToast(t('Expense deleted successfully!'), { type: 'success' });
+      setDeleteConfirmVisible(false);
+      setDetailModalVisible(false);
+      setExpenseToDelete(null);
+      fetchData();
+    } catch (error: any) {
+      console.error('Error deleting expense:', error);
+      Alert.alert('Error', extractErrorMessage(error, 'Failed to delete expense.'));
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleOpenView = (expense: FarmExpense) => {
@@ -959,6 +964,21 @@ export default function ExpensesScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      {/* Confirm Delete Bottom Sheet Modal */}
+      <ConfirmModal
+        visible={deleteConfirmVisible}
+        onClose={() => {
+          if (!deleting) setDeleteConfirmVisible(false);
+        }}
+        onConfirm={handleConfirmDelete}
+        loading={deleting}
+        title={t('Delete Expense')}
+        message={t('Are you sure you want to delete this expense? This action cannot be undone.')}
+        confirmLabel={t('Delete Expense')}
+        cancelLabel={t('Cancel')}
+        variant="danger"
+        icon="trash-outline"
+      />
     </SafeAreaView>
   );
 }

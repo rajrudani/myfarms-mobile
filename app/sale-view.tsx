@@ -28,7 +28,8 @@ import { colors, radius, spacing, shadows } from '../src/theme/tokens';
 import { useTranslation } from '../src/i18n/I18nContext';
 import { useResponsive } from '../src/utils/responsive';
 import { formatCurrency, formatQuantity } from '../src/utils/formatters';
-import { ModalSheet, ModernInput } from '../src/components/ui';
+import { useToast } from '../src/context/ToastContext';
+import { ModalSheet, ModernInput, ConfirmModal } from '../src/components/ui';
 
 export const getAbsoluteImageUrl = (urlPath?: string | null) => {
   if (!urlPath) return undefined;
@@ -42,6 +43,7 @@ export const getAbsoluteImageUrl = (urlPath?: string | null) => {
 export default function SaleViewScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const params = useLocalSearchParams();
   const saleIdentifier = (params.sale_ulid as string) || (params.sale_id as string);
   const { containerMaxWidth, isTablet } = useResponsive();
@@ -49,6 +51,10 @@ export default function SaleViewScreen() {
   const [sale, setSale] = useState<Sale | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Confirm delete modal state
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Edit Modal State
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -129,7 +135,7 @@ export default function SaleViewScreen() {
       });
       setSale(updated);
       setEditModalVisible(false);
-      Alert.alert(t('Success'), t('Sale updated successfully!'));
+      showToast(t('Sale updated successfully!'), { type: 'success' });
     } catch (error) {
       console.error('Error updating sale:', error);
       Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to update sale.')));
@@ -140,30 +146,24 @@ export default function SaleViewScreen() {
 
   const handleDeleteSale = () => {
     if (!sale) return;
+    setDeleteConfirmVisible(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!sale) return;
     const identifier = sale.ulid || sale.id!;
-    Alert.alert(
-      t('Delete Sale Record'),
-      t('Are you sure you want to delete this sale record? This action cannot be undone.'),
-      [
-        { text: t('Cancel'), style: 'cancel' },
-        {
-          text: t('Delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setLoading(true);
-              await salesApi.deleteSale(identifier);
-              Alert.alert(t('Deleted'), t('Sale record has been deleted.'));
-              router.back();
-            } catch (error) {
-              console.error('Error deleting sale:', error);
-              Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to delete sale.')));
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
+    try {
+      setDeleting(true);
+      await salesApi.deleteSale(identifier);
+      showToast(t('Sale record has been deleted.'), { type: 'success' });
+      setDeleteConfirmVisible(false);
+      router.back();
+    } catch (error) {
+      console.error('Error deleting sale:', error);
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to delete sale.')));
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleOpenGradesModal = () => {
@@ -220,7 +220,7 @@ export default function SaleViewScreen() {
         });
         setSale(updated);
         setGradesModalVisible(false);
-        Alert.alert(t('Success'), t('Quality grades disabled.'));
+        showToast(t('Quality grades disabled.'), { type: 'info' });
         return;
       }
 
@@ -243,7 +243,7 @@ export default function SaleViewScreen() {
       });
       setSale(updated);
       setGradesModalVisible(false);
-      Alert.alert(t('Success'), t('Quality grades updated successfully!'));
+      showToast(t('Quality grades updated successfully!'), { type: 'success' });
     } catch (error) {
       console.error('Error saving grades:', error);
       Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to update quality grades.')));
@@ -271,7 +271,7 @@ export default function SaleViewScreen() {
       });
       setSale(updated);
       setChargesModalVisible(false);
-      Alert.alert(t('Success'), t('Mandi deductions updated successfully!'));
+      showToast(t('Mandi deductions updated successfully!'), { type: 'success' });
     } catch (error) {
       console.error('Error saving charges:', error);
       Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to update deductions.')));
@@ -1051,6 +1051,22 @@ export default function SaleViewScreen() {
           </View>
         </ScrollView>
       </ModalSheet>
+
+      {/* Confirm Delete Bottom Sheet Modal */}
+      <ConfirmModal
+        visible={deleteConfirmVisible}
+        onClose={() => {
+          if (!deleting) setDeleteConfirmVisible(false);
+        }}
+        onConfirm={handleConfirmDelete}
+        loading={deleting}
+        title={t('Delete Sale Record')}
+        message={t('Are you sure you want to delete this sale record? This action cannot be undone.')}
+        confirmLabel={t('Delete Sale')}
+        cancelLabel={t('Cancel')}
+        variant="danger"
+        icon="trash-outline"
+      />
     </SafeAreaView>
   );
 }

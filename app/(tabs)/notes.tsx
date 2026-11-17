@@ -29,9 +29,11 @@ import { scheduleLocalReminder } from '../../src/utils/notifications';
 import { offlineSync } from '../../src/utils/offlineSync';
 import { useResponsive } from '../../src/utils/responsive';
 import { ModalSheet, ModernInput, ModernDatePicker, EmptyState } from '../../src/components/ui';
+import { useToast } from '../../src/context/ToastContext';
 
 export default function NotesScreen() {
   const { t } = useTranslation();
+  const { showToast } = useToast();
   const { width } = useWindowDimensions();
   const { containerMaxWidth, isTablet } = useResponsive();
 
@@ -182,7 +184,7 @@ export default function NotesScreen() {
 
       setCreateModalVisible(false);
       fetchNotes(1, false);
-      Alert.alert(t('Success'), t('Note / Reminder created successfully!'));
+      showToast(t('Note / Reminder created successfully!'), 'success');
     } catch (error: any) {
       if (error.message === 'Network Error' || !error.response) {
         // Enqueue offline mutation for automatic syncing
@@ -213,13 +215,10 @@ export default function NotesScreen() {
         }
 
         setCreateModalVisible(false);
-        Alert.alert(
-          t('Saved Offline'),
-          t('You are working offline. This note has been saved to the offline queue and will sync automatically once connected.')
-        );
+        showToast(t('You are offline. Note saved to sync queue.'), 'info');
       } else {
         console.error('Error saving note:', error);
-        Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to save note.')));
+        showToast(extractErrorMessage(error, t('Failed to save note.')), 'error');
       }
     } finally {
       setSaving(false);

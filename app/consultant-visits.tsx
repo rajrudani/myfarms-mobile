@@ -26,10 +26,12 @@ import { cropCyclesApi } from '../src/api/cropCycles';
 import { ConsultantVisit, Farm, StaffMember, CropCycle } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
-import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput, EmptyState } from '../src/components/ui';
+import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput, EmptyState, ConfirmModal } from '../src/components/ui';
+import { useToast } from '../src/context/ToastContext';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
 
 export default function ConsultantVisitsScreen() {
+  const { showToast } = useToast();
   const [visits, setVisits] = useState<ConsultantVisit[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
   const [consultants, setConsultants] = useState<StaffMember[]>([]);
@@ -37,6 +39,10 @@ export default function ConsultantVisitsScreen() {
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Confirm delete state
+  const [visitToDelete, setVisitToDelete] = useState<ConsultantVisit | null>(null);
+  const [deletingVisit, setDeletingVisit] = useState(false);
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
@@ -164,16 +170,16 @@ export default function ConsultantVisitsScreen() {
     try {
       if (editingVisit) {
         await consultantVisitsApi.update(editingVisit.ulid || editingVisit.id, payload);
-        Alert.alert('Success', 'Consultant visit updated successfully.');
+        showToast('Consultant visit updated successfully.', 'success');
       } else {
         await consultantVisitsApi.create(payload);
-        Alert.alert('Success', 'Consultant visit recorded successfully.');
+        showToast('Consultant visit recorded successfully.', 'success');
       }
       setModalVisible(false);
       fetchVisits(false);
     } catch (error) {
       console.error('Error saving visit:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to save consultant visit.'));
+      showToast(extractErrorMessage(error, 'Failed to save consultant visit.'), 'error');
     }
   };
 
@@ -189,31 +195,33 @@ export default function ConsultantVisitsScreen() {
       setVisits((prev) =>
         prev.map((v) => (v.ulid === visit.ulid || v.id === visit.id ? updated : v))
       );
+      showToast(`Visit marked as ${!visit.is_active ? 'active' : 'inactive'}.`, 'info');
     } catch (error) {
       console.error('Error toggling status:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to toggle status.'));
+      showToast(extractErrorMessage(error, 'Failed to toggle status.'), 'error');
       fetchVisits(false);
     }
   };
 
   // Delete visit
   const handleDeleteVisit = (visit: ConsultantVisit) => {
-    Alert.alert('Confirm Delete', 'Are you sure you want to delete this consultant visit?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await consultantVisitsApi.delete(visit.ulid || visit.id);
-            fetchVisits(false);
-          } catch (error) {
-            console.error('Error deleting visit:', error);
-            Alert.alert('Error', extractErrorMessage(error, 'Failed to delete visit.'));
-          }
-        },
-      },
-    ]);
+    setVisitToDelete(visit);
+  };
+
+  const handleConfirmDeleteVisit = async () => {
+    if (!visitToDelete) return;
+    setDeletingVisit(true);
+    try {
+      await consultantVisitsApi.delete(visitToDelete.ulid || visitToDelete.id);
+      setVisitToDelete(null);
+      showToast('Consultant visit deleted successfully.', 'success');
+      fetchVisits(false);
+    } catch (error) {
+      console.error('Error deleting visit:', error);
+      showToast(extractErrorMessage(error, 'Failed to delete visit.'), 'error');
+    } finally {
+      setDeletingVisit(false);
+    }
   };
 
   // Toggle crop cycle selection in modal
@@ -702,6 +710,17 @@ export default function ConsultantVisitsScreen() {
           ) : null}
         </View>
       </Modal>
+
+      <ConfirmModal
+        visible={!!visitToDelete}
+        title="Delete Consultant Visit"
+        message="Are you sure you want to delete this consultant visit? This action cannot be undone."
+        confirmText="Delete Visit"
+        destructive
+        loading={deletingVisit}
+        onConfirm={handleConfirmDeleteVisit}
+        onCancel={() => setVisitToDelete(null)}
+      />
     </SafeAreaView>
   );
 }

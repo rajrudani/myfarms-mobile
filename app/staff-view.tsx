@@ -28,13 +28,15 @@ import { extractErrorMessage, getAbsoluteImageUrl } from '../src/api/client';
 import { permissions } from '../src/utils/permissions';
 import { useResponsive } from '../src/utils/responsive';
 import { formatCurrency } from '../src/utils/formatters';
-import { ModalSheet, ModernInput, SearchableSelect, ModernDatePicker } from '../src/components/ui';
+import { ModalSheet, ModernInput, SearchableSelect, ModernDatePicker, ConfirmModal } from '../src/components/ui';
+import { useToast } from '../src/context/ToastContext';
 
 export default function StaffViewScreen() {
   const { id } = useLocalSearchParams();
   const staffIdentifier = id as string;
 
   const { user } = useAuth();
+  const { showToast } = useToast();
   const { containerMaxWidth, isTablet } = useResponsive();
   
   // States
@@ -43,6 +45,12 @@ export default function StaffViewScreen() {
   const [attendances, setAttendances] = useState<StaffAttendance[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Confirm Modals state
+  const [deleteStaffModalVisible, setDeleteStaffModalVisible] = useState(false);
+  const [deletingStaff, setDeletingStaff] = useState(false);
+  const [unassignFarmTarget, setUnassignFarmTarget] = useState<{ id: number; name: string } | null>(null);
+  const [unassigningFarm, setUnassigningFarm] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [paymentPage, setPaymentPage] = useState(1);
 
@@ -163,13 +171,13 @@ export default function StaffViewScreen() {
 
       const result = await staffApi.update(staffIdentifier, payload);
       setStaff(result);
-      Alert.alert('Success', 'Staff member details updated successfully.');
+      showToast('Staff member details updated successfully.', 'success');
       setPassword('');
       setEditModalVisible(false);
       fetchStaffDetails();
     } catch (error: any) {
       console.error('Error updating staff:', error);
-      Alert.alert('Error', extractErrorMessage(error));
+      showToast(extractErrorMessage(error), 'error');
     } finally {
       setUpdating(false);
     }
@@ -181,45 +189,39 @@ export default function StaffViewScreen() {
       const result = await staffApi.toggleStatus(staffIdentifier);
       setStaff(result);
       setStatus(result.is_active);
-      Alert.alert('Success', `Staff member ${result.is_active ? 'activated' : 'deactivated'} successfully.`);
+      showToast(`Staff member ${result.is_active ? 'activated' : 'deactivated'} successfully.`, 'success');
       fetchStaffDetails();
     } catch (error) {
       console.error('Error toggling status:', error);
-      Alert.alert('Error', extractErrorMessage(error));
+      showToast(extractErrorMessage(error), 'error');
     }
   };
 
   const handleDeleteStaff = () => {
     if (!staff || !staffIdentifier) return;
-    Alert.alert(
-      'Delete Staff Member',
-      'Are you sure you want to delete this staff member? This will remove them from active views.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setLoading(true);
-              await staffApi.delete(staffIdentifier);
-              Alert.alert('Success', 'Staff member deleted successfully.');
-              router.back();
-            } catch (error) {
-              console.error('Error deleting staff:', error);
-              Alert.alert('Error', extractErrorMessage(error));
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
+    setDeleteStaffModalVisible(true);
+  };
+
+  const handleConfirmDeleteStaff = async () => {
+    if (!staffIdentifier) return;
+    setDeletingStaff(true);
+    try {
+      await staffApi.delete(staffIdentifier);
+      setDeleteStaffModalVisible(false);
+      showToast('Staff member deleted successfully.', 'success');
+      router.back();
+    } catch (error) {
+      console.error('Error deleting staff:', error);
+      showToast(extractErrorMessage(error), 'error');
+    } finally {
+      setDeletingStaff(false);
+    }
   };
 
   const handleAddPayment = async () => {
     if (!staff) return;
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-      Alert.alert('Validation Error', 'Please enter a valid amount.');
+      showToast('Please enter a valid amount.', 'warning');
       return;
     }
 
@@ -235,7 +237,7 @@ export default function StaffViewScreen() {
       };
 
       await staffPaymentsApi.create(payload);
-      Alert.alert('Success', 'Payment recorded successfully!');
+      showToast('Payment recorded successfully!', 'success');
       setPaymentModalVisible(false);
 
       // Reset
@@ -248,7 +250,7 @@ export default function StaffViewScreen() {
       fetchStaffDetails();
     } catch (error: any) {
       console.error('Error creating payment:', error);
-      Alert.alert('Error', extractErrorMessage(error));
+      showToast(extractErrorMessage(error), 'error');
     } finally {
       setSavingPayment(false);
     }
@@ -264,19 +266,19 @@ export default function StaffViewScreen() {
 
   const handleAssignFarm = async () => {
     if (!staff || !selectedAssignFarmId) {
-      Alert.alert('Validation Error', 'Please select a farm to assign.');
+      showToast('Please select a farm to assign.', 'warning');
       return;
     }
     setAssigningFarm(true);
     try {
       await staffApi.assignFarm(staff.id, selectedAssignFarmId);
-      Alert.alert('Success', 'Farm assigned successfully.');
+      showToast('Farm assigned successfully.', 'success');
       setAssignFarmModalVisible(false);
       setSelectedAssignFarmId(null);
       fetchStaffDetails();
     } catch (error: any) {
       console.error('Error assigning farm:', error);
-      Alert.alert('Error', extractErrorMessage(error));
+      showToast(extractErrorMessage(error), 'error');
     } finally {
       setAssigningFarm(false);
     }
@@ -284,29 +286,23 @@ export default function StaffViewScreen() {
 
   const handleUnassignFarm = (farmId: number, farmName: string) => {
     if (!staff) return;
-    Alert.alert(
-      'Unassign Farm',
-      `Are you sure you want to unassign ${farmName}? Past records will be preserved.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Unassign',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setLoading(true);
-              await staffApi.unassignFarm(staff.id, farmId);
-              Alert.alert('Success', 'Farm unassigned successfully.');
-              fetchStaffDetails();
-            } catch (error: any) {
-              console.error('Error unassigning farm:', error);
-              Alert.alert('Error', extractErrorMessage(error));
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
+    setUnassignFarmTarget({ id: farmId, name: farmName });
+  };
+
+  const handleConfirmUnassignFarm = async () => {
+    if (!staff || !unassignFarmTarget) return;
+    setUnassigningFarm(true);
+    try {
+      await staffApi.unassignFarm(staff.id, unassignFarmTarget.id);
+      showToast('Farm unassigned successfully.', 'success');
+      setUnassignFarmTarget(null);
+      fetchStaffDetails();
+    } catch (error: any) {
+      console.error('Error unassigning farm:', error);
+      showToast(extractErrorMessage(error), 'error');
+    } finally {
+      setUnassigningFarm(false);
+    }
   };
 
   const handleSettlePayments = async () => {
@@ -317,14 +313,14 @@ export default function StaffViewScreen() {
         settled_on: settleDate,
         notes: settleNotes || undefined,
       });
-      Alert.alert('Success', 'Payments settled successfully. Current cycle reset to zero.');
+      showToast('Payments settled successfully. Current cycle reset to zero.', 'success');
       setSettleModalVisible(false);
       setSettleNotes('');
       setSettleDate(new Date().toISOString().split('T')[0]);
       fetchStaffDetails();
     } catch (error: any) {
       console.error('Error settling payments:', error);
-      Alert.alert('Error', extractErrorMessage(error));
+      showToast(extractErrorMessage(error), 'error');
     } finally {
       setSettlingPayments(false);
     }
@@ -343,12 +339,12 @@ export default function StaffViewScreen() {
       };
 
       await attendanceApi.mark(payload);
-      Alert.alert('Success', 'Attendance updated successfully.');
+      showToast('Attendance updated successfully.', 'success');
       setAttendanceModalVisible(false);
       fetchStaffDetails();
     } catch (error: any) {
       console.error('Error saving day attendance:', error);
-      Alert.alert('Error', extractErrorMessage(error));
+      showToast(extractErrorMessage(error), 'error');
     } finally {
       setSavingAttendance(false);
     }
@@ -1291,6 +1287,28 @@ export default function StaffViewScreen() {
           </View>
         </ScrollView>
       </ModalSheet>
+
+      <ConfirmModal
+        visible={deleteStaffModalVisible}
+        title="Delete Staff Member"
+        message={`Are you sure you want to delete "${staff?.name || 'this staff member'}"? This will remove them from active views.`}
+        confirmText="Delete Staff Member"
+        destructive
+        loading={deletingStaff}
+        onConfirm={handleConfirmDeleteStaff}
+        onCancel={() => setDeleteStaffModalVisible(false)}
+      />
+
+      <ConfirmModal
+        visible={!!unassignFarmTarget}
+        title="Unassign Farm"
+        message={`Are you sure you want to unassign "${unassignFarmTarget?.name || 'this farm'}"? Past records will be preserved.`}
+        confirmText="Unassign Farm"
+        destructive
+        loading={unassigningFarm}
+        onConfirm={handleConfirmUnassignFarm}
+        onCancel={() => setUnassignFarmTarget(null)}
+      />
     </SafeAreaView>
   );
 }

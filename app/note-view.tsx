@@ -24,18 +24,22 @@ import { NoteReminder, NoteReminderStatus } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
 import { colors, radius, spacing, typography } from '../src/theme/tokens';
-import { ModernDatePicker, ModernInput } from '../src/components/ui';
+import { ModernDatePicker, ModernInput, ConfirmModal } from '../src/components/ui';
+import { useToast } from '../src/context/ToastContext';
 
 export default function NoteViewScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const noteId = params.id;
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
+  const { showToast } = useToast();
 
   const [note, setNote] = useState<NoteReminder | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusMenuVisible, setStatusMenuVisible] = useState(false);
   const [imageModalVisible, setImageModalVisible] = useState(false);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Edit Modal State
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -107,10 +111,10 @@ export default function NoteViewScreen() {
       });
       setNote(updated);
       setEditModalVisible(false);
-      Alert.alert('Success', 'Note updated successfully!');
+      showToast('Note updated successfully!', 'success');
     } catch (error) {
       console.error('Failed to update note:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to update note.'));
+      showToast(extractErrorMessage(error, 'Failed to update note.'), 'error');
     } finally {
       setSaving(false);
     }
@@ -124,37 +128,34 @@ export default function NoteViewScreen() {
         status: nextStatus,
       });
       setNote(updated);
+      showToast(`Status updated to ${nextStatus}.`, 'info');
     } catch (error) {
       console.error('Failed to change status:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to change status.'));
+      showToast(extractErrorMessage(error, 'Failed to change status.'), 'error');
     }
   };
 
   const handleDelete = () => {
     if (!note) return;
+    setDeleteConfirmVisible(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!note) return;
     const isReminder = note.notify_enabled;
     const label = isReminder ? 'Reminder' : 'Note';
-
-    Alert.alert(
-      `Delete ${label}`,
-      `Are you sure you want to delete this ${label.toLowerCase()}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await notesApi.delete(note.ulid || note.id);
-              router.back();
-            } catch (error) {
-              console.error('Failed to delete note:', error);
-              Alert.alert('Error', extractErrorMessage(error, `Failed to delete ${label.toLowerCase()}.`));
-            }
-          },
-        },
-      ]
-    );
+    setDeleting(true);
+    try {
+      await notesApi.delete(note.ulid || note.id);
+      setDeleteConfirmVisible(false);
+      showToast(`${label} deleted successfully.`, 'success');
+      router.back();
+    } catch (error) {
+      console.error('Failed to delete note:', error);
+      showToast(extractErrorMessage(error, `Failed to delete ${label.toLowerCase()}.`), 'error');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const formatDate = (dateStr?: string | null) => {
@@ -594,6 +595,17 @@ export default function NoteViewScreen() {
           </View>
         </View>
       </Modal>
+
+      <ConfirmModal
+        visible={deleteConfirmVisible}
+        title={`Delete ${note?.notify_enabled ? 'Reminder' : 'Note'}`}
+        message={`Are you sure you want to delete this ${note?.notify_enabled ? 'reminder' : 'note'}? This action cannot be undone.`}
+        confirmText="Delete"
+        destructive
+        loading={deleting}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteConfirmVisible(false)}
+      />
     </SafeAreaView>
   );
 }

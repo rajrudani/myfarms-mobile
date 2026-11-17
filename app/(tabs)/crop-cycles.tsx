@@ -26,6 +26,7 @@ import { useAuth } from '../../src/hooks/useAuth';
 import { extractErrorMessage } from '../../src/api/client';
 import { colors, radius, spacing, shadows } from '../../src/theme/tokens';
 import { useTranslation } from '../../src/i18n/I18nContext';
+import { useToast } from '../../src/context/ToastContext';
 import {
   BentoCard,
   StatusBadge,
@@ -36,16 +37,23 @@ import {
   ModernDatePicker,
   ModernInput,
   EmptyState,
+  ConfirmModal,
 } from '../../src/components/ui';
 
 export default function CropCyclesScreen() {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
+  const { showToast } = useToast();
   const [cycles, setCycles] = useState<CropCycle[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
   const [crops, setCrops] = useState<Crop[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Confirm delete modal state
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [cycleToDelete, setCycleToDelete] = useState<CropCycle | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Search & Filter state
   const [search, setSearch] = useState('');
@@ -204,7 +212,7 @@ export default function CropCyclesScreen() {
       };
 
       await cropCyclesApi.create(newCycle);
-      Alert.alert(t('Success'), t('Crop cycle added successfully!'));
+      showToast(t('Crop cycle added successfully!'), { type: 'success' });
 
       setFarmId('');
       setCropId('');
@@ -261,7 +269,7 @@ export default function CropCyclesScreen() {
       };
 
       const result = await cropCyclesApi.update(identifier, updatedCycle);
-      Alert.alert(t('Success'), t('Crop cycle updated successfully!'));
+      showToast(t('Crop cycle updated successfully!'), { type: 'success' });
       setIsEditing(false);
       setSelectedCycle(result);
       fetchData();
@@ -274,32 +282,29 @@ export default function CropCyclesScreen() {
     }
   };
 
-  const handleDeleteCycle = async (cycle: CropCycle) => {
+  const handleDeleteCycle = (cycle: CropCycle) => {
     if (!cycle.id && !cycle.ulid) return;
-    const identifier = cycle.ulid || cycle.id!;
+    setCycleToDelete(cycle);
+    setDeleteConfirmVisible(true);
+  };
 
-    Alert.alert(
-      t('Confirm Delete'),
-      t('Are you sure you want to delete this crop cycle? This action cannot be undone.'),
-      [
-        { text: t('Cancel'), style: 'cancel' },
-        {
-          text: t('Delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await cropCyclesApi.delete(identifier);
-              Alert.alert(t('Success'), t('Crop cycle deleted successfully!'));
-              setDetailModalVisible(false);
-              fetchData();
-            } catch (error: any) {
-              console.error('Error deleting crop cycle:', error);
-              Alert.alert(t('Error'), t('Failed to delete crop cycle.'));
-            }
-          },
-        },
-      ]
-    );
+  const handleConfirmDelete = async () => {
+    if (!cycleToDelete) return;
+    const identifier = cycleToDelete.ulid || cycleToDelete.id!;
+    try {
+      setDeleting(true);
+      await cropCyclesApi.delete(identifier);
+      showToast(t('Crop cycle deleted successfully!'), { type: 'success' });
+      setDeleteConfirmVisible(false);
+      setDetailModalVisible(false);
+      setCycleToDelete(null);
+      fetchData();
+    } catch (error: any) {
+      console.error('Error deleting crop cycle:', error);
+      Alert.alert(t('Error'), t('Failed to delete crop cycle.'));
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const getFarmName = (farmId?: any, farmObj?: Farm) => {
@@ -1025,6 +1030,21 @@ export default function CropCyclesScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      {/* Confirm Delete Bottom Sheet Modal */}
+      <ConfirmModal
+        visible={deleteConfirmVisible}
+        onClose={() => {
+          if (!deleting) setDeleteConfirmVisible(false);
+        }}
+        onConfirm={handleConfirmDelete}
+        loading={deleting}
+        title={t('Delete Crop Cycle')}
+        message={t('Are you sure you want to delete this crop cycle? This action cannot be undone.')}
+        confirmLabel={t('Delete Crop Cycle')}
+        cancelLabel={t('Cancel')}
+        variant="danger"
+        icon="trash-outline"
+      />
     </SafeAreaView>
   );
 }

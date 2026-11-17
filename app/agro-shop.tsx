@@ -26,7 +26,8 @@ import { useAuth } from '../src/hooks/useAuth';
 import { permissions } from '../src/utils/permissions';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
-import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput, EmptyState } from '../src/components/ui';
+import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput, EmptyState, ConfirmModal } from '../src/components/ui';
+import { useToast } from '../src/context/ToastContext';
 import { useTranslation } from '../src/i18n/I18nContext';
 import { useResponsive } from '../src/utils/responsive';
 import { formatCurrency } from '../src/utils/formatters';
@@ -55,7 +56,14 @@ const PAYMENT_METHODS = [
 export default function AgroShopScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const { containerMaxWidth, isTablet, isSmallPhone } = useResponsive();
+
+  // Confirm delete states
+  const [purchaseToDelete, setPurchaseToDelete] = useState<AgroShopPurchase | null>(null);
+  const [deletingPurchase, setDeletingPurchase] = useState(false);
+  const [paymentToDelete, setPaymentToDelete] = useState<AgroShopPayment | null>(null);
+  const [deletingPayment, setDeletingPayment] = useState(false);
   const [shops, setShops] = useState<AgroShop[]>([]);
   const [selectedShopId, setSelectedShopId] = useState<number | string | null>(null);
   const [summary, setSummary] = useState<{ total_purchase: number; total_paid: number; balance: number }>({
@@ -192,7 +200,7 @@ export default function AgroShopScreen() {
         notes: shopNotes,
         is_active: shopIsActive,
       });
-      Alert.alert('Success', 'Agro Shop added successfully.');
+      showToast('Agro Shop added successfully.', 'success');
       setShopModalVisible(false);
       setShopName('');
       setContactName('');
@@ -205,7 +213,7 @@ export default function AgroShopScreen() {
       loadShops();
     } catch (error) {
       console.error('Error saving shop:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to create shop.'));
+      showToast(extractErrorMessage(error, 'Failed to create shop.'), 'error');
     }
   };
 
@@ -309,10 +317,10 @@ export default function AgroShopScreen() {
     try {
       if (editingPurchase) {
         await agroShopsApi.updatePurchase(editingPurchase.id, payload);
-        Alert.alert('Success', 'Purchase updated successfully.');
+        showToast('Purchase updated successfully.', 'success');
       } else {
         await agroShopsApi.createPurchase(selectedShopId, payload);
-        Alert.alert('Success', 'Purchase recorded successfully.');
+        showToast('Purchase recorded successfully.', 'success');
       }
       setPurchaseModalVisible(false);
       setEditingPurchase(null);
@@ -325,7 +333,7 @@ export default function AgroShopScreen() {
       loadShops();
     } catch (error) {
       console.error('Error saving purchase:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to save purchase.'));
+      showToast(extractErrorMessage(error, 'Failed to save purchase.'), 'error');
     }
   };
 
@@ -333,7 +341,7 @@ export default function AgroShopScreen() {
   const handleSavePayment = async () => {
     if (!selectedShopId) return;
     if (!paymentDate.trim() || !paymentAmount) {
-      Alert.alert('Validation Error', 'Date and Amount are required.');
+      showToast('Date and Amount are required.', 'warning');
       return;
     }
 
@@ -348,10 +356,10 @@ export default function AgroShopScreen() {
     try {
       if (editingPayment) {
         await agroShopsApi.updatePayment(editingPayment.id, payload);
-        Alert.alert('Success', 'Payment updated successfully.');
+        showToast('Payment updated successfully.', 'success');
       } else {
         await agroShopsApi.createPayment(selectedShopId, payload);
-        Alert.alert('Success', 'Payment recorded successfully.');
+        showToast('Payment recorded successfully.', 'success');
       }
       setPaymentModalVisible(false);
       setEditingPayment(null);
@@ -364,54 +372,52 @@ export default function AgroShopScreen() {
       loadShops();
     } catch (error) {
       console.error('Error saving payment:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to save payment.'));
+      showToast(extractErrorMessage(error, 'Failed to save payment.'), 'error');
     }
   };
 
   // Delete Purchase
   const handleDeletePurchase = (purchase: AgroShopPurchase) => {
-    Alert.alert(
-      'Confirm Delete',
-      'Are you sure you want to delete this purchase? Any linked payments will remain in ledger history.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await agroShopsApi.deletePurchase(purchase.id);
-              fetchLedgerData(false);
-              loadShops();
-            } catch (error) {
-              console.error('Error deleting purchase:', error);
-              Alert.alert('Error', extractErrorMessage(error, 'Failed to delete purchase.'));
-            }
-          },
-        },
-      ]
-    );
+    setPurchaseToDelete(purchase);
+  };
+
+  const handleConfirmDeletePurchase = async () => {
+    if (!purchaseToDelete) return;
+    setDeletingPurchase(true);
+    try {
+      await agroShopsApi.deletePurchase(purchaseToDelete.id);
+      setPurchaseToDelete(null);
+      showToast('Purchase deleted successfully.', 'success');
+      fetchLedgerData(false);
+      loadShops();
+    } catch (error) {
+      console.error('Error deleting purchase:', error);
+      showToast(extractErrorMessage(error, 'Failed to delete purchase.'), 'error');
+    } finally {
+      setDeletingPurchase(false);
+    }
   };
 
   // Delete Payment
   const handleDeletePayment = (payment: AgroShopPayment) => {
-    Alert.alert('Confirm Delete', 'Are you sure you want to delete this payment?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await agroShopsApi.deletePayment(payment.id);
-            fetchLedgerData(false);
-            loadShops();
-          } catch (error) {
-            console.error('Error deleting payment:', error);
-            Alert.alert('Error', extractErrorMessage(error, 'Failed to delete payment.'));
-          }
-        },
-      },
-    ]);
+    setPaymentToDelete(payment);
+  };
+
+  const handleConfirmDeletePayment = async () => {
+    if (!paymentToDelete) return;
+    setDeletingPayment(true);
+    try {
+      await agroShopsApi.deletePayment(paymentToDelete.id);
+      setPaymentToDelete(null);
+      showToast('Payment deleted successfully.', 'success');
+      fetchLedgerData(false);
+      loadShops();
+    } catch (error) {
+      console.error('Error deleting payment:', error);
+      showToast(extractErrorMessage(error, 'Failed to delete payment.'), 'error');
+    } finally {
+      setDeletingPayment(false);
+    }
   };
 
   const getSelectedShop = () => {
@@ -1574,6 +1580,28 @@ export default function AgroShopScreen() {
           ) : null}
         </View>
       </Modal>
+
+      <ConfirmModal
+        visible={!!purchaseToDelete}
+        title="Delete Purchase"
+        message="Are you sure you want to delete this purchase? Any linked payments will remain in ledger history."
+        confirmText="Delete Purchase"
+        destructive
+        loading={deletingPurchase}
+        onConfirm={handleConfirmDeletePurchase}
+        onCancel={() => setPurchaseToDelete(null)}
+      />
+
+      <ConfirmModal
+        visible={!!paymentToDelete}
+        title="Delete Payment"
+        message="Are you sure you want to delete this payment record?"
+        confirmText="Delete Payment"
+        destructive
+        loading={deletingPayment}
+        onConfirm={handleConfirmDeletePayment}
+        onCancel={() => setPaymentToDelete(null)}
+      />
     </SafeAreaView>
   );
 }
