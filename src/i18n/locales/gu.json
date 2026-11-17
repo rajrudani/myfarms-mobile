@@ -1360,5 +1360,20 @@
   "Bigha": "વીઘા",
   "Guntha": "ગુંઠા",
   "Hectare": "હેક્ટર",
-  "e.g. 10.5": "દા.ત. 10.5"
+  "e.g. 10.5": "દા.ત. 10.5",
+  "Workers": "કામદારો",
+  "workers": "કામદારો",
+  "Filter by Status": "સ્થિતિ દ્વારા ફિલ્ટર કરો",
+  "Reset to Active": "સક્રિય પર ફરી સેટ કરો",
+  "RESET TO ACTIVE": "સક્રિય પર ફરી સેટ કરો",
+  "Active Farms": "સક્રિય ફાર્મ",
+  "Inactive Farms": "નિષ્ક્રિય ફાર્મ",
+  "Manage farms, activities, and expenses.": "ફાર્મ, પ્રવૃત્તિઓ અને ખર્ચાઓ સરળતાથી સંભાળો.",
+  "No Matching Farms": "કોઈ મેળ ખાતા ફાર્મ મળ્યા નથી",
+  "No Farms Yet": "હજુ સુધી કોઈ ફાર્મ નથી",
+  "No farms match your search or filter criteria.": "તમારી શોધ અથવા ફિલ્ટર માપદંડ સાથે કોઈ ફાર્મ મેળ ખાતા નથી.",
+  "Get started by creating your first farm to track activities, crop cycles, and expenses.": "પ્રવૃત્તિઓ, પાક ચક્રો અને ખર્ચાઓ ટ્રૅક કરવા માટે તમારું પ્રથમ ફાર્મ બનાવીને શરૂઆત કરો.",
+  "+ Create First Farm": "+ પ્રથમ ફાર્મ બનાવો",
+  "Clear Filters": "ફિલ્ટર્સ સાફ કરો",
+  "Loading farms...": "ફાર્મ લોડ થઈ રહ્યા છે..."
 }

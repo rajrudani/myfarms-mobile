@@ -1270,5 +1270,20 @@
   "Bigha": "Bigha",
   "Guntha": "Guntha",
   "Hectare": "Hectare",
-  "e.g. 10.5": "e.g. 10.5"
+  "e.g. 10.5": "e.g. 10.5",
+  "Workers": "Workers",
+  "workers": "workers",
+  "Filter by Status": "Filter by Status",
+  "Reset to Active": "Reset to Active",
+  "RESET TO ACTIVE": "RESET TO ACTIVE",
+  "Active Farms": "Active Farms",
+  "Inactive Farms": "Inactive Farms",
+  "Manage farms, activities, and expenses.": "Manage farms, activities, and expenses.",
+  "No Matching Farms": "No Matching Farms",
+  "No Farms Yet": "No Farms Yet",
+  "No farms match your search or filter criteria.": "No farms match your search or filter criteria.",
+  "Get started by creating your first farm to track activities, crop cycles, and expenses.": "Get started by creating your first farm to track activities, crop cycles, and expenses.",
+  "+ Create First Farm": "+ Create First Farm",
+  "Clear Filters": "Clear Filters",
+  "Loading farms...": "Loading farms..."
 }

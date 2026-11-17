@@ -301,9 +301,7 @@ export default function FarmsScreen() {
   const formatAreaDisplay = (areaVal: number | string, unit?: string) => {
     const num = parseFloat(String(areaVal));
     const formatted = isNaN(num) ? '0.00' : num.toFixed(2);
-    const rawUnit = unit || 'Acre';
-    const capitalizedUnit = rawUnit.charAt(0).toUpperCase() + rawUnit.slice(1).toLowerCase();
-    return `${formatted} ${capitalizedUnit}`;
+    return `${formatted} ${formatUnitLabel(unit)}`;
   };
 
   const renderFarmItem = ({ item }: { item: Farm }) => (
@@ -319,7 +317,7 @@ export default function FarmsScreen() {
           activeOpacity={0.7}
           style={styles.statusDotTouchArea}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityLabel={item.is_active ? 'Active farm' : 'Inactive farm'}
+          accessibilityLabel={item.is_active ? t('Active') : t('Inactive')}
         >
           <View style={[styles.statusDotHalo, !item.is_active && styles.statusDotHaloInactive]}>
             <View style={[styles.statusDot, !item.is_active && styles.statusDotInactive]} />
@@ -331,7 +329,7 @@ export default function FarmsScreen() {
       <View style={styles.farmLocationRow}>
         <Ionicons name="location-sharp" size={14} color={colors.slate500} />
         <Text style={styles.farmLocation} numberOfLines={1}>
-          {item.location || 'Location not set'}
+          {item.location || t('Location not set')}
         </Text>
       </View>
 
@@ -347,14 +345,14 @@ export default function FarmsScreen() {
         <View style={styles.pill}>
           <Ionicons name="people-outline" size={14} color="#15803d" style={styles.pillIcon} />
           <Text style={styles.pillValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
-            {item.assigned_staff_count ?? 0} {t('Workers') || 'workers'}
+            {item.assigned_staff_count ?? 0} {t('Workers')}
           </Text>
         </View>
 
         <View style={styles.pill}>
           <Ionicons name="sparkles-outline" size={14} color="#15803d" style={styles.pillIcon} />
           <Text style={styles.pillValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
-            {item.active_cycles_count ?? 0} {t('Active Crops') || 'crops'}
+            {item.active_cycles_count ?? 0} {t('Active Crops')}
           </Text>
         </View>
       </View>
@@ -386,7 +384,7 @@ export default function FarmsScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#16a34a" />
-        <Text style={styles.loadingText}>{t('Loading...') || 'Loading farms...'}</Text>
+        <Text style={styles.loadingText}>{t('Loading farms...')}</Text>
       </View>
     );
   }
@@ -447,7 +445,7 @@ export default function FarmsScreen() {
             <View style={styles.activeFilterRow}>
               <View style={styles.activeFilterChip}>
                 <Text style={styles.activeFilterChipText}>
-                  Status: {statusFilter === 'inactive' ? 'Inactive' : 'All'}
+                  {t('Status')}: {statusFilter === 'inactive' ? t('Inactive') : t('All')}
                 </Text>
                 <TouchableOpacity
                   onPress={() => setStatusFilter('active')}
@@ -524,7 +522,7 @@ export default function FarmsScreen() {
       <ModalSheet
         visible={filterModalVisible}
         onClose={() => setFilterModalVisible(false)}
-        title="Filter by Status"
+        title={t('Filter by Status')}
         maxHeight="50%"
       >
         <View style={{ gap: spacing.sm, paddingBottom: spacing.lg }}>
@@ -537,7 +535,7 @@ export default function FarmsScreen() {
               }}
               activeOpacity={0.7}
             >
-              <Text style={styles.filterResetBtn}>RESET TO ACTIVE</Text>
+              <Text style={styles.filterResetBtn}>{t('RESET TO ACTIVE')}</Text>
             </TouchableOpacity>
           )}
 
@@ -565,7 +563,7 @@ export default function FarmsScreen() {
                   statusFilter === 'active' && styles.filterOptionTextActive,
                 ]}
               >
-                Active Farms
+                {t('Active Farms')}
               </Text>
             </View>
             <View style={styles.filterOptionRight}>
@@ -600,7 +598,7 @@ export default function FarmsScreen() {
                   statusFilter === 'inactive' && styles.filterOptionTextActive,
                 ]}
               >
-                Inactive Farms
+                {t('Inactive Farms')}
               </Text>
             </View>
             <View style={styles.filterOptionRight}>
@@ -635,7 +633,7 @@ export default function FarmsScreen() {
                   statusFilter === 'all' && styles.filterOptionTextActive,
                 ]}
               >
-                All Farms
+                {t('All Farms')}
               </Text>
             </View>
             <View style={styles.filterOptionRight}>
