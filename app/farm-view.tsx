@@ -28,6 +28,14 @@ import { permissions } from '../src/utils/permissions';
 import { useToast } from '../src/context/ToastContext';
 import { ConfirmModal, ModalSheet, ModernInput, QuickChipGroup, ChipOption } from '../src/components/ui';
 import { useTranslation } from '../src/i18n/I18nContext';
+import { colors, spacing } from '../src/theme/tokens';
+
+const sanitizeNumericInput = (text: string) => {
+  const normalized = text.replace(/,/g, '.');
+  const cleaned = normalized.replace(/[^0-9.]/g, '');
+  const parts = cleaned.split('.');
+  return parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : cleaned;
+};
 
 const AREA_UNITS = ['ACRE', 'HECTARE', 'BIGHAS', 'GUNTHAS'];
 
@@ -131,7 +139,9 @@ export default function FarmViewScreen() {
   // Edit Farm Modal State
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editName, setEditName] = useState('');
+  const [editNameError, setEditNameError] = useState('');
   const [editArea, setEditArea] = useState('');
+  const [editAreaError, setEditAreaError] = useState('');
   const [editAreaUnit, setEditAreaUnit] = useState('ACRE');
   const [editLocation, setEditLocation] = useState('');
   const [updatingFarm, setUpdatingFarm] = useState(false);
@@ -351,33 +361,40 @@ export default function FarmViewScreen() {
 
   const handleUpdateFarm = async () => {
     if (!farm || !farmIdentifier) return;
-    if (!editName.trim() || !editArea.trim()) {
-      Alert.alert(t('Validation Error') || 'Validation Error', t('Farm name and area are required.'));
-      return;
-    }
+    setEditNameError('');
+    setEditAreaError('');
 
-    const newAreaNum = parseFloat(editArea);
-    if (isNaN(newAreaNum) || newAreaNum <= 0) {
-      Alert.alert(t('Validation Error') || 'Validation Error', t('Area size must be a valid positive number.'));
-      return;
+    let hasError = false;
+    if (!editName.trim()) {
+      setEditNameError(t('Farm name is required.'));
+      hasError = true;
     }
-
-    if (farm.active_crop_cycles_area && newAreaNum < farm.active_crop_cycles_area - 0.0001) {
-      Alert.alert(
-        t('Area Downsize Error') || 'Area Downsize Error',
+    if (!editArea.trim()) {
+      setEditAreaError(t('Area size is required.'));
+      hasError = true;
+    } else if (isNaN(Number(editArea)) || Number(editArea) <= 0) {
+      setEditAreaError(t('Area size must be a valid positive number.'));
+      hasError = true;
+    } else if (
+      farm.active_crop_cycles_area &&
+      Number(editArea) < Number(farm.active_crop_cycles_area) - 0.0001
+    ) {
+      setEditAreaError(
         t('Total area cannot be less than the active crop cycles area (:area).', {
           area: `${farm.active_crop_cycles_area} ${formatUnitLabel(editAreaUnit)}`,
         })
       );
-      return;
+      hasError = true;
     }
+
+    if (hasError) return;
 
     setUpdatingFarm(true);
     try {
       const updated = await farmsApi.update(farmIdentifier, {
         ...farm,
         name: editName.trim(),
-        area: newAreaNum,
+        area: parseFloat(editArea),
         area_unit: editAreaUnit,
         location: editLocation.trim() || undefined,
       });
@@ -762,7 +779,15 @@ export default function FarmViewScreen() {
             {permissions.canManageFarms(user) && (
               <TouchableOpacity
                 style={styles.heroEditBtn}
-                onPress={() => setEditModalVisible(true)}
+                onPress={() => {
+                  setEditName(farm.name);
+                  setEditNameError('');
+                  setEditArea(farm.area?.toString() || '');
+                  setEditAreaError('');
+                  setEditAreaUnit(farm.area_unit || 'ACRE');
+                  setEditLocation(farm.location || '');
+                  setEditModalVisible(true);
+                }}
                 activeOpacity={0.7}
               >
                 <Ionicons name="pencil-sharp" size={15} color="#166534" />
@@ -1209,61 +1234,71 @@ export default function FarmViewScreen() {
       <ModalSheet
         visible={editModalVisible}
         onClose={() => setEditModalVisible(false)}
-        title={t('Edit Farm Details')}
+        title={t('Edit Farm')}
+        maxHeight="82%"
       >
-        <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
+        <ScrollView showsVerticalScrollIndicator={false}>
           <ModernInput
             label={t('Farm Name')}
             required
-            placeholder={t('e.g. Green Valley Farm')}
+            placeholder={t('e.g. Green Acres')}
             value={editName}
-            onChangeText={setEditName}
+            onChangeText={(text) => {
+              setEditName(text);
+              if (text.trim()) setEditNameError('');
+            }}
+            error={editNameError}
+            containerStyle={{ marginBottom: spacing.md }}
           />
 
           <ModernInput
-            label={`${t('Total Area')} (${formatUnitLabel(editAreaUnit)})`}
+            label={t('Area Size')}
             required
-            placeholder="e.g. 25.5"
+            placeholder={t('e.g. 10.5')}
             keyboardType="decimal-pad"
             inputMode="decimal"
             value={editArea}
             onChangeText={(text) => {
-              const normalized = text.replace(/,/g, '.');
-              const cleaned = normalized.replace(/[^0-9.]/g, '');
-              const parts = cleaned.split('.');
-              const sanitized = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : cleaned;
+              const sanitized = sanitizeNumericInput(text);
               setEditArea(sanitized);
+              if (sanitized.trim()) setEditAreaError('');
             }}
+            error={editAreaError}
+            suffix={<Text style={{ color: '#166534', fontWeight: '700', marginLeft: 4 }}>{formatUnitLabel(editAreaUnit)}</Text>}
+            containerStyle={{ marginBottom: spacing.md }}
           />
 
           <ModernInput
-            label={t('Location')}
-            placeholder={t('e.g. Anand, Gujarat')}
+            label={t('Location (Optional)')}
+            placeholder={t('e.g. California Valley')}
             value={editLocation}
             onChangeText={setEditLocation}
+            containerStyle={{ marginBottom: spacing.lg }}
           />
-        </ScrollView>
 
-        <View style={styles.modalActions}>
-          <TouchableOpacity
-            style={styles.modalCancelBtn}
-            onPress={() => setEditModalVisible(false)}
-            disabled={updatingFarm}
-          >
-            <Text style={styles.modalCancelBtnText}>{t('Cancel')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.modalSaveBtn}
-            onPress={handleUpdateFarm}
-            disabled={updatingFarm}
-          >
-            {updatingFarm ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.modalSaveBtnText}>{t('Save Changes')}</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={styles.modalCancelBtn}
+              onPress={() => setEditModalVisible(false)}
+              disabled={updatingFarm}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.modalCancelBtnText}>{t('Cancel')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalSaveBtn}
+              onPress={handleUpdateFarm}
+              disabled={updatingFarm}
+              activeOpacity={0.7}
+            >
+              {updatingFarm ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.modalSaveBtnText}>{t('Save Changes')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </ModalSheet>
 
       {/* Add / Manage Staff Modal */}
