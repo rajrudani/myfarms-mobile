@@ -24,7 +24,7 @@ import { Crop } from '../src/types';
 import { extractErrorMessage, getBaseUrl } from '../src/api/client';
 import { takePhoto, pickImage, uploadMedia } from '../src/utils/media';
 import { useTranslation } from '../src/i18n/I18nContext';
-import { ModernInput } from '../src/components/ui';
+import { ModernInput, EmptyState } from '../src/components/ui';
 
 const getAbsoluteImageUrl = (urlPath?: string | null) => {
   if (!urlPath) return undefined;
@@ -246,10 +246,19 @@ export default function CropsScreen() {
           contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#166534']} />}
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="grid-outline" size={48} color="#94a3b8" />
-              <Text style={styles.emptyText}>{t('No crops found.')}</Text>
-            </View>
+            <EmptyState
+              icon="leaf-outline"
+              title={search ? t('No Matching Crops') : t('No Crops Registered')}
+              message={
+                search
+                  ? t('No crops match your search query.')
+                  : t('Add master crops with category, harvest units, and duration days.')
+              }
+              actionLabel={!search ? t('+ Add First Crop') : undefined}
+              onAction={openAddModal}
+              secondaryActionLabel={search ? t('Clear Search') : undefined}
+              onSecondaryAction={() => setSearch('')}
+            />
           }
           renderItem={({ item }) => {
             const imageUrl = getAbsoluteImageUrl((item as any).image_url || (item as any).image_path);

@@ -25,6 +25,7 @@ import {
   SearchFilterBar,
   QuickChipGroup,
   ChipOption,
+  EmptyState,
 } from '../src/components/ui';
 
 const PRICE_UNIT_OPTIONS: ChipOption<'quintal' | 'kg'>[] = [
@@ -321,15 +322,22 @@ export default function MandiPricesScreen() {
             />
           }
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconCircle}>
-                <Ionicons name="pricetags-outline" size={32} color={colors.slate400} />
-              </View>
-              <Text style={styles.emptyTitle}>No Mandi Prices Found</Text>
-              <Text style={styles.emptySub}>
-                Try searching for another commodity or clearing district filters.
-              </Text>
-            </View>
+            <EmptyState
+              icon="pricetags-outline"
+              title="No Mandi Prices Found"
+              message={
+                search || selectedDistrict !== 'all'
+                  ? 'No market records match your search or selected district.'
+                  : 'Daily government mandi arrivals and rates will appear here.'
+              }
+              secondaryActionLabel={
+                search || selectedDistrict !== 'all' ? 'Reset Filters' : undefined
+              }
+              onSecondaryAction={() => {
+                setSearch('');
+                setSelectedDistrict('all');
+              }}
+            />
           }
         />
       )}

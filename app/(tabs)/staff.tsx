@@ -40,6 +40,7 @@ import {
   ModernInput,
   SearchableSelect,
   ModernDatePicker,
+  EmptyState,
 } from '../../src/components/ui';
 
 const ROLE_OPTIONS: ChipOption<StaffRoleValue>[] = [
@@ -917,10 +918,40 @@ export default function StaffScreen() {
                 />
               }
               ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="people-outline" size={36} color={colors.slate300} />
-                  <Text style={styles.emptyText}>No staff members found.</Text>
-                </View>
+                <EmptyState
+                  icon="people-outline"
+                  title={
+                    searchQuery || statusFilter !== 'active' || farmFilter !== 'all' || roleFilter !== 'all'
+                      ? t('No Matching Staff')
+                      : t('No Staff Members')
+                  }
+                  message={
+                    searchQuery || statusFilter !== 'active' || farmFilter !== 'all' || roleFilter !== 'all'
+                      ? t('No staff members match your search or filter options.')
+                      : t('Register workers, managers, and consultants to manage tasks and payroll.')
+                  }
+                  actionLabel={
+                    permissions.canManageStaff(user) &&
+                    !searchQuery &&
+                    statusFilter === 'active' &&
+                    farmFilter === 'all' &&
+                    roleFilter === 'all'
+                      ? t('+ Register First Staff')
+                      : undefined
+                  }
+                  onAction={() => setAddStaffModalVisible(true)}
+                  secondaryActionLabel={
+                    searchQuery || statusFilter !== 'active' || farmFilter !== 'all' || roleFilter !== 'all'
+                      ? t('Clear Filters')
+                      : undefined
+                  }
+                  onSecondaryAction={() => {
+                    setSearchQuery('');
+                    setStatusFilter('active');
+                    setFarmFilter('all');
+                    setRoleFilter('all');
+                  }}
+                />
               }
             />
           )}
@@ -1007,10 +1038,11 @@ export default function StaffScreen() {
                 />
               }
               ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="calendar-outline" size={36} color={colors.slate300} />
-                  <Text style={styles.emptyText}>No active staff members found.</Text>
-                </View>
+                <EmptyState
+                  icon="calendar-outline"
+                  title={t('No Active Staff for Attendance')}
+                  message={t('Only active workers and staff members appear in the daily attendance sheet.')}
+                />
               }
             />
           )}
@@ -1064,10 +1096,23 @@ export default function StaffScreen() {
                 />
               }
               ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="cash-outline" size={36} color={colors.slate300} />
-                  <Text style={styles.emptyText}>No payment history found.</Text>
-                </View>
+                <EmptyState
+                  icon="cash-outline"
+                  title={paymentSearch ? t('No Matching Payments') : t('No Payments Recorded')}
+                  message={
+                    paymentSearch
+                      ? t('No payment records match your search keyword.')
+                      : t('Disburse advance or wage payments to staff members.')
+                  }
+                  actionLabel={
+                    permissions.canManageStaff(user) && !paymentSearch
+                      ? t('+ Record First Payment')
+                      : undefined
+                  }
+                  onAction={() => setAddPaymentModalVisible(true)}
+                  secondaryActionLabel={paymentSearch ? t('Clear Search') : undefined}
+                  onSecondaryAction={() => setPaymentSearch('')}
+                />
               }
             />
           )}

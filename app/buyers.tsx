@@ -23,7 +23,7 @@ import { mastersApi } from '../src/api/masters';
 import { Buyer } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
 import { useTranslation } from '../src/i18n/I18nContext';
-import { ModernInput } from '../src/components/ui';
+import { ModernInput, EmptyState } from '../src/components/ui';
 
 export default function BuyersScreen() {
   const { t } = useTranslation();
@@ -187,10 +187,19 @@ export default function BuyersScreen() {
           contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#166534']} />}
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="briefcase-outline" size={48} color="#94a3b8" />
-              <Text style={styles.emptyText}>{t('No buyers found.')}</Text>
-            </View>
+            <EmptyState
+              icon="briefcase-outline"
+              title={search ? t('No Matching Buyers') : t('No Buyers Registered')}
+              message={
+                search
+                  ? t('No buyers match your search query.')
+                  : t('Add buyers and traders with phone numbers, companies, and addresses.')
+              }
+              actionLabel={!search ? t('+ Add First Buyer') : undefined}
+              onAction={openAddModal}
+              secondaryActionLabel={search ? t('Clear Search') : undefined}
+              onSecondaryAction={() => setSearch('')}
+            />
           }
           renderItem={({ item }) => {
             const initials = item.name

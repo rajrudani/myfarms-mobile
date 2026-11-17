@@ -36,6 +36,7 @@ import {
   SearchableSelect,
   ModernDatePicker,
   ModernInput,
+  EmptyState,
 } from '../../src/components/ui';
 
 const CATEGORIES = ['Labor', 'Seed', 'Fertilizer', 'Pesticide', 'Equipment', 'Fuel', 'Other'];
@@ -549,15 +550,31 @@ export default function ExpensesScreen() {
           />
         }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconCircle}>
-              <Ionicons name="receipt-outline" size={32} color={colors.slate400} />
-            </View>
-            <Text style={styles.emptyText}>No expenses found</Text>
-            <Text style={styles.emptySubtext}>
-              Try adjusting your category filter or tap "+" to record a new expense.
-            </Text>
-          </View>
+          <EmptyState
+            icon="receipt-outline"
+            title={search || categoryFilter !== 'all' || statusFilter !== 'all' ? t('No Matching Expenses') : t('No Expenses Found')}
+            message={
+              search || categoryFilter !== 'all' || statusFilter !== 'all'
+                ? t('Try adjusting your category or status filter.')
+                : t('Record field inputs, labor wages, or equipment maintenance.')
+            }
+            actionLabel={
+              permissions.canManageCommercials(user) && !search && categoryFilter === 'all' && statusFilter === 'all'
+                ? t('+ Record Expense')
+                : undefined
+            }
+            onAction={() => setCreateModalVisible(true)}
+            secondaryActionLabel={
+              search || categoryFilter !== 'all' || statusFilter !== 'all'
+                ? t('Clear Filters')
+                : undefined
+            }
+            onSecondaryAction={() => {
+              setSearch('');
+              setCategoryFilter('all');
+              setStatusFilter('all');
+            }}
+          />
         }
       />
 

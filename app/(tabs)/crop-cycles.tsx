@@ -35,6 +35,7 @@ import {
   SearchableSelect,
   ModernDatePicker,
   ModernInput,
+  EmptyState,
 } from '../../src/components/ui';
 
 export default function CropCyclesScreen() {
@@ -533,15 +534,30 @@ export default function CropCyclesScreen() {
           />
         }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconCircle}>
-              <MaterialCommunityIcons name="sprout-outline" size={32} color={colors.slate400} />
-            </View>
-            <Text style={styles.emptyText}>{t('No crop cycles found')}</Text>
-            <Text style={styles.emptySubtext}>
-              {t('Try adjusting your filters or tap "+" to initiate a new crop cycle.')}
-            </Text>
-          </View>
+          <EmptyState
+            mciIcon="sprout-outline"
+            title={search || statusFilter !== 'ACTIVE' ? t('No Matching Crop Cycles') : t('No Crop Cycles Yet')}
+            message={
+              search || statusFilter !== 'ACTIVE'
+                ? t('Try adjusting your search query or filter options.')
+                : t('Initiate a new sowing cycle to track inputs, harvest, and activities.')
+            }
+            actionLabel={
+              !search && statusFilter === 'ACTIVE'
+                ? t('+ New Crop Cycle')
+                : undefined
+            }
+            onAction={() => setCreateModalVisible(true)}
+            secondaryActionLabel={
+              search || statusFilter !== 'ACTIVE'
+                ? t('Clear Filters')
+                : undefined
+            }
+            onSecondaryAction={() => {
+              setSearch('');
+              setStatusFilter('ACTIVE');
+            }}
+          />
         }
       />
 

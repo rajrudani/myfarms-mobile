@@ -22,7 +22,7 @@ import { mastersApi } from '../src/api/masters';
 import { AgroInputProduct } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
 import { useTranslation } from '../src/i18n/I18nContext';
-import { ModernInput } from '../src/components/ui';
+import { ModernInput, EmptyState } from '../src/components/ui';
 
 export default function AgroInputProductsScreen() {
   const { t } = useTranslation();
@@ -228,10 +228,22 @@ export default function AgroInputProductsScreen() {
           contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#166534']} />}
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="cube-outline" size={48} color="#94a3b8" />
-              <Text style={styles.emptyText}>{t('No agro input products found.')}</Text>
-            </View>
+            <EmptyState
+              icon="cube-outline"
+              title={search || typeFilter !== 'ALL' ? t('No Matching Products') : t('No Products Registered')}
+              message={
+                search || typeFilter !== 'ALL'
+                  ? t('No products match your search query or type filter.')
+                  : t('Register agro input products like fertilizers, seeds, and pesticides.')
+              }
+              actionLabel={!search && typeFilter === 'ALL' ? t('+ Add First Product') : undefined}
+              onAction={openAddModal}
+              secondaryActionLabel={search || typeFilter !== 'ALL' ? t('Clear Filters') : undefined}
+              onSecondaryAction={() => {
+                setSearch('');
+                setTypeFilter('ALL');
+              }}
+            />
           }
           renderItem={({ item }) => (
             <View style={styles.prodCard}>

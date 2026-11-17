@@ -28,7 +28,7 @@ import { useTranslation } from '../../src/i18n/I18nContext';
 import { scheduleLocalReminder } from '../../src/utils/notifications';
 import { offlineSync } from '../../src/utils/offlineSync';
 import { useResponsive } from '../../src/utils/responsive';
-import { ModalSheet, ModernInput, ModernDatePicker } from '../../src/components/ui';
+import { ModalSheet, ModernInput, ModernDatePicker, EmptyState } from '../../src/components/ui';
 
 export default function NotesScreen() {
   const { t } = useTranslation();
@@ -464,16 +464,35 @@ export default function NotesScreen() {
             ) : null
           }
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyCard}>
-                <Text style={styles.emptyTitle}>{t('No notes or reminders yet.')}</Text>
-                <Text style={styles.emptySubtitle}>
-                  {search
-                    ? t('No records match your search filter.')
-                    : t('Create your first entry to start tracking tasks and observations.')}
-                </Text>
-              </View>
-            </View>
+            <EmptyState
+              icon="notifications-outline"
+              title={
+                search.trim() || statusFilter !== 'all' || typeFilter !== 'all'
+                  ? t('No Matching Notes')
+                  : t('No Notes or Reminders')
+              }
+              message={
+                search.trim() || statusFilter !== 'all' || typeFilter !== 'all'
+                  ? t('No records match your search or filter options.')
+                  : t('Create your first entry to start tracking tasks, observations, and farm reminders.')
+              }
+              actionLabel={
+                !(search.trim() || statusFilter !== 'all' || typeFilter !== 'all')
+                  ? t('+ Add Note / Reminder')
+                  : undefined
+              }
+              onAction={handleOpenCreateModal}
+              secondaryActionLabel={
+                search.trim() || statusFilter !== 'all' || typeFilter !== 'all'
+                  ? t('Clear Filters')
+                  : undefined
+              }
+              onSecondaryAction={() => {
+                setSearch('');
+                setStatusFilter('all');
+                setTypeFilter('all');
+              }}
+            />
           }
         />
       )}

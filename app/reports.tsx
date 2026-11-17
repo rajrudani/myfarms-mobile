@@ -27,7 +27,7 @@ import {
   ExpenseReportRow,
 } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
-import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchableSelect, ModernDatePicker } from '../src/components/ui';
+import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchableSelect, ModernDatePicker, EmptyState } from '../src/components/ui';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
 import { useTranslation } from '../src/i18n/I18nContext';
 import { downloadAndShareReport, ReportExportFormat } from '../src/utils/exportReport';
@@ -602,9 +602,12 @@ export default function ReportsScreen() {
                 ) : null
               }
               ListEmptyComponent={
-                <View style={styles.emptyView}>
-                  <Text style={styles.emptySubtitle}>{t('No muster records found for this period.')}</Text>
-                </View>
+                <EmptyState
+                  compact
+                  icon="calendar-outline"
+                  title={t('No Attendance Records')}
+                  message={t('No muster records found for this period. Try adjusting your month or farm filter.')}
+                />
               }
               renderItem={({ item }) => {
                 const statusVariant =
@@ -791,9 +794,12 @@ export default function ReportsScreen() {
                 ) : null
               }
               ListEmptyComponent={
-                <View style={styles.emptyView}>
-                  <Text style={styles.emptySubtitle}>{t('No payment records found for this period.')}</Text>
-                </View>
+                <EmptyState
+                  compact
+                  icon="cash-outline"
+                  title={t('No Payment Records')}
+                  message={t('No payment records found for this period. Try adjusting your date range or staff filter.')}
+                />
               }
               renderItem={({ item }) => (
                 <BentoCard variant="elevated" style={styles.rowCard}>
@@ -987,9 +993,12 @@ export default function ReportsScreen() {
                 ) : null
               }
               ListEmptyComponent={
-                <View style={styles.emptyView}>
-                  <Text style={styles.emptySubtitle}>{t('No activity logs recorded for this selection.')}</Text>
-                </View>
+                <EmptyState
+                  compact
+                  icon="clipboard-outline"
+                  title={t('No Activity Logs')}
+                  message={t('No activity logs recorded for this selection. Try adjusting your date range or farm filter.')}
+                />
               }
               renderItem={({ item }) => {
                 const isCompleted = item.status === 'COMPLETED';
@@ -1191,9 +1200,12 @@ export default function ReportsScreen() {
                 ) : null
               }
               ListEmptyComponent={
-                <View style={styles.emptyView}>
-                  <Text style={styles.emptySubtitle}>{t('No expense records found for this period.')}</Text>
-                </View>
+                <EmptyState
+                  compact
+                  icon="wallet-outline"
+                  title={t('No Expense Records')}
+                  message={t('No expense records found for this period. Try adjusting your date range or category filter.')}
+                />
               }
               renderItem={({ item }) => {
                 const isCompleted = item.payment_status === 'COMPLETED';

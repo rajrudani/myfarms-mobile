@@ -28,7 +28,7 @@ import { extractErrorMessage } from '../src/api/client';
 import { useAuth } from '../src/hooks/useAuth';
 import { permissions } from '../src/utils/permissions';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
-import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput } from '../src/components/ui';
+import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput, EmptyState } from '../src/components/ui';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
 import { useTranslation } from '../src/i18n/I18nContext';
 
@@ -530,15 +530,30 @@ export default function SalesScreen() {
             />
           }
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconCircle}>
-                <Ionicons name="trending-up-outline" size={36} color={colors.slate400} />
-              </View>
-              <Text style={styles.emptyTitle}>{t('No Sales Recorded')}</Text>
-              <Text style={styles.emptySubtitle}>
-                {search ? t('No sales match your current search') : t('Tap + button below to log your first harvest sale')}
-              </Text>
-            </View>
+            <EmptyState
+              icon="trending-up-outline"
+              title={t('No Sales Recorded')}
+              message={
+                search || selectedFarmFilter !== 'all'
+                  ? t('No sales match your current search or farm filter.')
+                  : t('Log produce sales with buyers, weight receipts, and mandi prices.')
+              }
+              actionLabel={
+                permissions.canManageCommercials(user) && !search && selectedFarmFilter === 'all'
+                  ? t('+ Record First Sale')
+                  : undefined
+              }
+              onAction={() => setSaleModalVisible(true)}
+              secondaryActionLabel={
+                search || selectedFarmFilter !== 'all'
+                  ? 'Clear Filters'
+                  : undefined
+              }
+              onSecondaryAction={() => {
+                setSearch('');
+                setSelectedFarmFilter('all');
+              }}
+            />
           }
           renderItem={({ item }) => {
             const dateStr = new Date(item.date).toLocaleDateString(undefined, {

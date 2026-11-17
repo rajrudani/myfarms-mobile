@@ -26,7 +26,7 @@ import { cropCyclesApi } from '../src/api/cropCycles';
 import { ConsultantVisit, Farm, StaffMember, CropCycle } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
-import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput } from '../src/components/ui';
+import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput, EmptyState } from '../src/components/ui';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
 
 export default function ConsultantVisitsScreen() {
@@ -494,17 +494,32 @@ export default function ConsultantVisitsScreen() {
             />
           }
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconCircle}>
-                <Ionicons name="clipboard-outline" size={36} color={colors.slate400} />
-              </View>
-              <Text style={styles.emptyTitle}>No Visits Found</Text>
-              <Text style={styles.emptySubtitle}>
-                {searchQuery
-                  ? 'Try searching with another keyword'
-                  : 'Tap + button below to log an agronomist advisory visit'}
-              </Text>
-            </View>
+            <EmptyState
+              icon="clipboard-outline"
+              title="No Visits Found"
+              message={
+                searchQuery || selectedFarmFilter !== 'all' || selectedConsultantFilter !== 'all' || selectedStatusFilter !== 'active'
+                  ? 'No advisory visits match your active search or filters.'
+                  : 'Track expert agronomist visits, field diagnostics, and spray prescriptions.'
+              }
+              actionLabel={
+                !searchQuery && selectedFarmFilter === 'all' && selectedConsultantFilter === 'all'
+                  ? '+ Log Advisory Visit'
+                  : undefined
+              }
+              onAction={handleOpenCreateModal}
+              secondaryActionLabel={
+                searchQuery || selectedFarmFilter !== 'all' || selectedConsultantFilter !== 'all' || selectedStatusFilter !== 'active'
+                  ? 'Clear Filters'
+                  : undefined
+              }
+              onSecondaryAction={() => {
+                setSearchQuery('');
+                setSelectedFarmFilter('all');
+                setSelectedConsultantFilter('all');
+                setSelectedStatusFilter('active');
+              }}
+            />
           }
         />
       )}

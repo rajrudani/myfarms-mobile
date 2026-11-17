@@ -32,6 +32,7 @@ import {
   ChipOption,
   ModalSheet,
   ModernInput,
+  EmptyState,
 } from '../../src/components/ui';
 
 const AREA_UNIT_OPTIONS: ChipOption<string>[] = [
@@ -466,15 +467,30 @@ export default function FarmsScreen() {
             />
           }
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconCircle}>
-                <Ionicons name="leaf-outline" size={32} color={colors.slate400} />
-              </View>
-              <Text style={styles.emptyText}>No farms found</Text>
-              <Text style={styles.emptySubtext}>
-                Try adjusting your search query or tap "+" to record a new farm.
-              </Text>
-            </View>
+            <EmptyState
+              icon="leaf-outline"
+              title={search || statusFilter !== 'active' ? t('No Matching Farms') : t('No Farms Yet')}
+              message={
+                search || statusFilter !== 'active'
+                  ? t('No farms match your search or filter criteria.')
+                  : t('Get started by creating your first farm to track activities, crop cycles, and expenses.')
+              }
+              actionLabel={
+                permissions.canManageFarms(user) && !search && statusFilter === 'active'
+                  ? t('+ Create First Farm')
+                  : undefined
+              }
+              onAction={() => setCreateModalVisible(true)}
+              secondaryActionLabel={
+                search || statusFilter !== 'active'
+                  ? t('Clear Filters')
+                  : undefined
+              }
+              onSecondaryAction={() => {
+                setSearch('');
+                setStatusFilter('active');
+              }}
+            />
           }
         />
 

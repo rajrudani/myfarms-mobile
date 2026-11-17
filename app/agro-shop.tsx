@@ -26,7 +26,7 @@ import { useAuth } from '../src/hooks/useAuth';
 import { permissions } from '../src/utils/permissions';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
-import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput } from '../src/components/ui';
+import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput, EmptyState } from '../src/components/ui';
 import { useTranslation } from '../src/i18n/I18nContext';
 import { useResponsive } from '../src/utils/responsive';
 import { formatCurrency } from '../src/utils/formatters';
@@ -221,6 +221,28 @@ export default function AgroShopScreen() {
   const handleRemovePurchaseItemLine = (index: number) => {
     if (purchaseItems.length === 1) return;
     setPurchaseItems(purchaseItems.filter((_, i) => i !== index));
+  };
+
+  // Open Add Purchase
+  const handleOpenAddPurchase = () => {
+    setEditingPurchase(null);
+    setPurchaseDate(new Date().toISOString().split('T')[0]);
+    setPurchaseNotes('');
+    setPurchaseBillPhotoPath(null);
+    setPurchaseBillPhotoUrl(null);
+    setPurchaseItems([{ agro_input_product_id: '', quantity: '', unit: 'BAG', unit_price: '' }]);
+    setPurchaseModalVisible(true);
+  };
+
+  // Open Add Payment
+  const handleOpenAddPayment = () => {
+    setEditingPayment(null);
+    setPaymentPurchaseId('');
+    setPaymentDate(new Date().toISOString().split('T')[0]);
+    setPaymentAmount('');
+    setPaymentMethod('cash');
+    setPaymentNotes('');
+    setPaymentModalVisible(true);
   };
 
   // Open Edit Purchase
@@ -425,13 +447,29 @@ export default function AgroShopScreen() {
     const selectedShop = getSelectedShop();
     if (!selectedShop) {
       return (
-        <View style={styles.emptyContainer}>
-          <View style={styles.emptyIconCircle}>
-            <Ionicons name="storefront-outline" size={36} color={colors.slate400} />
-          </View>
-          <Text style={styles.emptyTitle}>{t('No Agro Shop Selected')}</Text>
-          <Text style={styles.emptySubtitle}>{t('Create or choose a shop to manage ledger & purchases')}</Text>
-        </View>
+        <EmptyState
+          icon="storefront-outline"
+          title={shops.length === 0 ? t('No Agro Shops Added') : t('No Agro Shop Selected')}
+          message={
+            shops.length === 0
+              ? t('Create your first agro input supplier/shop to manage credit ledger and itemized purchases.')
+              : t('Choose a shop from the top list or add a new shop to view records.')
+          }
+          actionLabel={
+            permissions.canManageCommercials(user)
+              ? t('+ Add New Agro Shop')
+              : undefined
+          }
+          onAction={() => {
+            setShopName('');
+            setContactName('');
+            setPhone('');
+            setAddress('');
+            setShopNotes('');
+            setShopIsActive(true);
+            setShopModalVisible(true);
+          }}
+        />
       );
     }
 
@@ -459,15 +497,23 @@ export default function AgroShopScreen() {
             </View>
           }
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconCircle}>
-                <Ionicons name="cart-outline" size={32} color={colors.slate400} />
-              </View>
-              <Text style={styles.emptyTitle}>{t('No Purchases Found')}</Text>
-              <Text style={styles.emptySubtitle}>
-                {searchQuery ? t('Try matching another search keyword') : t('Record your first purchase for this shop')}
-              </Text>
-            </View>
+            <EmptyState
+              icon="cart-outline"
+              title={searchQuery ? t('No Matching Purchases') : t('No Purchases Recorded')}
+              message={
+                searchQuery
+                  ? t('No purchases match your search keyword.')
+                  : t('Record itemized shop purchases with quantities, unit prices, and bill receipts.')
+              }
+              actionLabel={
+                permissions.canManageCommercials(user) && !searchQuery
+                  ? t('+ Record First Purchase')
+                  : undefined
+              }
+              onAction={handleOpenAddPurchase}
+              secondaryActionLabel={searchQuery ? t('Clear Search') : undefined}
+              onSecondaryAction={() => setSearchQuery('')}
+            />
           }
           renderItem={({ item }) => {
             const dateStr = new Date(item.date).toLocaleDateString(undefined, {
@@ -627,15 +673,23 @@ export default function AgroShopScreen() {
             </View>
           }
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconCircle}>
-                <Ionicons name="card-outline" size={32} color={colors.slate400} />
-              </View>
-              <Text style={styles.emptyTitle}>{t('No Payments Found')}</Text>
-              <Text style={styles.emptySubtitle}>
-                {searchQuery ? t('Try matching another search keyword') : t('Record payments to settle shop dues')}
-              </Text>
-            </View>
+            <EmptyState
+              icon="card-outline"
+              title={searchQuery ? t('No Matching Payments') : t('No Payments Recorded')}
+              message={
+                searchQuery
+                  ? t('No payments match your search keyword.')
+                  : t('Record payments towards shop dues via Cash, UPI, or Bank Transfer.')
+              }
+              actionLabel={
+                permissions.canViewFinancials(user) && !searchQuery
+                  ? t('+ Record First Payment')
+                  : undefined
+              }
+              onAction={handleOpenAddPayment}
+              secondaryActionLabel={searchQuery ? t('Clear Search') : undefined}
+              onSecondaryAction={() => setSearchQuery('')}
+            />
           }
           renderItem={({ item }) => {
             const dateStr = new Date(item.date).toLocaleDateString(undefined, {

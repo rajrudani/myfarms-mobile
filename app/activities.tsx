@@ -22,7 +22,7 @@ import { mastersApi } from '../src/api/masters';
 import { FarmActivityMaster } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
-import { BentoCard, StatusBadge, SearchFilterBar, ModernInput } from '../src/components/ui';
+import { BentoCard, StatusBadge, SearchFilterBar, ModernInput, EmptyState } from '../src/components/ui';
 import { useTranslation } from '../src/i18n/I18nContext';
 
 export default function ActivitiesScreen() {
@@ -183,11 +183,19 @@ export default function ActivitiesScreen() {
             />
           }
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <MaterialCommunityIcons name="clipboard-text-outline" size={40} color={colors.slate400} />
-              <Text style={styles.emptyText}>{t('No activity templates found.')}</Text>
-              <Text style={styles.emptySubtext}>{t('Tap "+" to add a new activity protocol.')}</Text>
-            </View>
+            <EmptyState
+              mciIcon="clipboard-text-outline"
+              title={search ? t('No Matching Activities') : t('No Activity Templates')}
+              message={
+                search
+                  ? t('No activity templates match your search query.')
+                  : t('Add standardized field activity templates like Irrigation, Spraying, or Fertilizer.')
+              }
+              actionLabel={!search ? t('+ Add First Activity') : undefined}
+              onAction={openAddModal}
+              secondaryActionLabel={search ? t('Clear Search') : undefined}
+              onSecondaryAction={() => setSearch('')}
+            />
           }
           renderItem={({ item }) => (
             <BentoCard
