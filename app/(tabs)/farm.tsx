@@ -80,13 +80,13 @@ export default function FarmsScreen() {
   const preferredAreaUnit = farms.find((f) => f.preferred_area_unit)?.preferred_area_unit || 'acre';
 
   const formatUnitLabel = (unit?: string) => {
-    if (!unit) return 'Acre';
+    if (!unit) return t('Acre');
     const u = unit.toLowerCase();
-    if (u === 'acre') return 'Acre';
-    if (u === 'hectare') return 'Hectare';
-    if (u === 'bighas' || u === 'bigha') return 'Bigha';
-    if (u === 'gunthas' || u === 'guntha') return 'Guntha';
-    return unit.charAt(0).toUpperCase() + unit.slice(1).toLowerCase();
+    if (u === 'acre') return t('Acre');
+    if (u === 'hectare') return t('Hectare');
+    if (u === 'bighas' || u === 'bigha') return t('Bigha');
+    if (u === 'gunthas' || u === 'guntha') return t('Guntha');
+    return t(unit) || (unit.charAt(0).toUpperCase() + unit.slice(1).toLowerCase());
   };
 
   const fetchFarms = async () => {
@@ -119,14 +119,14 @@ export default function FarmsScreen() {
 
     let hasError = false;
     if (!name.trim()) {
-      setNameError('Farm name is required.');
+      setNameError(t('Farm name is required.'));
       hasError = true;
     }
     if (!area.trim()) {
-      setAreaError('Area size is required.');
+      setAreaError(t('Area size is required.'));
       hasError = true;
     } else if (isNaN(Number(area)) || Number(area) <= 0) {
-      setAreaError('Area size must be a valid positive number.');
+      setAreaError(t('Area size must be a valid positive number.'));
       hasError = true;
     }
 
@@ -162,8 +162,8 @@ export default function FarmsScreen() {
       });
     } catch (error: any) {
       console.error('Error creating farm:', error);
-      const msg = extractErrorMessage(error, 'Failed to create farm.');
-      Alert.alert('Error', msg);
+      const msg = extractErrorMessage(error, t('Failed to create farm.'));
+      Alert.alert(t('Error') || 'Error', msg);
     } finally {
       setSaving(false);
     }
@@ -176,21 +176,23 @@ export default function FarmsScreen() {
 
     let hasError = false;
     if (!editName.trim()) {
-      setEditNameError('Farm name is required.');
+      setEditNameError(t('Farm name is required.'));
       hasError = true;
     }
     if (!editArea.trim()) {
-      setEditAreaError('Area size is required.');
+      setEditAreaError(t('Area size is required.'));
       hasError = true;
     } else if (isNaN(Number(editArea)) || Number(editArea) <= 0) {
-      setEditAreaError('Area size must be a valid positive number.');
+      setEditAreaError(t('Area size must be a valid positive number.'));
       hasError = true;
     } else if (
       selectedFarm.active_crop_cycles_area &&
       Number(editArea) < Number(selectedFarm.active_crop_cycles_area) - 0.0001
     ) {
       setEditAreaError(
-        `Total area cannot be less than active crop cycles area (${selectedFarm.active_crop_cycles_area} ${formatUnitLabel(editAreaUnit)}).`
+        t('Total area cannot be less than the active crop cycles area (:area).', {
+          area: `${selectedFarm.active_crop_cycles_area} ${formatUnitLabel(editAreaUnit)}`,
+        })
       );
       hasError = true;
     }
@@ -209,14 +211,14 @@ export default function FarmsScreen() {
       };
 
       const result = await farmsApi.update(identifier, updatedFarm);
-      Alert.alert('Success', 'Farm updated successfully!');
+      Alert.alert(t('Success') || 'Success', t('Farm updated.'));
       setIsEditing(false);
       setSelectedFarm(result);
       fetchFarms();
     } catch (error: any) {
       console.error('Error updating farm:', error);
-      const msg = extractErrorMessage(error, 'Failed to update farm.');
-      Alert.alert('Error', msg);
+      const msg = extractErrorMessage(error, t('Failed to update farm.'));
+      Alert.alert(t('Error') || 'Error', msg);
     } finally {
       setUpdating(false);
     }
@@ -643,14 +645,14 @@ export default function FarmsScreen() {
       <ModalSheet
         visible={createModalVisible}
         onClose={() => setCreateModalVisible(false)}
-        title="Add New Farm Plot"
+        title={t('Add New Farm')}
         maxHeight="82%"
       >
         <ScrollView showsVerticalScrollIndicator={false}>
           <ModernInput
-            label="Farm Name"
+            label={t('Farm Name')}
             required
-            placeholder="e.g. Green Acres"
+            placeholder={t('e.g. Green Acres')}
             value={name}
             onChangeText={(text) => {
               setName(text);
@@ -661,9 +663,9 @@ export default function FarmsScreen() {
           />
 
           <ModernInput
-            label="Area Size"
+            label={t('Area Size')}
             required
-            placeholder="e.g. 10.5"
+            placeholder={t('e.g. 10.5')}
             keyboardType="decimal-pad"
             value={area}
             onChangeText={(text) => {
@@ -672,19 +674,12 @@ export default function FarmsScreen() {
             }}
             error={areaError}
             suffix={<Text style={{ color: '#166534', fontWeight: '700', marginLeft: 4 }}>{formatUnitLabel(preferredAreaUnit)}</Text>}
-            containerStyle={{ marginBottom: spacing.xs }}
+            containerStyle={{ marginBottom: spacing.md }}
           />
 
-          <View style={[styles.lockedUnitBadge, { marginBottom: spacing.md }]}>
-            <Ionicons name="lock-closed" size={13} color="#166534" />
-            <Text style={styles.lockedUnitText}>
-              Unit: {formatUnitLabel(preferredAreaUnit)} (Locked to Farm Group)
-            </Text>
-          </View>
-
           <ModernInput
-            label="Location (Optional)"
-            placeholder="e.g. California Valley"
+            label={t('Location (Optional)')}
+            placeholder={t('e.g. California Valley')}
             value={location}
             onChangeText={setLocation}
             containerStyle={{ marginBottom: spacing.lg }}
@@ -697,7 +692,7 @@ export default function FarmsScreen() {
               disabled={saving}
               activeOpacity={0.7}
             >
-              <Text style={styles.cancelBtnText}>Cancel</Text>
+              <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -709,7 +704,7 @@ export default function FarmsScreen() {
               {saving ? (
                 <ActivityIndicator color={colors.white} />
               ) : (
-                <Text style={styles.saveBtnText}>Save Farm</Text>
+                <Text style={styles.saveBtnText}>{t('Save Farm')}</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -720,14 +715,14 @@ export default function FarmsScreen() {
       <ModalSheet
         visible={detailModalVisible}
         onClose={() => setDetailModalVisible(false)}
-        title={isEditing ? 'Manage Farm' : 'Farm Details'}
+        title={isEditing ? t('Manage Farm') : t('Farm Details')}
         maxHeight="85%"
       >
         <ScrollView showsVerticalScrollIndicator={false}>
           {isEditing ? (
             <View>
               <ModernInput
-                label="Farm Name"
+                label={t('Farm Name')}
                 required
                 value={editName}
                 onChangeText={(text) => {
@@ -739,8 +734,9 @@ export default function FarmsScreen() {
               />
 
               <ModernInput
-                label="Area Size"
+                label={t('Area Size')}
                 required
+                placeholder={t('e.g. 10.5')}
                 keyboardType="decimal-pad"
                 value={editArea}
                 onChangeText={(text) => {
@@ -749,31 +745,25 @@ export default function FarmsScreen() {
                 }}
                 error={editAreaError}
                 suffix={<Text style={{ color: '#166534', fontWeight: '700', marginLeft: 4 }}>{formatUnitLabel(editAreaUnit)}</Text>}
-                containerStyle={{ marginBottom: spacing.xs }}
+                containerStyle={{ marginBottom: spacing.md }}
               />
 
-              <View style={[styles.lockedUnitBadge, { marginBottom: spacing.md }]}>
-                <Ionicons name="lock-closed" size={13} color="#166534" />
-                <Text style={styles.lockedUnitText}>
-                  Unit: {formatUnitLabel(editAreaUnit)} (Locked to Farm Group)
-                </Text>
-              </View>
-
               <ModernInput
-                label="Location"
+                label={t('Location')}
+                placeholder={t('e.g. California Valley')}
                 value={editLocation}
                 onChangeText={setEditLocation}
                 containerStyle={{ marginBottom: spacing.md }}
               />
 
               <View style={[styles.row, { justifyContent: 'space-between', marginBottom: spacing.lg, alignItems: 'center' }]}>
-                <Text style={styles.statusLabelText}>Status:</Text>
+                <Text style={styles.statusLabelText}>{t('Status')}:</Text>
                 <TouchableOpacity
                   onPress={() => selectedFarm && handleToggleFarmStatus(selectedFarm)}
                   activeOpacity={0.7}
                 >
                   <StatusBadge
-                    label={selectedFarm?.is_active ? 'Active' : 'Inactive'}
+                    label={selectedFarm?.is_active ? t('Active') : t('Inactive')}
                     variant={selectedFarm?.is_active ? 'success' : 'neutral'}
                     dot
                   />
@@ -787,7 +777,7 @@ export default function FarmsScreen() {
                   disabled={updating}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.cancelBtnText}>Back to View</Text>
+                  <Text style={styles.cancelBtnText}>{t('Back to View')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -799,7 +789,7 @@ export default function FarmsScreen() {
                   {updating ? (
                     <ActivityIndicator color={colors.white} />
                   ) : (
-                    <Text style={styles.saveBtnText}>Save</Text>
+                    <Text style={styles.saveBtnText}>{t('Save')}</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -808,37 +798,37 @@ export default function FarmsScreen() {
             <View style={styles.detailsView}>
               <View style={styles.detailCard}>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Name:</Text>
+                  <Text style={styles.detailLabel}>{t('Name')}:</Text>
                   <Text style={styles.detailValue}>{selectedFarm?.name}</Text>
                 </View>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Location:</Text>
-                  <Text style={styles.detailValue}>{selectedFarm?.location || 'Location not set'}</Text>
+                  <Text style={styles.detailLabel}>{t('Location')}:</Text>
+                  <Text style={styles.detailValue}>{selectedFarm?.location || t('Location not set')}</Text>
                 </View>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Total Area:</Text>
+                  <Text style={styles.detailLabel}>{t('Total Area')}:</Text>
                   <Text style={styles.detailValue}>
-                    {selectedFarm?.area} {selectedFarm?.area_unit}
+                    {selectedFarm?.area} {formatUnitLabel(selectedFarm?.area_unit)}
                   </Text>
                 </View>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Status:</Text>
+                  <Text style={styles.detailLabel}>{t('Status')}:</Text>
                   <StatusBadge
-                    label={selectedFarm?.is_active ? 'Active' : 'Inactive'}
+                    label={selectedFarm?.is_active ? t('Active') : t('Inactive')}
                     variant={selectedFarm?.is_active ? 'success' : 'neutral'}
                     dot
                   />
                 </View>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Staff Assigned:</Text>
+                  <Text style={styles.detailLabel}>{t('Staff Assigned')}:</Text>
                   <Text style={styles.detailValue}>
-                    {selectedFarm?.assigned_staff_count ?? 0} staff members
+                    {selectedFarm?.assigned_staff_count ?? 0} {t('Staff Members')}
                   </Text>
                 </View>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Active Crops:</Text>
+                  <Text style={styles.detailLabel}>{t('Active Crops')}:</Text>
                   <Text style={styles.detailValue}>
-                    {selectedFarm?.active_cycles_count ?? 0} active cycles
+                    {selectedFarm?.active_cycles_count ?? 0} {t('Active Cycles')}
                   </Text>
                 </View>
               </View>
@@ -849,14 +839,14 @@ export default function FarmsScreen() {
                   onPress={() => setDetailModalVisible(false)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.cancelBtnText}>Close</Text>
+                  <Text style={styles.cancelBtnText}>{t('Close')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.modalBtn, styles.saveBtn, { marginLeft: 12 }]}
                   onPress={() => selectedFarm && handleOpenManage(selectedFarm)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.saveBtnText}>Open Farm Hub</Text>
+                  <Text style={styles.saveBtnText}>{t('Open Farm Hub')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1392,22 +1382,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: colors.slate900,
-  },
-  lockedUnitBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0fdf4',
-    borderWidth: 1,
-    borderColor: '#bbf7d0',
-    borderRadius: radius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginTop: 10,
-    gap: 8,
-  },
-  lockedUnitText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#166534',
   },
 });

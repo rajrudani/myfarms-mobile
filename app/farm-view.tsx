@@ -1008,7 +1008,9 @@ export default function FarmViewScreen() {
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Total Area *</Text>
+                <Text style={styles.formLabel}>
+                  Total Area ({editAreaUnit ? editAreaUnit.charAt(0).toUpperCase() + editAreaUnit.slice(1).toLowerCase() : 'Acre'}) *
+                </Text>
                 <TextInput
                   style={styles.formInput}
                   placeholder="e.g. 25.5"
@@ -1017,16 +1019,6 @@ export default function FarmViewScreen() {
                   value={editArea}
                   onChangeText={setEditArea}
                 />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Area Unit</Text>
-                <View style={styles.lockedUnitBadge}>
-                  <Ionicons name="lock-closed" size={13} color="#166534" />
-                  <Text style={styles.lockedUnitText}>
-                    {editAreaUnit.charAt(0) + editAreaUnit.slice(1).toLowerCase()} (Locked to Farm Group)
-                  </Text>
-                </View>
               </View>
 
               <View style={styles.formGroup}>
@@ -1828,21 +1820,5 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 8,
     backgroundColor: '#ffffff',
-  },
-  lockedUnitBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0fdf4',
-    borderWidth: 1,
-    borderColor: '#bbf7d0',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 8,
-  },
-  lockedUnitText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#166534',
   },
 });
