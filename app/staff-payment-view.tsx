@@ -27,6 +27,8 @@ import {
   StatusBadge,
   QuickChipGroup,
   ChipOption,
+  SearchableSelect,
+  ModernDatePicker,
 } from '../src/components/ui';
 
 const PAYMENT_METHOD_OPTIONS: ChipOption<'cash' | 'google_pay' | 'phonepe' | 'other_upi' | 'bank_transfer'>[] = [
@@ -53,7 +55,6 @@ export default function StaffPaymentViewScreen() {
   const [payNotes, setPayNotes] = useState('');
   const [payGivenBy, setPayGivenBy] = useState<number | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
-  const [showPayGivenDropdown, setShowPayGivenDropdown] = useState(false);
 
   const fetchPaymentDetails = async () => {
     if (!paymentIdentifier) return;
@@ -384,44 +385,26 @@ export default function StaffPaymentViewScreen() {
                 size="sm"
               />
 
-              <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Given By</Text>
-              <TouchableOpacity
-                style={styles.dropdownTrigger}
-                onPress={() => setShowPayGivenDropdown(!showPayGivenDropdown)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.dropdownTriggerText}>{selectedGivenByName}</Text>
-                <Ionicons
-                  name={showPayGivenDropdown ? 'chevron-up' : 'chevron-down'}
-                  size={16}
-                  color={colors.slate500}
-                />
-              </TouchableOpacity>
+              <SearchableSelect
+                label="Given By"
+                placeholder="Select owner or manager"
+                searchPlaceholder="Search staff..."
+                items={owners.map((o) => ({
+                  value: o.id,
+                  label: o.name,
+                  sublabel: o.roles[0]?.label,
+                  icon: 'person-outline',
+                }))}
+                value={payGivenBy}
+                onSelect={(val) => setPayGivenBy(val as number)}
+                containerStyle={{ marginTop: spacing.md }}
+              />
 
-              {showPayGivenDropdown && (
-                <View style={styles.dropdownList}>
-                  {owners.map((o) => (
-                    <TouchableOpacity
-                      key={o.id}
-                      style={styles.dropdownItem}
-                      onPress={() => {
-                        setPayGivenBy(o.id);
-                        setShowPayGivenDropdown(false);
-                      }}
-                    >
-                      <Text style={styles.dropdownItemText}>{o.name}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-
-              <Text style={styles.inputLabel}>Payment Date (YYYY-MM-DD)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.slate400}
+              <ModernDatePicker
+                label="Payment Date"
                 value={payDate}
-                onChangeText={setPayDate}
+                onChange={setPayDate}
+                containerStyle={{ marginTop: spacing.md }}
               />
 
               <Text style={styles.inputLabel}>Notes</Text>

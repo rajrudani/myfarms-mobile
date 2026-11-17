@@ -39,6 +39,7 @@ import {
   ModalSheet,
   ModernInput,
   SearchableSelect,
+  ModernDatePicker,
 } from '../../src/components/ui';
 
 const ROLE_OPTIONS: ChipOption<StaffRoleValue>[] = [
@@ -1313,12 +1314,10 @@ export default function StaffScreen() {
             size="sm"
           />
 
-          <ModernInput
-            label="Date (YYYY-MM-DD)"
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={colors.slate400}
+          <ModernDatePicker
+            label="Payment Date"
             value={payDate}
-            onChangeText={setPayDate}
+            onChange={setPayDate}
             containerStyle={{ marginTop: spacing.md }}
           />
 

@@ -26,7 +26,7 @@ import { cropCyclesApi } from '../src/api/cropCycles';
 import { ConsultantVisit, Farm, StaffMember, CropCycle } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
-import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar } from '../src/components/ui';
+import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker } from '../src/components/ui';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
 
 export default function ConsultantVisitsScreen() {
@@ -542,31 +542,46 @@ export default function ConsultantVisitsScreen() {
               showsVerticalScrollIndicator={false}
             >
               {/* Farm Selector */}
-              <Text style={styles.inputLabel}>Select Farm *</Text>
-              <QuickChipGroup
-                options={farms.map((f) => ({ label: f.name, value: f.id?.toString() || '' }))}
-                selectedValue={farmId}
-                onSelect={(val) => setFarmId(val)}
-                scrollable
+              <SearchableSelect
+                label="Select Farm"
+                required
+                placeholder="Select farm"
+                searchPlaceholder="Search farms..."
+                items={farms.map((f) => ({
+                  value: f.id?.toString() || '',
+                  label: f.name,
+                  sublabel: f.area ? `${f.area} ${f.area_unit}` : undefined,
+                  icon: 'business-outline',
+                }))}
+                value={farmId}
+                onSelect={(val) => setFarmId(val as string)}
+                containerStyle={{ marginBottom: spacing.md }}
               />
 
               {/* Consultant Selector */}
-              <Text style={styles.inputLabel}>Select Consultant / Agronomist *</Text>
-              <QuickChipGroup
-                options={consultants.map((c) => ({ label: c.name, value: c.id.toString() }))}
-                selectedValue={consultantId}
-                onSelect={(val) => setConsultantId(val)}
-                scrollable
+              <SearchableSelect
+                label="Select Consultant / Agronomist"
+                required
+                placeholder="Select consultant"
+                searchPlaceholder="Search consultants..."
+                items={consultants.map((c) => ({
+                  value: c.id.toString(),
+                  label: c.name,
+                  sublabel: c.email || undefined,
+                  icon: 'medkit-outline',
+                }))}
+                value={consultantId}
+                onSelect={(val) => setConsultantId(val as string)}
+                containerStyle={{ marginBottom: spacing.md }}
               />
 
               {/* Visit Date */}
-              <Text style={styles.inputLabel}>Visit Date (YYYY-MM-DD) *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. 2026-06-27"
-                placeholderTextColor={colors.slate400}
+              <ModernDatePicker
+                label="Visit Date"
+                required
                 value={visitDate}
-                onChangeText={setVisitDate}
+                onChange={setVisitDate}
+                containerStyle={{ marginBottom: spacing.md }}
               />
 
               {/* Notes */}
@@ -598,35 +613,21 @@ export default function ConsultantVisitsScreen() {
               </View>
 
               {/* Crop Cycles Selection (Link Cycles) */}
-              <Text style={styles.inputLabel}>Link Related Crop Cycles (Optional)</Text>
-              <View style={styles.cyclesContainer}>
-                {cropCycles.map((cycle) => {
-                  const isSelected = selectedCycleIds.includes(cycle.id || '');
-                  return (
-                    <TouchableOpacity
-                      key={cycle.id}
-                      style={[styles.cycleSelectCard, isSelected && styles.cycleSelectCardActive]}
-                      onPress={() => handleToggleCycleSelection(cycle.id || '')}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons
-                        name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
-                        size={18}
-                        color={isSelected ? colors.primary : colors.slate400}
-                      />
-                      <Text
-                        style={[
-                          styles.cycleSelectText,
-                          isSelected && styles.cycleSelectTextActive,
-                        ]}
-                      >
-                        {cycle.season_name ? `${cycle.season_name} • ` : ''}
-                        {cycle.crop_name || 'Crop'}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              <SearchableSelect<string | number>
+                multiple
+                label="Link Related Crop Cycles (Optional)"
+                placeholder="Select crop cycles"
+                searchPlaceholder="Search cycles..."
+                items={cropCycles.map((cycle) => ({
+                  value: cycle.id || '',
+                  label: `${cycle.season_name ? `${cycle.season_name} • ` : ''}${cycle.crop_name || 'Crop'}`,
+                  sublabel: cycle.farm?.name,
+                  icon: 'leaf-outline',
+                }))}
+                selectedValues={selectedCycleIds}
+                onMultiSelect={(vals) => setSelectedCycleIds(vals)}
+                containerStyle={{ marginBottom: spacing.md }}
+              />
 
               <View style={{ marginTop: spacing.md }}>
                 <AttachmentPicker

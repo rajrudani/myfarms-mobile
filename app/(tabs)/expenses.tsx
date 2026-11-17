@@ -34,6 +34,7 @@ import {
   QuickChipGroup,
   ChipOption,
   SearchableSelect,
+  ModernDatePicker,
 } from '../../src/components/ui';
 
 const CATEGORIES = ['Labor', 'Seed', 'Fertilizer', 'Pesticide', 'Equipment', 'Fuel', 'Other'];
@@ -677,13 +678,11 @@ export default function ExpensesScreen() {
                 </>
               )}
 
-              <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Date (YYYY-MM-DD)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.slate400}
+              <ModernDatePicker
+                label="Date"
                 value={date}
-                onChangeText={setDate}
+                onChange={setDate}
+                containerStyle={{ marginTop: spacing.md }}
               />
 
               <Text style={styles.inputLabel}>Notes (Optional)</Text>
@@ -828,11 +827,11 @@ export default function ExpensesScreen() {
                     </>
                   )}
 
-                  <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Date</Text>
-                  <TextInput
-                    style={styles.input}
+                  <ModernDatePicker
+                    label="Date"
                     value={editDate}
-                    onChangeText={setEditDate}
+                    onChange={setEditDate}
+                    containerStyle={{ marginTop: spacing.md }}
                   />
 
                   <Text style={styles.inputLabel}>Notes</Text>

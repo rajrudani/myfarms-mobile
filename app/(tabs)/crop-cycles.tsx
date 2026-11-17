@@ -33,6 +33,7 @@ import {
   QuickChipGroup,
   ChipOption,
   SearchableSelect,
+  ModernDatePicker,
 } from '../../src/components/ui';
 
 export default function CropCyclesScreen() {
@@ -676,22 +677,18 @@ export default function CropCyclesScreen() {
                 onChangeText={setSeasonName}
               />
 
-              <Text style={styles.inputLabel}>{t('Started On Date (YYYY-MM-DD)')}</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.slate400}
+              <ModernDatePicker
+                label={t('Started On Date')}
                 value={startedOn}
-                onChangeText={setStartedOn}
+                onChange={setStartedOn}
+                containerStyle={{ marginBottom: spacing.sm }}
               />
 
-              <Text style={styles.inputLabel}>{t('Expected Harvest Date (YYYY-MM-DD)')}</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.slate400}
+              <ModernDatePicker
+                label={t('Expected Harvest Date')}
                 value={expectedHarvestOn}
-                onChangeText={setExpectedHarvestOn}
+                onChange={setExpectedHarvestOn}
+                containerStyle={{ marginBottom: spacing.sm }}
               />
 
               <Text style={styles.inputLabel}>{t('Notes')}</Text>
@@ -829,18 +826,18 @@ export default function CropCyclesScreen() {
                     onChangeText={setEditSeasonName}
                   />
 
-                  <Text style={styles.inputLabel}>{t('Started On Date (YYYY-MM-DD)')}</Text>
-                  <TextInput
-                    style={styles.input}
+                  <ModernDatePicker
+                    label={t('Started On Date')}
                     value={editStartedOn}
-                    onChangeText={setEditStartedOn}
+                    onChange={setEditStartedOn}
+                    containerStyle={{ marginBottom: spacing.sm, marginTop: spacing.xs }}
                   />
 
-                  <Text style={styles.inputLabel}>{t('Expected Harvest Date (YYYY-MM-DD)')}</Text>
-                  <TextInput
-                    style={styles.input}
+                  <ModernDatePicker
+                    label={t('Expected Harvest Date')}
                     value={editExpectedHarvestOn}
-                    onChangeText={setEditExpectedHarvestOn}
+                    onChange={setEditExpectedHarvestOn}
+                    containerStyle={{ marginBottom: spacing.sm }}
                   />
 
                   <Text style={styles.inputLabel}>{t('Cycle Status')}</Text>
@@ -853,13 +850,11 @@ export default function CropCyclesScreen() {
 
                   {editStatus === 'COMPLETED' && (
                     <View style={{ marginTop: spacing.md }}>
-                      <Text style={styles.inputLabel}>{t('Actual Harvest Date (YYYY-MM-DD)')}</Text>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="YYYY-MM-DD"
-                        placeholderTextColor={colors.slate400}
+                      <ModernDatePicker
+                        label={t('Actual Harvest Date')}
                         value={editActualHarvestOn}
-                        onChangeText={setEditActualHarvestOn}
+                        onChange={setEditActualHarvestOn}
+                        containerStyle={{ marginBottom: spacing.sm }}
                       />
 
                       <Text style={styles.inputLabel}>{t('Harvest Yield Amount')}</Text>

@@ -26,7 +26,7 @@ import { useAuth } from '../src/hooks/useAuth';
 import { permissions } from '../src/utils/permissions';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
-import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar } from '../src/components/ui';
+import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker } from '../src/components/ui';
 import { useTranslation } from '../src/i18n/I18nContext';
 import { useResponsive } from '../src/utils/responsive';
 import { formatCurrency } from '../src/utils/formatters';
@@ -1191,13 +1191,12 @@ export default function AgroShopScreen() {
               contentContainerStyle={styles.modalScroll}
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.inputLabel}>Purchase Date (YYYY-MM-DD) *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. 2026-06-27"
-                placeholderTextColor={colors.slate400}
+              <ModernDatePicker
+                label="Purchase Date"
+                required
                 value={purchaseDate}
-                onChangeText={setPurchaseDate}
+                onChange={setPurchaseDate}
+                containerStyle={{ marginBottom: spacing.md }}
               />
 
               {/* Items row list */}
@@ -1239,39 +1238,26 @@ export default function AgroShopScreen() {
                       </View>
 
                       {/* Product Selector */}
-                      <Text style={styles.lineSubLabel}>Select Input Product *</Text>
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.lineProductSelect}
-                      >
-                        {inputProducts.map((prod) => {
-                          const isSel = pItem.agro_input_product_id === prod.id.toString();
-                          return (
-                            <TouchableOpacity
-                              key={prod.id}
-                              style={[
-                                styles.lineProductPill,
-                                isSel && styles.lineProductPillActive,
-                              ]}
-                              onPress={() => {
-                                const newItems = [...purchaseItems];
-                                newItems[idx].agro_input_product_id = prod.id.toString();
-                                setPurchaseItems(newItems);
-                              }}
-                            >
-                              <Text
-                                style={[
-                                  styles.lineProductText,
-                                  isSel && styles.lineProductTextActive,
-                                ]}
-                              >
-                                {prod.name}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </ScrollView>
+                      <SearchableSelect
+                        label="Select Input Product"
+                        required
+                        placeholder="Select Product"
+                        searchPlaceholder="Search agro inputs..."
+                        items={inputProducts.map((prod) => ({
+                          value: prod.id.toString(),
+                          label: prod.name,
+                          sublabel: prod.category || undefined,
+                          icon: 'flask-outline',
+                        }))}
+                        value={pItem.agro_input_product_id || null}
+                        onSelect={(val) => {
+                          const newItems = [...purchaseItems];
+                          newItems[idx].agro_input_product_id = val as string;
+                          setPurchaseItems(newItems);
+                        }}
+                        containerStyle={{ marginBottom: spacing.xs }}
+                        emptyMessage="No input products found"
+                      />
 
                       {/* Qty, Unit, Unit Price */}
                       <View style={styles.lineInputRow}>
@@ -1439,54 +1425,32 @@ export default function AgroShopScreen() {
               showsVerticalScrollIndicator={false}
             >
               {/* Linked Purchase Selector */}
-              <Text style={styles.inputLabel}>Link to Specific Purchase (Optional)</Text>
-              <View style={styles.pickerContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.pickerItem,
-                    paymentPurchaseId === '' && styles.pickerItemActive,
-                  ]}
-                  onPress={() => setPaymentPurchaseId('')}
-                >
-                  <Text
-                    style={[
-                      styles.pickerItemText,
-                      paymentPurchaseId === '' && styles.pickerItemTextActive,
-                    ]}
-                  >
-                    General (No Link)
-                  </Text>
-                </TouchableOpacity>
-                {purchases
+              <SearchableSelect
+                label="Link to Specific Purchase (Optional)"
+                allowClear
+                clearLabel="General (No Link)"
+                placeholder="General (No Link)"
+                searchPlaceholder="Search bills..."
+                items={purchases
                   .filter((p) => p.balance > 0)
-                  .map((p) => (
-                    <TouchableOpacity
-                      key={p.id}
-                      style={[
-                        styles.pickerItem,
-                        paymentPurchaseId === p.id.toString() && styles.pickerItemActive,
-                      ]}
-                      onPress={() => setPaymentPurchaseId(p.id.toString())}
-                    >
-                      <Text
-                        style={[
-                          styles.pickerItemText,
-                          paymentPurchaseId === p.id.toString() && styles.pickerItemTextActive,
-                        ]}
-                      >
-                        Bill #{p.id} (Due: ₹{p.balance})
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-              </View>
+                  .map((p) => ({
+                    value: p.id.toString(),
+                    label: `Bill #${p.id} (Due: ₹${p.balance})`,
+                    sublabel: p.date ? new Date(p.date).toLocaleDateString() : undefined,
+                    icon: 'receipt-outline',
+                  }))}
+                value={paymentPurchaseId || null}
+                onSelect={(val) => setPaymentPurchaseId((val as string) || '')}
+                containerStyle={{ marginBottom: spacing.md }}
+                emptyMessage="No pending bills with balance"
+              />
 
-              <Text style={styles.inputLabel}>Payment Date (YYYY-MM-DD) *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. 2026-06-27"
-                placeholderTextColor={colors.slate400}
+              <ModernDatePicker
+                label="Payment Date"
+                required
                 value={paymentDate}
-                onChangeText={setPaymentDate}
+                onChange={setPaymentDate}
+                containerStyle={{ marginBottom: spacing.md }}
               />
 
               <Text style={styles.inputLabel}>Payment Amount (₹) *</Text>

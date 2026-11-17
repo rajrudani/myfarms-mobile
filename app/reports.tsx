@@ -27,7 +27,7 @@ import {
   ExpenseReportRow,
 } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
-import { BentoCard, MetricTile, StatusBadge, QuickChipGroup } from '../src/components/ui';
+import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchableSelect, ModernDatePicker } from '../src/components/ui';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
 import { useTranslation } from '../src/i18n/I18nContext';
 import { downloadAndShareReport, ReportExportFormat } from '../src/utils/exportReport';
@@ -501,19 +501,21 @@ export default function ReportsScreen() {
               />
             </View>
 
-            <View style={styles.filterRow}>
-              <Text style={styles.filterSectionLabel}>{t('Staff')}:</Text>
-              <QuickChipGroup
-                options={workerOptions}
-                selectedValue={selectedWorker}
-                onSelect={(val) => {
-                  setSelectedWorker(val);
-                  fetchAttendanceReport(selectedFarm, val, selectedMonth, selectedYear);
-                }}
-                scrollable
-                size="sm"
-              />
-            </View>
+            <SearchableSelect
+              label={t('Staff')}
+              placeholder={t('All Staff')}
+              searchPlaceholder={t('Search staff...')}
+              allowClear
+              clearLabel={t('All Staff')}
+              items={filtersData?.workers.map((w) => ({ value: w.ulid, label: w.name, icon: 'person-outline' })) || []}
+              value={selectedWorker}
+              onSelect={(val) => {
+                const nextWorker = (val as string) || '';
+                setSelectedWorker(nextWorker);
+                fetchAttendanceReport(selectedFarm, nextWorker, selectedMonth, selectedYear);
+              }}
+              containerStyle={{ marginBottom: spacing.xs }}
+            />
 
             <View style={styles.filterRow}>
               <Text style={styles.filterSectionLabel}>{t('Month & Year')}:</Text>
@@ -666,19 +668,19 @@ export default function ReportsScreen() {
       return (
         <View style={styles.reportContainer}>
           <View style={styles.filterDock}>
-            <View style={styles.filterRow}>
-              <Text style={styles.filterSectionLabel}>{t('Staff')} *:</Text>
-              <QuickChipGroup
-                options={workerOptions}
-                selectedValue={selectedWorker}
-                onSelect={(val) => {
-                  setSelectedWorker(val);
-                  fetchPaymentReport(val, fromDate, toDate, includeFamily);
-                }}
-                scrollable
-                size="sm"
-              />
-            </View>
+            <SearchableSelect
+              label={t('Staff') + ' *'}
+              placeholder={t('Select Staff Member')}
+              searchPlaceholder={t('Search staff members...')}
+              items={workerOptions.map((w) => ({ value: w.value, label: w.label, icon: 'person-outline' }))}
+              value={selectedWorker}
+              onSelect={(val) => {
+                const nextWorker = val as string;
+                setSelectedWorker(nextWorker);
+                fetchPaymentReport(nextWorker, fromDate, toDate, includeFamily);
+              }}
+              containerStyle={{ marginBottom: spacing.xs }}
+            />
 
             {/* Include Family Members Toggle */}
             <View style={[styles.filterRow, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
@@ -726,31 +728,25 @@ export default function ReportsScreen() {
               </View>
             </View>
 
-            <View style={styles.customDateRow}>
-              <View style={{ flex: 1, marginRight: spacing.xs }}>
-                <Text style={styles.dateFieldLabel}>{t('From Date')}</Text>
-                <TextInput
-                  style={styles.dateInput}
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: spacing.xs }}>
+              <View style={{ flex: 1 }}>
+                <ModernDatePicker
+                  label={t('From Date')}
                   value={fromDate}
-                  onChangeText={(text) => {
-                    setFromDate(text);
-                    if (text.length === 10) fetchPaymentReport(selectedWorker, text, toDate);
+                  onChange={(d) => {
+                    setFromDate(d);
+                    fetchPaymentReport(selectedWorker, d, toDate, includeFamily);
                   }}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={colors.slate400}
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.dateFieldLabel}>{t('To Date')}</Text>
-                <TextInput
-                  style={styles.dateInput}
+                <ModernDatePicker
+                  label={t('To Date')}
                   value={toDate}
-                  onChangeText={(text) => {
-                    setToDate(text);
-                    if (text.length === 10) fetchPaymentReport(selectedWorker, fromDate, text);
+                  onChange={(d) => {
+                    setToDate(d);
+                    fetchPaymentReport(selectedWorker, fromDate, d, includeFamily);
                   }}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={colors.slate400}
                 />
               </View>
             </View>
@@ -910,33 +906,25 @@ export default function ReportsScreen() {
               </View>
             </View>
 
-            <View style={styles.customDateRow}>
-              <View style={{ flex: 1, marginRight: spacing.xs }}>
-                <Text style={styles.dateFieldLabel}>{t('From Date')}</Text>
-                <TextInput
-                  style={styles.dateInput}
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: spacing.xs }}>
+              <View style={{ flex: 1 }}>
+                <ModernDatePicker
+                  label={t('From Date')}
                   value={fromDate}
-                  onChangeText={(text) => {
-                    setFromDate(text);
-                    if (text.length === 10)
-                      fetchActivityReport(selectedFarm, selectedCycle, text, toDate);
+                  onChange={(d) => {
+                    setFromDate(d);
+                    fetchActivityReport(selectedFarm, selectedCycle, d, toDate);
                   }}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={colors.slate400}
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.dateFieldLabel}>{t('To Date')}</Text>
-                <TextInput
-                  style={styles.dateInput}
+                <ModernDatePicker
+                  label={t('To Date')}
                   value={toDate}
-                  onChangeText={(text) => {
-                    setToDate(text);
-                    if (text.length === 10)
-                      fetchActivityReport(selectedFarm, selectedCycle, fromDate, text);
+                  onChange={(d) => {
+                    setToDate(d);
+                    fetchActivityReport(selectedFarm, selectedCycle, fromDate, d);
                   }}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={colors.slate400}
                 />
               </View>
             </View>
@@ -1122,33 +1110,25 @@ export default function ReportsScreen() {
               </View>
             </View>
 
-            <View style={styles.customDateRow}>
-              <View style={{ flex: 1, marginRight: spacing.xs }}>
-                <Text style={styles.dateFieldLabel}>{t('From Date')}</Text>
-                <TextInput
-                  style={styles.dateInput}
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: spacing.xs }}>
+              <View style={{ flex: 1 }}>
+                <ModernDatePicker
+                  label={t('From Date')}
                   value={fromDate}
-                  onChangeText={(text) => {
-                    setFromDate(text);
-                    if (text.length === 10)
-                      fetchExpenseReport(selectedFarm, selectedCycle, text, toDate);
+                  onChange={(d) => {
+                    setFromDate(d);
+                    fetchExpenseReport(selectedFarm, selectedCycle, d, toDate);
                   }}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={colors.slate400}
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.dateFieldLabel}>{t('To Date')}</Text>
-                <TextInput
-                  style={styles.dateInput}
+                <ModernDatePicker
+                  label={t('To Date')}
                   value={toDate}
-                  onChangeText={(text) => {
-                    setToDate(text);
-                    if (text.length === 10)
-                      fetchExpenseReport(selectedFarm, selectedCycle, fromDate, text);
+                  onChange={(d) => {
+                    setToDate(d);
+                    fetchExpenseReport(selectedFarm, selectedCycle, fromDate, d);
                   }}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={colors.slate400}
                 />
               </View>
             </View>

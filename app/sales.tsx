@@ -28,7 +28,7 @@ import { extractErrorMessage } from '../src/api/client';
 import { useAuth } from '../src/hooks/useAuth';
 import { permissions } from '../src/utils/permissions';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
-import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect } from '../src/components/ui';
+import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker } from '../src/components/ui';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
 import { useTranslation } from '../src/i18n/I18nContext';
 
@@ -721,13 +721,12 @@ export default function SalesScreen() {
               contentContainerStyle={styles.modalScroll}
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.inputLabel}>Sale Date (YYYY-MM-DD) *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. 2026-06-27"
-                placeholderTextColor={colors.slate400}
+              <ModernDatePicker
+                label="Sale Date"
+                required
                 value={saleDate}
-                onChangeText={setSaleDate}
+                onChange={setSaleDate}
+                containerStyle={{ marginBottom: spacing.md }}
               />
 
               <SearchableSelect

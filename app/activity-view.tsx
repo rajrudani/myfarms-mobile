@@ -24,7 +24,7 @@ import { extractErrorMessage } from '../src/api/client';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
 import { useResponsive } from '../src/utils/responsive';
 import { formatCurrency } from '../src/utils/formatters';
-import { ModalSheet, ModernInput } from '../src/components/ui';
+import { ModalSheet, ModernInput, ModernDatePicker } from '../src/components/ui';
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; border: string }> = {
   completed: { label: 'Completed', bg: '#ecfdf3', text: '#15803d', border: '#bbf7d0' },
@@ -496,12 +496,10 @@ export default function ActivityViewScreen() {
         onClose={() => setEditModalVisible(false)}
         title="Edit Activity"
       >
-        <ModernInput
-          label="Date (YYYY-MM-DD)"
+        <ModernDatePicker
+          label="Date"
           value={editDate}
-          onChangeText={setEditDate}
-          placeholder="2026-10-24"
-          prefix={<Ionicons name="calendar-outline" size={18} color="#059669" />}
+          onChange={setEditDate}
         />
 
         <Text style={styles.inputLabel}>Status</Text>

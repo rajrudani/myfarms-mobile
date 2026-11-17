@@ -37,7 +37,7 @@ import {
 } from '../src/types';
 import { extractErrorMessage, getBaseUrl } from '../src/api/client';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
-import { QuickChipGroup, ChipOption, ModalSheet, ModernInput } from '../src/components/ui';
+import { QuickChipGroup, ChipOption, ModalSheet, ModernInput, SearchableSelect, ModernDatePicker } from '../src/components/ui';
 import { useResponsive } from '../src/utils/responsive';
 
 export const getAbsoluteImageUrl = (urlPath?: string | null) => {
@@ -1226,21 +1226,17 @@ export default function CropCycleViewScreen() {
             containerStyle={{ marginTop: spacing.md, marginBottom: spacing.md }}
           />
 
-          <ModernInput
-            label="Started Date (YYYY-MM-DD)"
+          <ModernDatePicker
+            label="Started Date"
             value={editStartedOn}
-            onChangeText={setEditStartedOn}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={colors.slate400}
+            onChange={setEditStartedOn}
             containerStyle={{ marginBottom: spacing.md }}
           />
 
-          <ModernInput
-            label="Expected Harvest Date (YYYY-MM-DD)"
+          <ModernDatePicker
+            label="Expected Harvest Date"
             value={editExpectedHarvestOn}
-            onChangeText={setEditExpectedHarvestOn}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={colors.slate400}
+            onChange={setEditExpectedHarvestOn}
             containerStyle={{ marginBottom: spacing.md }}
           />
 
@@ -1319,13 +1315,11 @@ export default function CropCycleViewScreen() {
                 />
               </View>
 
-              <ModernInput
-                label="Actual Harvest Date (YYYY-MM-DD)"
+              <ModernDatePicker
+                label="Actual Harvest Date"
                 required
                 value={harvestDate}
-                onChangeText={setHarvestDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.slate400}
+                onChange={setHarvestDate}
                 containerStyle={{ marginTop: spacing.md, marginBottom: spacing.md }}
               />
 
@@ -1575,60 +1569,34 @@ export default function CropCycleViewScreen() {
                       }
 
                       if (f.type === 'morph') {
-                        const showDropdown = !!showFieldDropdowns[f.key];
                         const isCustom = val === 'new';
-                        const selectedProduct = isCustom
-                          ? { name: customProductNames[f.key] || '+ Add Custom Product...' }
-                          : inputProductsList.find((p) => p.id.toString() === val?.toString());
 
                         const dropdownItems = [
-                          ...inputProductsList,
-                          { id: 'new', name: '+ Add Custom Product...' },
+                          ...inputProductsList.map((p) => ({
+                            value: p.id.toString(),
+                            label: p.name,
+                            icon: 'flask-outline' as const,
+                          })),
+                          { value: 'new', label: '+ Add Custom Product...', icon: 'add-circle-outline' as const },
                         ];
 
                         return (
                           <View key={f.key} style={{ marginBottom: 12 }}>
-                            <Text style={styles.inputLabel}>
-                              {f.label} {f.required && <Text style={{ color: colors.danger }}>*</Text>}
-                            </Text>
-                            <TouchableOpacity
-                              style={[styles.dropdownTrigger, { backgroundColor: colors.white }, error ? styles.inputErrorBorder : null]}
-                              onPress={() => setShowFieldDropdowns((prev) => ({ ...prev, [f.key]: !showDropdown }))}
-                              activeOpacity={0.7}
-                            >
-                              <Text style={[styles.dropdownTriggerText, selectedProduct ? { color: colors.slate900 } : null]}>
-                                {selectedProduct ? selectedProduct.name : `Select ${f.label}`}
-                              </Text>
-                              <Ionicons name={showDropdown ? 'chevron-up' : 'chevron-down'} size={16} color={colors.slate400} />
-                            </TouchableOpacity>
-                            {error ? <Text style={styles.inputErrorText}>{error}</Text> : null}
-
-                            {showDropdown && (
-                              <View style={styles.dynamicDropdownMenu}>
-                                <ScrollView style={{ maxHeight: 160 }} nestedScrollEnabled>
-                                  {dropdownItems.map((prod) => (
-                                    <TouchableOpacity
-                                      key={prod.id}
-                                      style={styles.dropdownItem}
-                                      onPress={() => {
-                                        setActivityFieldsValues((prev) => ({ ...prev, [f.key]: prod.id }));
-                                        setShowFieldDropdowns((prev) => ({ ...prev, [f.key]: false }));
-                                        if (activityErrors[f.key]) {
-                                          setActivityErrors((prev) => ({ ...prev, [f.key]: '' }));
-                                        }
-                                      }}
-                                    >
-                                      <Text style={[
-                                        styles.dropdownItemText,
-                                        prod.id === 'new' ? { color: colors.primary, fontWeight: '700' } : null,
-                                      ]}>
-                                        {prod.name}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  ))}
-                                </ScrollView>
-                              </View>
-                            )}
+                            <SearchableSelect
+                              label={f.label}
+                              required={f.required}
+                              placeholder={`Select ${f.label}`}
+                              searchPlaceholder={`Search ${f.label}...`}
+                              items={dropdownItems}
+                              value={val?.toString() || null}
+                              onSelect={(selectedId) => {
+                                setActivityFieldsValues((prev) => ({ ...prev, [f.key]: selectedId }));
+                                if (activityErrors[f.key]) {
+                                  setActivityErrors((prev) => ({ ...prev, [f.key]: '' }));
+                                }
+                              }}
+                              error={error}
+                            />
 
                             {isCustom && (
                               <TextInput
@@ -1654,13 +1622,11 @@ export default function CropCycleViewScreen() {
                 );
               })()}
 
-              <Text style={styles.inputLabel}>Date (YYYY-MM-DD)</Text>
-              <TextInput
-                style={styles.input}
+              <ModernDatePicker
+                label="Date"
                 value={activityDate}
-                onChangeText={setActivityDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.slate400}
+                onChange={setActivityDate}
+                containerStyle={{ marginBottom: spacing.md }}
               />
 
               <Text style={styles.inputLabel}>Notes / Remarks</Text>
@@ -1739,12 +1705,10 @@ export default function CropCycleViewScreen() {
             containerStyle={{ marginBottom: spacing.md }}
           />
 
-          <ModernInput
-            label="Date (YYYY-MM-DD)"
+          <ModernDatePicker
+            label="Expense Date"
             value={expenseDate}
-            onChangeText={setExpenseDate}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={colors.slate400}
+            onChange={setExpenseDate}
             containerStyle={{ marginBottom: spacing.sm }}
           />
 

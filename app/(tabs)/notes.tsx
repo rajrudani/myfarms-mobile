@@ -28,7 +28,7 @@ import { useTranslation } from '../../src/i18n/I18nContext';
 import { scheduleLocalReminder } from '../../src/utils/notifications';
 import { offlineSync } from '../../src/utils/offlineSync';
 import { useResponsive } from '../../src/utils/responsive';
-import { ModalSheet, ModernInput } from '../../src/components/ui';
+import { ModalSheet, ModernInput, ModernDatePicker } from '../../src/components/ui';
 
 export default function NotesScreen() {
   const { t } = useTranslation();
@@ -619,57 +619,12 @@ export default function NotesScreen() {
           {/* Notify At Date Picker with Presets */}
           {notifyEnabled && (
             <View style={styles.modalNotifyBox}>
-              <ModernInput
+              <ModernDatePicker
                 label={t('Notification Date')}
                 required
                 value={notifyAt}
-                onChangeText={setNotifyAt}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor="#94a3b8"
-                containerStyle={{ marginBottom: spacing.xs }}
+                onChange={setNotifyAt}
               />
-              <View style={styles.presetChipsRow}>
-                <TouchableOpacity
-                  style={styles.presetChip}
-                  onPress={() => setNotifyAt(new Date().toISOString().split('T')[0])}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.presetChipText}>{t('Today')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.presetChip}
-                  onPress={() => {
-                    const d = new Date();
-                    d.setDate(d.getDate() + 1);
-                    setNotifyAt(d.toISOString().split('T')[0]);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.presetChipText}>{t('Tomorrow')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.presetChip}
-                  onPress={() => {
-                    const d = new Date();
-                    d.setDate(d.getDate() + 3);
-                    setNotifyAt(d.toISOString().split('T')[0]);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.presetChipText}>{t('In 3 Days')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.presetChip}
-                  onPress={() => {
-                    const d = new Date();
-                    d.setDate(d.getDate() + 7);
-                    setNotifyAt(d.toISOString().split('T')[0]);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.presetChipText}>{t('Next Week')}</Text>
-                </TouchableOpacity>
-              </View>
             </View>
           )}
 

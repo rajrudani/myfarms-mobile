@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,10 +8,15 @@ import {
   ScrollView,
   StyleProp,
   ViewStyle,
+  Modal,
+  KeyboardAvoidingView,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, spacing, typography } from '../../theme/tokens';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors, radius, spacing, typography, shadows } from '../../theme/tokens';
+import { touchTargetHitSlop } from '../../utils/responsive';
 
 export interface SearchableSelectItem<T = string | number> {
   value: T;
@@ -36,6 +41,7 @@ export interface SearchableSelectProps<T = string | number> {
   selectedValues?: T[];
   onMultiSelect?: (values: T[]) => void;
   // Configuration
+  renderMode?: 'modal' | 'inline'; // Defaults to 'modal' for mobile ergonomics
   required?: boolean;
   disabled?: boolean;
   allowClear?: boolean;
@@ -58,11 +64,12 @@ export function SearchableSelect<T = string | number>({
   multiple = false,
   selectedValues = [],
   onMultiSelect,
+  renderMode = 'modal',
   required = false,
   disabled = false,
   allowClear = false,
   clearLabel = 'None / Clear Selection',
-  maxListHeight = 220,
+  maxListHeight = 240,
   error,
   helperText,
   containerStyle,
@@ -72,6 +79,18 @@ export function SearchableSelect<T = string | number>({
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<TextInput>(null);
+  const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+
+  // Focus search input when opened in modal mode
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 250);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   // Filter items based on search query
   const filteredItems = useMemo(() => {
@@ -108,6 +127,11 @@ export function SearchableSelect<T = string | number>({
     }
   };
 
+  const handleClose = () => {
+    setIsOpen(false);
+    setSearchQuery('');
+  };
+
   const handleSelect = (itemValue: T) => {
     if (multiple) {
       const isAlreadySelected = selectedSet.has(String(itemValue));
@@ -128,7 +152,6 @@ export function SearchableSelect<T = string | number>({
   const handleClearSingle = (e?: any) => {
     e?.stopPropagation?.();
     if (onSelect) {
-      // Pass null or empty value
       onSelect(null as unknown as T);
     }
     setIsOpen(false);
@@ -152,6 +175,82 @@ export function SearchableSelect<T = string | number>({
     onMultiSelect(updated);
   };
 
+  const bottomPadding = Math.max(insets.bottom, 16);
+  const modalListMaxHeight = Math.min(windowHeight * 0.55, 420);
+
+  // Render Item Helper
+  const renderItemRow = (item: SearchableSelectItem<T>) => {
+    const isSelected = selectedSet.has(String(item.value));
+    return (
+      <TouchableOpacity
+        key={String(item.value)}
+        style={[
+          styles.itemRow,
+          isSelected && styles.itemRowSelected,
+          item.disabled && styles.itemRowDisabled,
+        ]}
+        onPress={() => !item.disabled && handleSelect(item.value)}
+        activeOpacity={item.disabled ? 1 : 0.7}
+        disabled={item.disabled}
+      >
+        {/* Multi-select Checkbox */}
+        {multiple && (
+          <Ionicons
+            name={isSelected ? 'checkbox' : 'square-outline'}
+            size={20}
+            color={isSelected ? colors.primary : colors.slate400}
+            style={styles.checkboxIcon}
+          />
+        )}
+
+        {/* Item Custom Icon */}
+        {item.icon && !multiple && (
+          <Ionicons
+            name={item.icon}
+            size={18}
+            color={isSelected ? colors.primary : colors.slate500}
+            style={styles.itemIcon}
+          />
+        )}
+
+        <View style={styles.itemContent}>
+          <View style={styles.itemTitleRow}>
+            <Text
+              style={[
+                styles.itemLabel,
+                isSelected && styles.itemLabelSelected,
+              ]}
+              numberOfLines={1}
+            >
+              {item.label}
+            </Text>
+            {item.badge ? (
+              <View
+                style={[
+                  styles.badge,
+                  item.badgeColor ? { backgroundColor: item.badgeColor } : null,
+                ]}
+              >
+                <Text style={styles.badgeText}>{item.badge}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          {item.sublabel ? (
+            <Text style={styles.itemSublabel} numberOfLines={1}>
+              {item.sublabel}
+            </Text>
+          ) : null}
+        </View>
+
+        {/* Single-select Checkmark */}
+        {!multiple && isSelected && (
+          <Ionicons name="checkmark-sharp" size={20} color={colors.primary} />
+        )}
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <View style={[styles.wrapper, containerStyle]}>
       {/* Label and Header Right */}
@@ -171,7 +270,7 @@ export function SearchableSelect<T = string | number>({
       <TouchableOpacity
         style={[
           styles.triggerBox,
-          isOpen && styles.triggerBoxOpen,
+          isOpen && renderMode === 'inline' && styles.triggerBoxOpen,
           disabled && styles.triggerBoxDisabled,
           error ? styles.triggerBoxError : null,
         ]}
@@ -222,10 +321,10 @@ export function SearchableSelect<T = string | number>({
           {!multiple && allowClear && currentSingleItem && (
             <TouchableOpacity
               onPress={handleClearSingle}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              hitSlop={touchTargetHitSlop}
               style={styles.clearBtn}
             >
-              <Ionicons name="close-circle" size={16} color={colors.slate400} />
+              <Ionicons name="close-circle" size={17} color={colors.slate400} />
             </TouchableOpacity>
           )}
           <Ionicons
@@ -262,10 +361,9 @@ export function SearchableSelect<T = string | number>({
         </View>
       )}
 
-      {/* Dropdown Menu Box */}
-      {isOpen && (
+      {/* Inline Render Mode (Legacy compatibility) */}
+      {renderMode === 'inline' && isOpen && (
         <View style={styles.dropdownContainer}>
-          {/* Search Input Bar */}
           <View style={styles.searchBar}>
             <Ionicons name="search-outline" size={16} color={colors.slate400} style={styles.searchIcon} />
             <TextInput
@@ -282,7 +380,7 @@ export function SearchableSelect<T = string | number>({
             {searchQuery.length > 0 && (
               <TouchableOpacity
                 onPress={() => setSearchQuery('')}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                hitSlop={touchTargetHitSlop}
                 style={styles.searchClearBtn}
               >
                 <Ionicons name="close-circle" size={16} color={colors.slate400} />
@@ -290,7 +388,6 @@ export function SearchableSelect<T = string | number>({
             )}
           </View>
 
-          {/* Multi-Select Quick Action Toolbar */}
           {multiple && (
             <View style={styles.toolbarRow}>
               <Text style={styles.counterText}>
@@ -308,14 +405,12 @@ export function SearchableSelect<T = string | number>({
             </View>
           )}
 
-          {/* Scrollable Item List */}
           <ScrollView
             style={[styles.listScroll, { maxHeight: maxListHeight }]}
             nestedScrollEnabled={true}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={true}
           >
-            {/* Single Select Optional Clear Option */}
             {!multiple && allowClear && (
               <TouchableOpacity
                 style={[styles.itemRow, !value ? styles.itemRowSelected : null]}
@@ -331,79 +426,8 @@ export function SearchableSelect<T = string | number>({
               </TouchableOpacity>
             )}
 
-            {/* Filtered Items */}
             {filteredItems.length > 0 ? (
-              filteredItems.map((item) => {
-                const isSelected = selectedSet.has(String(item.value));
-                return (
-                  <TouchableOpacity
-                    key={String(item.value)}
-                    style={[
-                      styles.itemRow,
-                      isSelected && styles.itemRowSelected,
-                      item.disabled && styles.itemRowDisabled,
-                    ]}
-                    onPress={() => !item.disabled && handleSelect(item.value)}
-                    activeOpacity={item.disabled ? 1 : 0.7}
-                    disabled={item.disabled}
-                  >
-                    {/* Multi-select Checkbox */}
-                    {multiple && (
-                      <Ionicons
-                        name={isSelected ? 'checkbox' : 'square-outline'}
-                        size={18}
-                        color={isSelected ? colors.primary : colors.slate400}
-                        style={styles.checkboxIcon}
-                      />
-                    )}
-
-                    {/* Item Custom Icon */}
-                    {item.icon && !multiple && (
-                      <Ionicons
-                        name={item.icon}
-                        size={16}
-                        color={isSelected ? colors.primary : colors.slate500}
-                        style={styles.itemIcon}
-                      />
-                    )}
-
-                    <View style={styles.itemContent}>
-                      <View style={styles.itemTitleRow}>
-                        <Text
-                          style={[
-                            styles.itemLabel,
-                            isSelected && styles.itemLabelSelected,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {item.label}
-                        </Text>
-                        {item.badge ? (
-                          <View
-                            style={[
-                              styles.badge,
-                              item.badgeColor ? { backgroundColor: item.badgeColor } : null,
-                            ]}
-                          >
-                            <Text style={styles.badgeText}>{item.badge}</Text>
-                          </View>
-                        ) : null}
-                      </View>
-
-                      {item.sublabel ? (
-                        <Text style={styles.itemSublabel} numberOfLines={1}>
-                          {item.sublabel}
-                        </Text>
-                      ) : null}
-                    </View>
-
-                    {/* Single-select Checkmark */}
-                    {!multiple && isSelected && (
-                      <Ionicons name="checkmark-sharp" size={18} color={colors.primary} />
-                    )}
-                  </TouchableOpacity>
-                );
-              })
+              filteredItems.map(renderItemRow)
             ) : (
               <View style={styles.emptyContainer}>
                 <Ionicons name="search" size={24} color={colors.slate300} style={{ marginBottom: 6 }} />
@@ -412,20 +436,149 @@ export function SearchableSelect<T = string | number>({
             )}
           </ScrollView>
 
-          {/* Close Dropdown Footer Button for Multi-select */}
           {multiple && (
             <TouchableOpacity
               style={styles.doneBtn}
-              onPress={() => {
-                setIsOpen(false);
-                setSearchQuery('');
-              }}
+              onPress={handleClose}
               activeOpacity={0.7}
             >
               <Text style={styles.doneBtnText}>Done</Text>
             </TouchableOpacity>
           )}
         </View>
+      )}
+
+      {/* Modal Bottom Sheet Render Mode (Default & Preferred for Mobile) */}
+      {renderMode === 'modal' && (
+        <Modal
+          visible={isOpen}
+          transparent
+          animationType="slide"
+          onRequestClose={handleClose}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.modalBackdrop}
+          >
+            <TouchableOpacity
+              style={styles.modalBackdropDismiss}
+              activeOpacity={1}
+              onPress={handleClose}
+            />
+
+            <View style={[styles.modalSheet, { paddingBottom: bottomPadding }]}>
+              {/* Handle Bar */}
+              <View style={styles.sheetHandle} />
+
+              {/* Sheet Header */}
+              <View style={styles.modalHeader}>
+                <View style={styles.modalHeaderTitleGroup}>
+                  <Text style={styles.modalTitle}>{label || placeholder}</Text>
+                  <Text style={styles.modalSubtitle}>
+                    {multiple
+                      ? `${selectedValues.length} selected of ${items.length}`
+                      : `${items.length} options available`}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={handleClose}
+                  hitSlop={touchTargetHitSlop}
+                  style={styles.modalCloseBtn}
+                  accessibilityLabel="Close"
+                >
+                  <Ionicons name="close" size={22} color={colors.slate600} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Search Bar */}
+              <View style={styles.modalSearchBar}>
+                <Ionicons name="search-outline" size={18} color={colors.slate400} style={{ marginRight: 8 }} />
+                <TextInput
+                  ref={searchInputRef}
+                  style={styles.modalSearchInput}
+                  placeholder={searchPlaceholder}
+                  placeholderTextColor={colors.slate400}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                  returnKeyType="search"
+                  clearButtonMode="while-editing"
+                />
+                {searchQuery.length > 0 && Platform.OS !== 'ios' && (
+                  <TouchableOpacity
+                    onPress={() => setSearchQuery('')}
+                    hitSlop={touchTargetHitSlop}
+                  >
+                    <Ionicons name="close-circle" size={18} color={colors.slate400} />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Multi-Select Toolbar */}
+              {multiple && (
+                <View style={styles.modalToolbarRow}>
+                  <Text style={styles.counterText}>
+                    {filteredItems.length} matching
+                  </Text>
+                  <View style={styles.toolbarActions}>
+                    <TouchableOpacity onPress={handleSelectAll} activeOpacity={0.7} style={styles.toolbarBtn}>
+                      <Text style={styles.toolbarBtnText}>Select All</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.toolbarDivider}>|</Text>
+                    <TouchableOpacity onPress={handleClearAll} activeOpacity={0.7} style={styles.toolbarBtn}>
+                      <Text style={styles.toolbarBtnText}>Clear All</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {/* Items List */}
+              <ScrollView
+                style={[styles.modalListScroll, { maxHeight: modalListMaxHeight }]}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={true}
+              >
+                {!multiple && allowClear && (
+                  <TouchableOpacity
+                    style={[styles.itemRow, !value ? styles.itemRowSelected : null]}
+                    onPress={() => handleClearSingle()}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.itemContent}>
+                      <Text style={[styles.itemLabel, styles.clearItemLabel]}>{clearLabel}</Text>
+                    </View>
+                    {!value && (
+                      <Ionicons name="checkmark-sharp" size={18} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                )}
+
+                {filteredItems.length > 0 ? (
+                  filteredItems.map(renderItemRow)
+                ) : (
+                  <View style={styles.emptyContainer}>
+                    <Ionicons name="search" size={32} color={colors.slate300} style={{ marginBottom: 8 }} />
+                    <Text style={styles.emptyText}>{emptyMessage}</Text>
+                  </View>
+                )}
+              </ScrollView>
+
+              {/* Confirm / Done Button */}
+              {multiple ? (
+                <TouchableOpacity
+                  style={styles.modalDoneBtn}
+                  onPress={handleClose}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalDoneBtnText}>
+                    Done ({selectedValues.length} selected)
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
       )}
 
       {/* Helper and Error Messages */}
@@ -450,12 +603,14 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    fontWeight: '600',
-    color: colors.slate700,
+    fontWeight: '700',
+    color: colors.slate800,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   requiredAsterisk: {
     color: colors.danger,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   triggerBox: {
     minHeight: 48,
@@ -465,14 +620,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     backgroundColor: colors.white,
-    borderRadius: radius.lg,
-    borderWidth: 1.5,
+    borderRadius: radius.md,
+    borderWidth: 1,
     borderColor: colors.slate200,
+    ...shadows.subtle,
   },
   triggerBoxOpen: {
     borderColor: colors.primary,
-    borderBottomLeftRadius: 4,
-    borderBottomRightRadius: 4,
   },
   triggerBoxDisabled: {
     backgroundColor: colors.slate100,
@@ -492,7 +646,7 @@ const styles = StyleSheet.create({
     flexWrap: 'nowrap',
   },
   triggerText: {
-    fontSize: 14,
+    ...typography.body,
     fontWeight: '500',
     color: colors.slate800,
   },
@@ -508,7 +662,7 @@ const styles = StyleSheet.create({
   triggerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   clearBtn: {
     padding: 2,
@@ -525,7 +679,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ecfdf5',
     borderColor: '#a7f3d0',
     borderWidth: 1,
-    paddingVertical: 4,
+    paddingVertical: 5,
     paddingHorizontal: 10,
     borderRadius: radius.pill,
     gap: 4,
@@ -540,6 +694,8 @@ const styles = StyleSheet.create({
     marginLeft: 2,
     padding: 2,
   },
+
+  // Inline Dropdown Styles
   dropdownContainer: {
     backgroundColor: colors.white,
     borderWidth: 1.5,
@@ -595,7 +751,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.slate100,
   },
   counterText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.slate500,
   },
@@ -605,27 +761,135 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   toolbarBtn: {
-    paddingVertical: 2,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
   },
   toolbarBtnText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: colors.primary,
   },
   toolbarDivider: {
-    fontSize: 11,
+    fontSize: 12,
     color: colors.slate300,
   },
   listScroll: {
     paddingHorizontal: 6,
   },
+
+  // Modal Bottom Sheet Styles
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalBackdropDismiss: {
+    flex: 1,
+  },
+  modalSheet: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    ...shadows.medium,
+    maxWidth: 540,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.slate300,
+    alignSelf: 'center',
+    marginBottom: spacing.sm,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.slate100,
+  },
+  modalHeaderTitleGroup: {
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
+  modalTitle: {
+    ...typography.title3,
+    fontWeight: '800',
+    color: colors.slate900,
+  },
+  modalSubtitle: {
+    ...typography.caption,
+    color: colors.slate500,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  modalCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    backgroundColor: colors.slate100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.slate50,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.slate200,
+    paddingHorizontal: spacing.md,
+    height: 44,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  modalSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.slate800,
+    paddingVertical: 0,
+  },
+  modalToolbarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    marginBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.slate100,
+  },
+  modalListScroll: {
+    marginVertical: 4,
+  },
+  modalDoneBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.sm,
+    ...shadows.subtle,
+  },
+  modalDoneBtnText: {
+    ...typography.body,
+    fontWeight: '800',
+    color: colors.white,
+  },
+
+  // Item Row
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 48,
     paddingVertical: 10,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     borderRadius: radius.md,
-    marginVertical: 1,
+    marginVertical: 2,
   },
   itemRowSelected: {
     backgroundColor: '#f0fdf4',
@@ -634,10 +898,10 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   checkboxIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   itemIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   itemContent: {
     flex: 1,
@@ -645,45 +909,46 @@ const styles = StyleSheet.create({
   itemTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   itemLabel: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.slate800,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   itemLabelSelected: {
     color: colors.primaryDark,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   clearItemLabel: {
     color: colors.slate500,
     fontStyle: 'italic',
   },
   itemSublabel: {
-    fontSize: 11,
+    fontSize: 12,
     color: colors.slate500,
     marginTop: 2,
   },
   badge: {
     backgroundColor: colors.slate100,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: radius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
   },
   badgeText: {
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     color: colors.slate600,
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 20,
+    paddingVertical: 32,
   },
   emptyText: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.slate400,
+    fontWeight: '500',
   },
   doneBtn: {
     backgroundColor: colors.primary,
@@ -699,15 +964,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   errorText: {
-    fontSize: 12,
+    ...typography.caption,
     color: colors.danger,
     marginTop: 4,
-    marginLeft: 2,
+    fontWeight: '600',
   },
   helperText: {
-    fontSize: 12,
+    ...typography.caption,
     color: colors.slate500,
     marginTop: 4,
-    marginLeft: 2,
   },
 });

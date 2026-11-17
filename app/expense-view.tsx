@@ -24,7 +24,7 @@ import { extractErrorMessage } from '../src/api/client';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
 import { useResponsive } from '../src/utils/responsive';
 import { formatCurrency } from '../src/utils/formatters';
-import { ModalSheet, ModernInput } from '../src/components/ui';
+import { ModalSheet, ModernInput, ModernDatePicker } from '../src/components/ui';
 
 const PAYMENT_METHODS = ['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Other'];
 const PAYMENT_STATUSES = [
@@ -482,12 +482,10 @@ export default function ExpenseViewScreen() {
             containerStyle={{ marginBottom: spacing.md }}
           />
 
-          <ModernInput
-            label="Date (YYYY-MM-DD)"
+          <ModernDatePicker
+            label="Date"
             value={editDate}
-            onChangeText={setEditDate}
-            placeholder="2026-10-24"
-            placeholderTextColor="#94a3b8"
+            onChange={setEditDate}
             containerStyle={{ marginBottom: spacing.md }}
           />
 

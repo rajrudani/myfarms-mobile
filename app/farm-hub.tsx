@@ -29,6 +29,7 @@ import { Farm, CropCycle, FarmExpense, Crop, FarmActivityMaster, FarmActivity, A
 import { useAuth } from '../src/hooks/useAuth';
 import { getBaseUrl, extractErrorMessage } from '../src/api/client';
 import { farmActivitiesApi } from '../src/api/farmActivities';
+import { SearchableSelect } from '../src/components/ui';
 
 const getNormalizedOptions = (options: any): { key: string; label: string }[] => {
   if (!options) return [];
@@ -2602,56 +2603,33 @@ export default function FarmHubScreen() {
                       if (f.type === 'morph') {
                         const showDropdown = !!showFieldDropdowns[f.key];
                         const isCustom = val === 'new';
-                        const selectedProduct = isCustom
-                          ? { name: customProductNames[f.key] || '+ Add Custom Product...' }
-                          : inputProductsList.find(p => p.id.toString() === val?.toString());
 
                         const dropdownItems = [
-                          ...inputProductsList,
-                          { id: 'new', name: '+ Add Custom Product...' }
+                          ...inputProductsList.map((p) => ({
+                            value: p.id.toString(),
+                            label: p.name,
+                            icon: 'flask-outline' as const,
+                          })),
+                          { value: 'new', label: '+ Add Custom Product...', icon: 'add-circle-outline' as const },
                         ];
 
                         return (
                           <View key={f.key} style={{ marginBottom: 12 }}>
-                            <Text style={styles.inputLabel}>
-                              {f.label} {f.required && <Text style={{ color: '#ef4444' }}>*</Text>}
-                            </Text>
-                            <TouchableOpacity 
-                              style={[styles.dropdownTrigger, { backgroundColor: '#fff' }, error ? styles.inputErrorBorder : null]} 
-                              onPress={() => setShowFieldDropdowns(prev => ({ ...prev, [f.key]: !showDropdown }))}
-                              activeOpacity={0.7}
-                            >
-                              <Text style={[styles.dropdownTriggerText, selectedProduct ? { color: '#0f172a' } : null]}>
-                                {selectedProduct ? selectedProduct.name : `Select ${f.label}`}
-                              </Text>
-                              <Text style={styles.dropdownArrow}>▼</Text>
-                            </TouchableOpacity>
-                            {error ? <Text style={styles.inputErrorText}>{error}</Text> : null}
-
-                            {showDropdown && (
-                              <ScrollView style={[styles.dropdownList, { maxHeight: 150 }]} nestedScrollEnabled={true}>
-                                {dropdownItems.map((prod) => (
-                                  <TouchableOpacity
-                                    key={prod.id}
-                                    style={styles.dropdownItem}
-                                    onPress={() => {
-                                      setActivityFieldsValues(prev => ({ ...prev, [f.key]: prod.id }));
-                                      setShowFieldDropdowns(prev => ({ ...prev, [f.key]: false }));
-                                      if (activityErrors[f.key]) {
-                                        setActivityErrors(prev => ({ ...prev, [f.key]: '' }));
-                                      }
-                                    }}
-                                  >
-                                    <Text style={[
-                                      styles.dropdownItemText,
-                                      prod.id === 'new' ? { color: '#16a34a', fontWeight: '700' } : null
-                                    ]}>
-                                      {prod.name}
-                                    </Text>
-                                  </TouchableOpacity>
-                                ))}
-                              </ScrollView>
-                            )}
+                            <SearchableSelect
+                              label={f.label}
+                              required={f.required}
+                              placeholder={`Select ${f.label}`}
+                              searchPlaceholder={`Search ${f.label}...`}
+                              items={dropdownItems}
+                              value={val?.toString() || null}
+                              onSelect={(selectedId) => {
+                                setActivityFieldsValues((prev) => ({ ...prev, [f.key]: selectedId }));
+                                if (activityErrors[f.key]) {
+                                  setActivityErrors((prev) => ({ ...prev, [f.key]: '' }));
+                                }
+                              }}
+                              error={error}
+                            />
 
                             {isCustom && (
                               <TextInput
@@ -2851,45 +2829,22 @@ export default function FarmHubScreen() {
 
               {/* Crop Cycle selector (Dependent on farm) - Hide if preselected from card */}
               {!expenseOpenedFromCard && (
-                <>
-                  <Text style={styles.inputLabel}>Associate Crop Cycle (Optional)</Text>
-                  <TouchableOpacity style={styles.dropdownTrigger} onPress={() => setShowCycleDropdown(!showCycleDropdown)}>
-                    <Text style={styles.dropdownTriggerText}>
-                      {selectedCycleId ? `Cycle: ${cycles.find(c => c.ulid === selectedCycleId || c.id?.toString() === selectedCycleId)?.crop_name || cycles.find(c => c.ulid === selectedCycleId || c.id?.toString() === selectedCycleId)?.crop_type}` : 'None (General Expense)'}
-                    </Text>
-                    <Text style={styles.dropdownArrow}>▼</Text>
-                  </TouchableOpacity>
-
-                  {showCycleDropdown && (
-                    <View style={styles.dropdownList}>
-                      <TouchableOpacity
-                        style={styles.dropdownItem}
-                        onPress={() => {
-                          setSelectedCycleId('');
-                          setShowCycleDropdown(false);
-                        }}
-                      >
-                        <Text style={[styles.dropdownItemText, { color: '#94a3b8' }]}>None (General Farm Expense)</Text>
-                      </TouchableOpacity>
-                      {activeCycles.length === 0 ? (
-                        <Text style={styles.dropdownEmptyText}>No active crop cycles found.</Text>
-                      ) : (
-                        activeCycles.map((c) => (
-                          <TouchableOpacity
-                            key={c.ulid || c.id}
-                            style={styles.dropdownItem}
-                            onPress={() => {
-                              setSelectedCycleId(c.id!.toString());
-                              setShowCycleDropdown(false);
-                            }}
-                          >
-                            <Text style={styles.dropdownItemText}>{c.crop_name || c.crop_type} ({c.season_name})</Text>
-                          </TouchableOpacity>
-                        ))
-                      )}
-                    </View>
-                  )}
-                </>
+                <SearchableSelect
+                  label="Associate Crop Cycle (Optional)"
+                  allowClear
+                  clearLabel="None (General Farm Expense)"
+                  placeholder="None (General Farm Expense)"
+                  searchPlaceholder="Search active cycles..."
+                  items={activeCycles.map((c) => ({
+                    value: c.id!.toString(),
+                    label: `${c.crop_name || c.crop_type} (${c.season_name})`,
+                    icon: 'leaf-outline',
+                  }))}
+                  value={selectedCycleId || null}
+                  onSelect={(val) => setSelectedCycleId((val as string) || '')}
+                  containerStyle={{ marginBottom: 12 }}
+                  emptyMessage="No active crop cycles found."
+                />
               )}
 
               {/* Category Selector Trigger */}
@@ -3357,60 +3312,35 @@ export default function FarmHubScreen() {
 
               {isEditingExpense ? (
                 <View>
-                  <Text style={styles.inputLabel}>Associate Crop Cycle (Optional)</Text>
-                  <TouchableOpacity style={styles.dropdownTrigger} onPress={() => setShowEditCycleDropdown(!showEditCycleDropdown)}>
-                    <Text style={styles.dropdownTriggerText}>{editSelectedCycleName}</Text>
-                    <Text style={styles.dropdownArrow}>▼</Text>
-                  </TouchableOpacity>
+                  <SearchableSelect
+                    label="Associate Crop Cycle (Optional)"
+                    allowClear
+                    clearLabel="None (General Farm Expense)"
+                    placeholder="None (General Farm Expense)"
+                    searchPlaceholder="Search crop cycles..."
+                    items={cycles.map((c) => ({
+                      value: (c.ulid || c.id!).toString(),
+                      label: `${c.crop_name || c.crop_type} (${c.season_name})`,
+                      icon: 'leaf-outline',
+                    }))}
+                    value={editSelectedCycleId || null}
+                    onSelect={(val) => setEditSelectedCycleId((val as string) || '')}
+                    containerStyle={{ marginBottom: 12 }}
+                  />
 
-                  {showEditCycleDropdown && (
-                    <View style={styles.dropdownList}>
-                      <TouchableOpacity
-                        style={styles.dropdownItem}
-                        onPress={() => {
-                          setEditSelectedCycleId('');
-                          setShowEditCycleDropdown(false);
-                        }}
-                      >
-                        <Text style={[styles.dropdownItemText, { color: '#94a3b8' }]}>None (General Farm Expense)</Text>
-                      </TouchableOpacity>
-                      {cycles.map((c) => (
-                        <TouchableOpacity
-                          key={c.ulid || c.id}
-                          style={styles.dropdownItem}
-                          onPress={() => {
-                            setEditSelectedCycleId((c.ulid || c.id!).toString());
-                            setShowEditCycleDropdown(false);
-                          }}
-                        >
-                          <Text style={styles.dropdownItemText}>{c.crop_name || c.crop_type} ({c.season_name})</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
-
-                  <Text style={styles.inputLabel}>Expense Category</Text>
-                  <TouchableOpacity style={styles.dropdownTrigger} onPress={() => setShowEditCategoryDropdown(!showEditCategoryDropdown)}>
-                    <Text style={styles.dropdownTriggerText}>{editExpenseCategory}</Text>
-                    <Text style={styles.dropdownArrow}>▼</Text>
-                  </TouchableOpacity>
-
-                  {showEditCategoryDropdown && (
-                    <View style={styles.dropdownList}>
-                      {categories.map((cat) => (
-                        <TouchableOpacity
-                          key={cat}
-                          style={styles.dropdownItem}
-                          onPress={() => {
-                            setEditExpenseCategory(cat);
-                            setShowEditCategoryDropdown(false);
-                          }}
-                        >
-                          <Text style={styles.dropdownItemText}>{cat}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
+                  <SearchableSelect
+                    label="Expense Category"
+                    placeholder="Select Category"
+                    searchPlaceholder="Search categories..."
+                    items={categories.map((cat) => ({
+                      value: cat,
+                      label: cat,
+                      icon: 'pricetag-outline',
+                    }))}
+                    value={editExpenseCategory}
+                    onSelect={(val) => setEditExpenseCategory(val as string)}
+                    containerStyle={{ marginBottom: 12 }}
+                  />
 
                   <Text style={styles.inputLabel}>Amount (₹)</Text>
                   <TextInput

@@ -28,7 +28,7 @@ import { extractErrorMessage, getAbsoluteImageUrl } from '../src/api/client';
 import { permissions } from '../src/utils/permissions';
 import { useResponsive } from '../src/utils/responsive';
 import { formatCurrency } from '../src/utils/formatters';
-import { ModalSheet, ModernInput, SearchableSelect } from '../src/components/ui';
+import { ModalSheet, ModernInput, SearchableSelect, ModernDatePicker } from '../src/components/ui';
 
 export default function StaffViewScreen() {
   const { id } = useLocalSearchParams();
@@ -56,8 +56,6 @@ export default function StaffViewScreen() {
   const [status, setStatus] = useState(true);
   const [selectedFarms, setSelectedFarms] = useState<number[]>([]);
   const [updating, setUpdating] = useState(false);
-  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
-  const [showFarmsDropdown, setShowFarmsDropdown] = useState(false);
 
   // Add Payment Modal State
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
@@ -68,8 +66,6 @@ export default function StaffViewScreen() {
   const [payGivenBy, setPayGivenBy] = useState<number | null>(null);
   const [allStaff, setAllStaff] = useState<StaffMember[]>([]);
   const [savingPayment, setSavingPayment] = useState(false);
-  const [showPayMethodDropdown, setShowPayMethodDropdown] = useState(false);
-  const [showPayGivenDropdown, setShowPayGivenDropdown] = useState(false);
 
   // Collapsible danger zone state
   const [showDangerZone, setShowDangerZone] = useState(false);
@@ -895,33 +891,18 @@ export default function StaffViewScreen() {
             containerStyle={{ marginBottom: 12 }}
           />
 
-          <Text style={styles.inputLabel}>Role</Text>
-          <TouchableOpacity
-            style={styles.dropdownTrigger}
-            onPress={() => setShowRoleDropdown(!showRoleDropdown)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.dropdownTriggerText}>{role}</Text>
-            <Ionicons name={showRoleDropdown ? "chevron-up" : "chevron-down"} size={16} color="#64748b" />
-          </TouchableOpacity>
-
-          {showRoleDropdown && (
-            <View style={styles.dropdownList}>
-              {(['Owner', 'Manager', 'Worker', 'Consultant'] as StaffRoleValue[]).map((r) => (
-                <TouchableOpacity
-                  key={r}
-                  style={styles.dropdownItem}
-                  onPress={() => {
-                    setRole(r);
-                    setShowRoleDropdown(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.dropdownItemText}>{r}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+          <SearchableSelect
+            label="Role"
+            items={[
+              { value: 'Owner', label: 'Owner', icon: 'shield-checkmark-outline' },
+              { value: 'Manager', label: 'Manager', icon: 'briefcase-outline' },
+              { value: 'Worker', label: 'Worker', icon: 'person-outline' },
+              { value: 'Consultant', label: 'Consultant', icon: 'medkit-outline' },
+            ]}
+            value={role}
+            onSelect={(val) => setRole(val as StaffRoleValue)}
+            containerStyle={{ marginBottom: 12 }}
+          />
 
           {(role === 'Owner' || role === 'Manager') && (
             <>
@@ -956,42 +937,21 @@ export default function StaffViewScreen() {
           )}
 
           {role !== 'Owner' && (
-            <>
-              <Text style={[styles.inputLabel, { marginTop: 12 }]}>Assign Farms</Text>
-              <TouchableOpacity
-                style={styles.dropdownTrigger}
-                onPress={() => setShowFarmsDropdown(!showFarmsDropdown)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.dropdownTriggerText}>
-                  {selectedFarms.length > 0 ? `${selectedFarms.length} Farms Selected` : 'Select Farms'}
-                </Text>
-                <Ionicons name={showFarmsDropdown ? "chevron-up" : "chevron-down"} size={16} color="#64748b" />
-              </TouchableOpacity>
-
-              {showFarmsDropdown && (
-                <View style={styles.dropdownList}>
-                  {activeFarmsList.map((f) => {
-                    const isSelected = selectedFarms.includes(f.id as number);
-                    return (
-                      <TouchableOpacity
-                        key={f.id}
-                        style={styles.dropdownCheckboxItem}
-                        onPress={() => toggleFarmSelection(f.id as number)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.dropdownItemText}>{f.name}</Text>
-                        <Ionicons
-                          name={isSelected ? "checkbox" : "square-outline"}
-                          size={18}
-                          color={isSelected ? "#166534" : "#64748b"}
-                        />
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
-            </>
+            <SearchableSelect<number>
+              label="Assign Farms"
+              placeholder="Select farms"
+              searchPlaceholder="Search farms..."
+              multiple
+              items={activeFarmsList.map((f) => ({
+                value: f.id as number,
+                label: f.name,
+                sublabel: f.area ? `${f.area} ${f.area_unit}` : undefined,
+                icon: 'business-outline',
+              }))}
+              selectedValues={selectedFarms}
+              onMultiSelect={(vals) => setSelectedFarms(vals)}
+              containerStyle={{ marginTop: 12, marginBottom: 12 }}
+            />
           )}
 
           <View style={styles.modalActions}>
@@ -1045,41 +1005,20 @@ export default function StaffViewScreen() {
             containerStyle={{ marginBottom: 12 }}
           />
 
-          <Text style={styles.inputLabel}>Payment Method</Text>
-          <TouchableOpacity
-            style={styles.dropdownTrigger}
-            onPress={() => setShowPayMethodDropdown(!showPayMethodDropdown)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.dropdownTriggerText}>
-              {payMethod.replace('_', ' ').toUpperCase()}
-            </Text>
-            <Ionicons name={showPayMethodDropdown ? "chevron-up" : "chevron-down"} size={16} color="#64748b" />
-          </TouchableOpacity>
-
-          {showPayMethodDropdown && (
-            <View style={styles.dropdownList}>
-              {([
-                { value: 'cash', label: 'CASH' },
-                { value: 'google_pay', label: 'GOOGLE PAY' },
-                { value: 'phonepe', label: 'PHONEPE' },
-                { value: 'other_upi', label: 'OTHER UPI' },
-                { value: 'bank_transfer', label: 'BANK TRANSFER' },
-              ] as const).map((m) => (
-                <TouchableOpacity
-                  key={m.value}
-                  style={styles.dropdownItem}
-                  onPress={() => {
-                    setPayMethod(m.value);
-                    setShowPayMethodDropdown(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.dropdownItemText}>{m.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+          <SearchableSelect
+            label="Payment Method"
+            placeholder="Select payment method"
+            items={[
+              { value: 'cash', label: 'Cash', icon: 'cash-outline' },
+              { value: 'google_pay', label: 'Google Pay', icon: 'phone-portrait-outline' },
+              { value: 'phonepe', label: 'PhonePe', icon: 'phone-portrait-outline' },
+              { value: 'other_upi', label: 'Other UPI', icon: 'wallet-outline' },
+              { value: 'bank_transfer', label: 'Bank Transfer', icon: 'card-outline' },
+            ]}
+            value={payMethod}
+            onSelect={(val) => setPayMethod(val as any)}
+            containerStyle={{ marginBottom: 12 }}
+          />
 
           <SearchableSelect
             label="Given By"
@@ -1095,16 +1034,15 @@ export default function StaffViewScreen() {
               }))}
             value={payGivenBy}
             onSelect={setPayGivenBy}
-            containerStyle={{ marginTop: 12 }}
+            containerStyle={{ marginBottom: 12 }}
             emptyMessage="No managers found"
           />
 
-          <ModernInput
-            label="Payment Date (YYYY-MM-DD)"
-            placeholder="YYYY-MM-DD"
+          <ModernDatePicker
+            label="Payment Date"
             value={payDate}
-            onChangeText={setPayDate}
-            containerStyle={{ marginTop: 12, marginBottom: 12 }}
+            onChange={setPayDate}
+            containerStyle={{ marginBottom: 12 }}
           />
 
           <ModernInput
@@ -1208,11 +1146,10 @@ export default function StaffViewScreen() {
             containerStyle={{ marginBottom: 12 }}
           />
 
-          <ModernInput
-            label="Settlement Date (YYYY-MM-DD)"
-            placeholder="YYYY-MM-DD"
+          <ModernDatePicker
+            label="Settlement Date"
             value={settleDate}
-            onChangeText={setSettleDate}
+            onChange={setSettleDate}
             containerStyle={{ marginBottom: 12 }}
           />
 
