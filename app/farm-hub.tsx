@@ -30,6 +30,17 @@ import { useAuth } from '../src/hooks/useAuth';
 import { getBaseUrl, extractErrorMessage } from '../src/api/client';
 import { farmActivitiesApi } from '../src/api/farmActivities';
 import { SearchableSelect } from '../src/components/ui';
+import { useTranslation } from '../src/i18n/I18nContext';
+
+const sanitizeNumericInput = (text: string, allowDecimal = true) => {
+  if (!text) return '';
+  const sanitized = allowDecimal ? text.replace(/[^0-9.]/g, '') : text.replace(/[^0-9]/g, '');
+  if (allowDecimal) {
+    const parts = sanitized.split('.');
+    return parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : sanitized;
+  }
+  return sanitized;
+};
 
 const getNormalizedOptions = (options: any): { key: string; label: string }[] => {
   if (!options) return [];
@@ -387,6 +398,7 @@ function CalendarOverlay({ visible, value, onClose, onSelect, title }: CalendarM
 export default function FarmHubScreen() {
   const { farm_id, farm_ulid } = useLocalSearchParams();
   const farmIdentifier = (farm_ulid as string) || (farm_id as string);
+  const { t } = useTranslation();
 
   const [farm, setFarm] = useState<Farm | null>(null);
   const [cycles, setCycles] = useState<CropCycle[]>([]);
@@ -395,6 +407,16 @@ export default function FarmHubScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'cycles' | 'activities' | 'expenses'>('cycles');
+
+  // Tab Search & Filter States
+  const [cycleSearchQuery, setCycleSearchQuery] = useState('');
+  const [cycleStatusFilter, setCycleStatusFilter] = useState<'all' | 'active' | 'harvested'>('all');
+  const [activityStatusFilter, setActivityStatusFilter] = useState<'all' | 'completed' | 'scheduled'>('all');
+  const [expenseStatusFilter, setExpenseStatusFilter] = useState<'all' | 'completed' | 'open'>('all');
+
+  // Lazy loading flags: only Crops loaded initially, Activities & Expenses loaded on tab click
+  const [activitiesLoaded, setActivitiesLoaded] = useState(false);
+  const [expensesLoaded, setExpensesLoaded] = useState(false);
 
   // Activities pagination & loading states
   const [activitiesPage, setActivitiesPage] = useState(1);
@@ -528,87 +550,154 @@ export default function FarmHubScreen() {
 
       const dbId = farmData.id;
       if (dbId) {
-        // Run all critical and secondary fetches in parallel for blazing fast loading
-        const [cyclesRes, expensesRes, activitiesRes, mastersRes, inputProductsRes] = await Promise.allSettled([
-          cropCyclesApi.getAll({ farm_id: dbId }),
-          expensesApi.getPaginated({
-            farm_id: dbId,
-            page: 1,
-            per_page: 15,
-            search: expensesSearchQuery.trim() || undefined,
-          }),
-          farmActivitiesApi.getPaginated({
-            farm_id: dbId,
-            page: 1,
-            per_page: 15,
-            search: activitiesSearchQuery.trim() || undefined,
-          }),
-          mastersApi.getActivities(),
-          mastersApi.getInputProducts(),
-        ]);
+        // Initial load: Only load Crop Cycles! (Activities & Expenses loaded on-demand when user taps their tabs)
+        const cyclesRes = await cropCyclesApi.getAll({ farm_id: dbId });
+        setCycles(cyclesRes || []);
 
-        if (cyclesRes.status === 'fulfilled') {
-          setCycles(cyclesRes.value);
-        } else {
-          console.error('Error fetching crop cycles:', cyclesRes.reason);
-        }
-
-        if (expensesRes.status === 'fulfilled') {
-          const expData = expensesRes.value.data || [];
-          setExpenses(expData);
-          const curExpPage = expensesRes.value.meta?.current_page ?? 1;
-          const lastExpPage = expensesRes.value.meta?.last_page ?? (expData.length < 15 ? curExpPage : curExpPage + 1);
-          setExpensesPage(curExpPage);
-          setHasMoreExpenses(curExpPage < lastExpPage);
-        } else {
-          console.error('Error fetching expenses:', expensesRes.reason);
-        }
-
-        if (activitiesRes.status === 'fulfilled') {
-          const actData = activitiesRes.value.data || [];
-          setActivities(actData);
-          const curActPage = activitiesRes.value.meta?.current_page ?? 1;
-          const lastActPage = activitiesRes.value.meta?.last_page ?? (actData.length < 15 ? curActPage : curActPage + 1);
-          setActivitiesPage(curActPage);
-          setHasMoreActivities(curActPage < lastActPage);
-        } else {
-          console.error('Error fetching farm activities:', activitiesRes.reason);
-        }
-
-        if (mastersRes.status === 'fulfilled' && mastersRes.value && mastersRes.value.length > 0) {
-          // Deduplicate by name (case-insensitive)
-          const uniqueMap = new Map<string, FarmActivityMaster>();
-          mastersRes.value.forEach(a => {
-            if (a.is_active) {
-              const key = a.name.trim().toLowerCase();
-              const existing = uniqueMap.get(key);
-              if (!existing || (a.farm_group_id !== null && existing.farm_group_id === null)) {
-                uniqueMap.set(key, a);
-              }
-            }
-          });
-          setActivityMastersList(Array.from(uniqueMap.values()));
-        } else {
-          setActivityMastersList(fallbackActivityMasters);
-        }
-
-        if (inputProductsRes.status === 'fulfilled') {
-          setInputProductsList(inputProductsRes.value.filter(p => p.is_active));
+        // If currently on activities or expenses tab, fetch that tab
+        if (activeTab === 'activities') {
+          fetchActivitiesTab(1, activitiesSearchQuery, activityStatusFilter, dbId);
+        } else if (activeTab === 'expenses') {
+          fetchExpensesTab(1, expensesSearchQuery, expenseStatusFilter, dbId);
         }
       } else {
         setCycles([]);
-        setExpenses([]);
-        setActivities([]);
-        setActivityMastersList(fallbackActivityMasters);
-        setInputProductsList([]);
       }
     } catch (error) {
       console.error('Error fetching farm hub data:', error);
-      Alert.alert('Error', extractErrorMessage(error));
+      Alert.alert(t('Error'), extractErrorMessage(error));
     } finally {
       isFetchingHubDataRef.current = false;
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const handleTabChange = (tab: 'cycles' | 'activities' | 'expenses') => {
+    setActiveTab(tab);
+    const dbId = farm?.id;
+    if (!dbId) return;
+    if (tab === 'activities' && !activitiesLoaded) {
+      fetchActivitiesTab(1, activitiesSearchQuery, activityStatusFilter, dbId);
+    } else if (tab === 'expenses' && !expensesLoaded) {
+      fetchExpensesTab(1, expensesSearchQuery, expenseStatusFilter, dbId);
+    }
+  };
+
+  const loadActivityMastersAndProducts = async () => {
+    try {
+      const [mastersRes, inputProductsRes] = await Promise.allSettled([
+        activityMastersList.length <= fallbackActivityMasters.length ? mastersApi.getActivities() : Promise.resolve(null),
+        inputProductsList.length === 0 ? mastersApi.getInputProducts() : Promise.resolve(null),
+      ]);
+      if (mastersRes.status === 'fulfilled' && mastersRes.value && Array.isArray(mastersRes.value) && mastersRes.value.length > 0) {
+        const uniqueMap = new Map<string, FarmActivityMaster>();
+        mastersRes.value.forEach(a => {
+          if (a.is_active) {
+            const key = a.name.trim().toLowerCase();
+            const existing = uniqueMap.get(key);
+            if (!existing || (a.farm_group_id !== null && existing.farm_group_id === null)) {
+              uniqueMap.set(key, a);
+            }
+          }
+        });
+        setActivityMastersList(Array.from(uniqueMap.values()));
+      }
+      if (inputProductsRes.status === 'fulfilled' && inputProductsRes.value && Array.isArray(inputProductsRes.value)) {
+        setInputProductsList(inputProductsRes.value.filter(p => p.is_active));
+      }
+    } catch (err) {
+      console.error('Error loading masters & products:', err);
+    }
+  };
+
+  const fetchActivitiesTab = async (
+    page = 1,
+    search = activitiesSearchQuery,
+    status = activityStatusFilter,
+    targetFarmId?: number | string
+  ) => {
+    const dbId = targetFarmId || farm?.id || farmIdentifier;
+    if (!dbId) return;
+
+    setLoadingActivities(true);
+    try {
+      const [res, mastersRes, inputProductsRes] = await Promise.allSettled([
+        farmActivitiesApi.getPaginated({
+          farm_id: dbId,
+          page,
+          per_page: 15,
+          search: search.trim() || undefined,
+          status: status === 'all' ? undefined : status,
+        }),
+        activityMastersList.length <= fallbackActivityMasters.length ? mastersApi.getActivities() : Promise.resolve(null),
+        inputProductsList.length === 0 ? mastersApi.getInputProducts() : Promise.resolve(null),
+      ]);
+
+      if (res.status === 'fulfilled') {
+        const actData = res.value.data || [];
+        setActivities(actData);
+        const curPage = res.value.meta?.current_page ?? page;
+        const lastPage = res.value.meta?.last_page ?? (actData.length < 15 ? curPage : curPage + 1);
+        setActivitiesPage(curPage);
+        setHasMoreActivities(curPage < lastPage);
+        setActivitiesLoaded(true);
+      }
+
+      if (mastersRes.status === 'fulfilled' && mastersRes.value && Array.isArray(mastersRes.value) && mastersRes.value.length > 0) {
+        const uniqueMap = new Map<string, FarmActivityMaster>();
+        mastersRes.value.forEach(a => {
+          if (a.is_active) {
+            const key = a.name.trim().toLowerCase();
+            const existing = uniqueMap.get(key);
+            if (!existing || (a.farm_group_id !== null && existing.farm_group_id === null)) {
+              uniqueMap.set(key, a);
+            }
+          }
+        });
+        setActivityMastersList(Array.from(uniqueMap.values()));
+      }
+
+      if (inputProductsRes.status === 'fulfilled' && inputProductsRes.value && Array.isArray(inputProductsRes.value)) {
+        setInputProductsList(inputProductsRes.value.filter(p => p.is_active));
+      }
+    } catch (err) {
+      console.error('Error fetching activities:', err);
+    } finally {
+      setLoadingActivities(false);
+    }
+  };
+
+  const fetchExpensesTab = async (
+    page = 1,
+    search = expensesSearchQuery,
+    status = expenseStatusFilter,
+    targetFarmId?: number | string
+  ) => {
+    const dbId = targetFarmId || farm?.id || farmIdentifier;
+    if (!dbId) return;
+
+    setLoadingExpenses(true);
+    try {
+      const res = await expensesApi.getPaginated({
+        farm_id: dbId,
+        page,
+        per_page: 15,
+        search: search.trim() || undefined,
+        payment_status: status === 'all' ? undefined : (status === 'completed' ? 'completed' : 'pending'),
+      });
+
+      const expData = res.data || [];
+      setExpenses(expData);
+      const curPage = res.meta?.current_page ?? page;
+      const lastPage = res.meta?.last_page ?? (expData.length < 15 ? curPage : curPage + 1);
+      setExpensesPage(curPage);
+      setHasMoreExpenses(curPage < lastPage);
+      setExpensesLoaded(true);
+    } catch (err) {
+      console.error('Error fetching expenses:', err);
+    } finally {
+      setLoadingExpenses(false);
     }
   };
 
@@ -627,6 +716,7 @@ export default function FarmHubScreen() {
         page: nextPage,
         per_page: 15,
         search: activitiesSearchQuery.trim() || undefined,
+        status: activityStatusFilter === 'all' ? undefined : activityStatusFilter,
       });
 
       const newItems = res.data || [];
@@ -663,6 +753,7 @@ export default function FarmHubScreen() {
         page: nextPage,
         per_page: 15,
         search: expensesSearchQuery.trim() || undefined,
+        payment_status: expenseStatusFilter === 'all' ? undefined : (expenseStatusFilter === 'completed' ? 'completed' : 'pending'),
       });
 
       const newItems = res.data || [];
@@ -684,73 +775,25 @@ export default function FarmHubScreen() {
     }
   };
 
-  // Debounced server-side search for Activities
+  // Debounced server-side search & filter for Activities
   useEffect(() => {
-    if (isInitialActivitiesSearchMount.current) {
-      isInitialActivitiesSearchMount.current = false;
-      return;
-    }
-    const dbId = farm?.id || farmIdentifier;
-    if (!dbId) return;
-
-    const timer = setTimeout(async () => {
-      setLoadingActivities(true);
-      try {
-        const res = await farmActivitiesApi.getPaginated({
-          farm_id: dbId,
-          page: 1,
-          per_page: 15,
-          search: activitiesSearchQuery.trim() || undefined,
-        });
-        const items = res.data || [];
-        const cur = res.meta?.current_page ?? 1;
-        const last = res.meta?.last_page ?? (items.length < 15 ? cur : cur + 1);
-        setActivities(items);
-        setActivitiesPage(cur);
-        setHasMoreActivities(cur < last);
-      } catch (err) {
-        console.error('Error searching activities:', err);
-      } finally {
-        setLoadingActivities(false);
-      }
+    if (!activitiesLoaded) return;
+    const timer = setTimeout(() => {
+      fetchActivitiesTab(1, activitiesSearchQuery, activityStatusFilter);
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [activitiesSearchQuery]);
+  }, [activitiesSearchQuery, activityStatusFilter]);
 
-  // Debounced server-side search for Expenses
+  // Debounced server-side search & filter for Expenses
   useEffect(() => {
-    if (isInitialExpensesSearchMount.current) {
-      isInitialExpensesSearchMount.current = false;
-      return;
-    }
-    const dbId = farm?.id || farmIdentifier;
-    if (!dbId) return;
-
-    const timer = setTimeout(async () => {
-      setLoadingExpenses(true);
-      try {
-        const res = await expensesApi.getPaginated({
-          farm_id: dbId,
-          page: 1,
-          per_page: 15,
-          search: expensesSearchQuery.trim() || undefined,
-        });
-        const items = res.data || [];
-        const cur = res.meta?.current_page ?? 1;
-        const last = res.meta?.last_page ?? (items.length < 15 ? cur : cur + 1);
-        setExpenses(items);
-        setExpensesPage(cur);
-        setHasMoreExpenses(cur < last);
-      } catch (err) {
-        console.error('Error searching expenses:', err);
-      } finally {
-        setLoadingExpenses(false);
-      }
+    if (!expensesLoaded) return;
+    const timer = setTimeout(() => {
+      fetchExpensesTab(1, expensesSearchQuery, expenseStatusFilter);
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [expensesSearchQuery]);
+  }, [expensesSearchQuery, expenseStatusFilter]);
 
   useFocusEffect(
     useCallback(() => {
@@ -777,6 +820,25 @@ export default function FarmHubScreen() {
     setRefreshing(true);
     fetchHubData();
     fetchCrops();
+    if (activeTab === 'activities' || activitiesLoaded) {
+      fetchActivitiesTab(1, activitiesSearchQuery, activityStatusFilter);
+    }
+    if (activeTab === 'expenses' || expensesLoaded) {
+      fetchExpensesTab(1, expensesSearchQuery, expenseStatusFilter);
+    }
+  };
+
+  const handleOpenAddActivityModal = (cycleId?: string) => {
+    setSelectedActivityCycleId(cycleId || '');
+    setActivityDate(new Date().toISOString().split('T')[0]);
+    setActivityNotes('');
+    setSelectedActivityMasterId('');
+    setActivityMasterError('');
+    setActivityFieldsValues({});
+    setCustomProductNames({});
+    setActivityErrors({});
+    loadActivityMastersAndProducts();
+    setActivityModalVisible(true);
   };
 
   const fetchCrops = async () => {
@@ -823,8 +885,15 @@ export default function FarmHubScreen() {
       case 'start':
         setStartedOn(dateStr);
         if (startedOnError) setStartedOnError('');
+        if (expectedHarvestOn && dateStr > expectedHarvestOn) {
+          setExpectedHarvestOn('');
+        }
         break;
       case 'expected':
+        if (startedOn && dateStr < startedOn) {
+          Alert.alert(t('Invalid Date'), t('Expected harvest date cannot be before start date.'));
+          return;
+        }
         setExpectedHarvestOn(dateStr);
         break;
       case 'expense':
@@ -835,11 +904,25 @@ export default function FarmHubScreen() {
         break;
       case 'editStart':
         setEditStartedOn(dateStr);
+        if (editExpectedHarvestOn && dateStr > editExpectedHarvestOn) {
+          setEditExpectedHarvestOn('');
+        }
+        if (editActualHarvestOn && dateStr > editActualHarvestOn) {
+          setEditActualHarvestOn('');
+        }
         break;
       case 'editExpected':
+        if (editStartedOn && dateStr < editStartedOn) {
+          Alert.alert(t('Invalid Date'), t('Expected harvest date cannot be before start date.'));
+          return;
+        }
         setEditExpectedHarvestOn(dateStr);
         break;
       case 'editActual':
+        if (editStartedOn && dateStr < editStartedOn) {
+          Alert.alert(t('Invalid Date'), t('Actual harvest date cannot be before start date.'));
+          return;
+        }
         setEditActualHarvestOn(dateStr);
         break;
       case 'editExpense':
@@ -867,22 +950,37 @@ export default function FarmHubScreen() {
 
     let hasError = false;
     if (!selectedCropId) {
-      setCropError('Crop selection is required.');
+      setCropError(t('Crop selection is required.'));
       hasError = true;
     }
+    const areaNum = parseFloat(allocatedArea);
     if (!allocatedArea.trim()) {
-      setAreaError('Allocated area is required.');
+      setAreaError(t('Allocated area is required.'));
       hasError = true;
-    } else if (isNaN(Number(allocatedArea)) || Number(allocatedArea) <= 0) {
-      setAreaError('Area size must be a valid positive number.');
+    } else if (isNaN(areaNum) || areaNum <= 0) {
+      setAreaError(t('Area size must be a valid positive number.'));
+      hasError = true;
+    } else if (availableAreaVal > 0 && areaNum > availableAreaVal + 0.001) {
+      setAreaError(t('Crop area exceeds remaining farm area (%{remaining} %{unit}).', {
+        remaining: availableAreaVal.toFixed(2),
+        unit: farm?.area_unit?.toLowerCase() || 'acre',
+      }));
+      hasError = true;
+    } else if (availableAreaVal <= 0 && totalAreaVal > 0) {
+      setAreaError(t('No available farm area remaining for new active cycles.'));
       hasError = true;
     }
+
     if (!startedOn.trim()) {
-      setStartedOnError('Start date is required.');
+      setStartedOnError(t('Start date is required.'));
       hasError = true;
     }
     if (!seasonName.trim()) {
-      setSeasonNameError('Season/Cycle name is required.');
+      setSeasonNameError(t('Season/Cycle name is required.'));
+      hasError = true;
+    }
+    if (expectedHarvestOn && startedOn && expectedHarvestOn < startedOn) {
+      Alert.alert(t('Validation Error'), t('Expected harvest date cannot be before start date.'));
       hasError = true;
     }
 
@@ -894,8 +992,8 @@ export default function FarmHubScreen() {
         farm_id: farm?.id || farmIdentifier,
         crop_id: parseInt(selectedCropId),
         crop_type: cropType || undefined,
-        allocated_area: parseFloat(allocatedArea),
-        allocated_area_unit: 'acre',
+        allocated_area: areaNum,
+        allocated_area_unit: farm?.area_unit || 'acre',
         season_name: seasonName,
         started_on: startedOn,
         expected_harvest_on: expectedHarvestOn || undefined,
@@ -904,7 +1002,7 @@ export default function FarmHubScreen() {
       };
 
       await cropCyclesApi.create(newCycle);
-      Alert.alert('Success', 'Crop cycle added successfully.');
+      Alert.alert(t('Success'), t('Crop cycle added successfully.'));
       setSelectedCropId('');
       setCropType('');
       setAllocatedArea('');
@@ -915,7 +1013,7 @@ export default function FarmHubScreen() {
       fetchHubData();
     } catch (error: any) {
       console.error('Error creating crop cycle:', error);
-      Alert.alert('Error', extractErrorMessage(error));
+      Alert.alert(t('Error'), extractErrorMessage(error));
     } finally {
       setSavingCycle(false);
     }
@@ -926,15 +1024,16 @@ export default function FarmHubScreen() {
     const errors: Record<string, string> = {};
 
     if (!expenseCategory) {
-      errors.category = 'Category is required.';
+      errors.category = t('Category is required.');
       hasError = true;
     }
-    if (!expenseAmount || isNaN(parseFloat(expenseAmount)) || parseFloat(expenseAmount) <= 0) {
-      errors.amount = 'Valid amount is required.';
+    const amt = parseFloat(expenseAmount);
+    if (!expenseAmount.trim() || isNaN(amt) || amt <= 0) {
+      errors.amount = t('Valid positive amount is required.');
       hasError = true;
     }
     if (!expenseDate) {
-      errors.date = 'Expense date is required.';
+      errors.date = t('Expense date is required.');
       hasError = true;
     }
 
@@ -963,24 +1062,24 @@ export default function FarmHubScreen() {
         expense_master_id: masterId,
         date: expenseDate,
         expense_category: expenseCategory,
-        amount: parseFloat(expenseAmount),
+        amount: amt,
         payment_method: paymentStatus === 'completed' ? paymentMethod : 'cash',
         payment_status: paymentStatus,
         notes: expenseNotes || undefined,
       };
 
       await expensesApi.create(newExpense);
-      Alert.alert('Success', 'Expense logged successfully.');
+      Alert.alert(t('Success'), t('Expense logged successfully.'));
       setExpenseAmount('');
       setExpenseNotes('');
       setSelectedCycleId('');
       setExpenseCategory('');
       setExpenseErrors({});
       setExpenseModalVisible(false);
-      fetchHubData();
+      fetchExpensesTab(1, expensesSearchQuery, expenseStatusFilter);
     } catch (error: any) {
       console.error('Error creating expense:', error);
-      Alert.alert('Error', extractErrorMessage(error));
+      Alert.alert(t('Error'), extractErrorMessage(error));
     } finally {
       setSavingExpense(false);
     }
@@ -991,8 +1090,12 @@ export default function FarmHubScreen() {
     const errors: Record<string, string> = {};
 
     if (!selectedActivityMasterId) {
-      setActivityMasterError('Please select an activity type.');
+      setActivityMasterError(t('Please select an activity type.'));
       hasError = true;
+    }
+    if (!activityDate) {
+      Alert.alert(t('Validation Error'), t('Activity date is required.'));
+      return;
     }
 
     // Validate dynamic fields
@@ -1007,11 +1110,17 @@ export default function FarmHubScreen() {
     fields.forEach(f => {
       const val = activityFieldsValues[f.key];
       if (f.required && (val === undefined || val === null || val === '')) {
-        errors[f.key] = `${f.label} is required.`;
+        errors[f.key] = t('%{field} is required.', { field: f.label });
         hasError = true;
+      } else if ((f.type === 'number' || f.type === 'decimal') && val !== undefined && val !== null && val !== '') {
+        const num = parseFloat(val);
+        if (isNaN(num) || num < 0) {
+          errors[f.key] = t('%{field} must be a valid number.', { field: f.label });
+          hasError = true;
+        }
       }
       if (val === 'new' && (!customProductNames[f.key] || !customProductNames[f.key].trim())) {
-        errors[f.key] = `Please enter custom ${f.label.toLowerCase()} name.`;
+        errors[f.key] = t('Please enter custom %{field} name.', { field: f.label.toLowerCase() });
         hasError = true;
       }
     });
@@ -1070,16 +1179,17 @@ export default function FarmHubScreen() {
       };
 
       await farmActivitiesApi.create(activityPayload);
-      Alert.alert('Success', 'Activity scheduled successfully.');
+      Alert.alert(t('Success'), t('Activity scheduled successfully.'));
       setActivityModalVisible(false);
       setSelectedActivityMasterId('');
       setActivityNotes('');
       setActivityFieldsValues({});
       setCustomProductNames({});
-      fetchHubData();
+      setActivityErrors({});
+      fetchActivitiesTab(1, activitiesSearchQuery, activityStatusFilter);
     } catch (error: any) {
       console.error('Error creating activity:', error);
-      Alert.alert('Error', extractErrorMessage(error));
+      Alert.alert(t('Error'), extractErrorMessage(error));
     } finally {
       setSavingActivity(false);
     }
@@ -1087,17 +1197,46 @@ export default function FarmHubScreen() {
 
   const handleUpdateCycle = async () => {
     if (!selectedCycle || (!selectedCycle.id && !selectedCycle.ulid)) return;
-    if (!editCropType || !editAllocatedArea) {
-      Alert.alert('Validation Error', 'Crop type and area are required.');
+    if (!editCropType.trim()) {
+      Alert.alert(t('Validation Error'), t('Crop type is required.'));
       return;
     }
+    const areaNum = parseFloat(editAllocatedArea);
+    if (!editAllocatedArea.trim() || isNaN(areaNum) || areaNum <= 0) {
+      Alert.alert(t('Validation Error'), t('Allocated area must be a valid positive number.'));
+      return;
+    }
+
+    if (editCycleStatus?.toLowerCase() === 'active') {
+      const otherCyclesAllocated = cycles
+        .filter(c => c.status?.toLowerCase() === 'active' && (c.ulid || c.id) !== (selectedCycle.ulid || selectedCycle.id))
+        .reduce((sum, c) => sum + parseFloat(c.allocated_area as string || '0'), 0);
+      const remainingForEdit = Math.max(totalAreaVal - otherCyclesAllocated, 0);
+      if (areaNum > remainingForEdit + 0.001) {
+        Alert.alert(t('Validation Error'), t('Crop area exceeds remaining farm area (%{remaining} %{unit}).', {
+          remaining: remainingForEdit.toFixed(2),
+          unit: farm?.area_unit?.toLowerCase() || 'acre',
+        }));
+        return;
+      }
+    }
+
+    if (editCycleStatus?.toLowerCase() === 'harvested' && !editActualHarvestOn) {
+      Alert.alert(t('Validation Error'), t('Actual harvest date is required when status is Harvested.'));
+      return;
+    }
+    if (editHarvestAmount && (isNaN(parseFloat(editHarvestAmount)) || parseFloat(editHarvestAmount) < 0)) {
+      Alert.alert(t('Validation Error'), t('Harvest yield amount must be a valid positive number.'));
+      return;
+    }
+
     setUpdatingCycle(true);
     const identifier = selectedCycle.ulid || selectedCycle.id!;
     try {
       const updatedCycle: CropCycle = {
         ...selectedCycle,
         crop_type: editCropType,
-        allocated_area: parseFloat(editAllocatedArea),
+        allocated_area: areaNum,
         allocated_area_unit: editAllocatedAreaUnit,
         season_name: editSeasonName || undefined,
         started_on: editStartedOn,
@@ -1110,13 +1249,13 @@ export default function FarmHubScreen() {
       };
 
       const result = await cropCyclesApi.update(identifier, updatedCycle);
-      Alert.alert('Success', 'Crop cycle updated.');
+      Alert.alert(t('Success'), t('Crop cycle updated.'));
       setIsEditingCycle(false);
       setSelectedCycle(result);
       fetchHubData();
     } catch (error: any) {
       console.error('Error updating crop cycle:', error);
-      Alert.alert('Error', extractErrorMessage(error));
+      Alert.alert(t('Error'), extractErrorMessage(error));
     } finally {
       setUpdatingCycle(false);
     }
@@ -1125,20 +1264,20 @@ export default function FarmHubScreen() {
   const handleDeleteCycle = (cycle: CropCycle) => {
     if (!cycle.id && !cycle.ulid) return;
     const identifier = cycle.ulid || cycle.id!;
-    Alert.alert('Delete Cycle', 'Are you sure you want to delete this crop cycle?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('Delete Cycle'), t('Are you sure you want to delete this crop cycle?'), [
+      { text: t('Cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('Delete'),
         style: 'destructive',
         onPress: async () => {
           try {
             await cropCyclesApi.delete(identifier);
-            Alert.alert('Success', 'Crop cycle deleted.');
+            Alert.alert(t('Success'), t('Crop cycle deleted.'));
             setCycleDetailVisible(false);
             fetchHubData();
           } catch (error) {
             console.error(error);
-            Alert.alert('Error', extractErrorMessage(error));
+            Alert.alert(t('Error'), extractErrorMessage(error));
           }
         },
       },
@@ -1147,10 +1286,20 @@ export default function FarmHubScreen() {
 
   const handleUpdateExpense = async () => {
     if (!selectedExpense || (!selectedExpense.id && !selectedExpense.ulid)) return;
-    if (!editExpenseAmount || !editExpenseCategory) {
-      Alert.alert('Validation Error', 'Amount and category are required.');
+    if (!editExpenseCategory) {
+      Alert.alert(t('Validation Error'), t('Category is required.'));
       return;
     }
+    const amt = parseFloat(editExpenseAmount);
+    if (!editExpenseAmount.trim() || isNaN(amt) || amt <= 0) {
+      Alert.alert(t('Validation Error'), t('Valid positive amount is required.'));
+      return;
+    }
+    if (!editExpenseDate) {
+      Alert.alert(t('Validation Error'), t('Expense date is required.'));
+      return;
+    }
+
     setUpdatingExpense(true);
     const identifier = selectedExpense.ulid || selectedExpense.id!;
     try {
@@ -1174,20 +1323,20 @@ export default function FarmHubScreen() {
         expense_master_id: masterId,
         date: editExpenseDate,
         expense_category: editExpenseCategory,
-        amount: parseFloat(editExpenseAmount),
+        amount: amt,
         payment_method: editPaymentMethod,
         payment_status: editPaymentStatus,
         notes: editExpenseNotes || undefined,
       };
 
       const result = await expensesApi.update(identifier, updatedExpense);
-      Alert.alert('Success', 'Expense updated.');
+      Alert.alert(t('Success'), t('Expense updated.'));
       setIsEditingExpense(false);
       setSelectedExpense(result);
-      fetchHubData();
+      fetchExpensesTab(expensesPage, expensesSearchQuery, expenseStatusFilter);
     } catch (error: any) {
       console.error('Error updating expense:', error);
-      Alert.alert('Error', extractErrorMessage(error));
+      Alert.alert(t('Error'), extractErrorMessage(error));
     } finally {
       setUpdatingExpense(false);
     }
@@ -1196,20 +1345,20 @@ export default function FarmHubScreen() {
   const handleDeleteExpense = (expense: FarmExpense) => {
     if (!expense.id && !expense.ulid) return;
     const identifier = expense.ulid || expense.id!;
-    Alert.alert('Delete Expense', 'Are you sure you want to delete this expense?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('Delete Expense'), t('Are you sure you want to delete this expense?'), [
+      { text: t('Cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('Delete'),
         style: 'destructive',
         onPress: async () => {
           try {
             await expensesApi.delete(identifier);
-            Alert.alert('Success', 'Expense deleted.');
+            Alert.alert(t('Success'), t('Expense deleted.'));
             setExpenseDetailVisible(false);
-            fetchHubData();
+            fetchExpensesTab(1, expensesSearchQuery, expenseStatusFilter);
           } catch (error) {
             console.error(error);
-            Alert.alert('Error', extractErrorMessage(error));
+            Alert.alert(t('Error'), extractErrorMessage(error));
           }
         },
       },
@@ -1279,6 +1428,25 @@ export default function FarmHubScreen() {
 
   const activeCycles = cycles.filter(c => c.status?.toLowerCase() === 'active');
 
+  const filteredCycles = cycles.filter(item => {
+    if (cycleStatusFilter === 'active' && item.status?.toLowerCase() !== 'active') {
+      return false;
+    }
+    if (cycleStatusFilter === 'harvested' && item.status?.toLowerCase() !== 'harvested') {
+      return false;
+    }
+    if (cycleSearchQuery.trim()) {
+      const q = cycleSearchQuery.trim().toLowerCase();
+      const name = (item.crop_name || item.crop_type || '').toLowerCase();
+      const season = (item.season_name || '').toLowerCase();
+      const notes = (item.notes || '').toLowerCase();
+      if (!name.includes(q) && !season.includes(q) && !notes.includes(q)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
   const editSelectedCycleName = (() => {
     const cy = cycles.find(c => (c.ulid === editSelectedCycleId || c.id?.toString() === editSelectedCycleId));
     return cy ? `Cycle: ${cy.crop_name || cy.crop_type || 'Unknown Crop'}` : 'None / General Expense';
@@ -1288,7 +1456,7 @@ export default function FarmHubScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#166534" />
-        <Text style={styles.loadingText}>Loading Farm Center...</Text>
+        <Text style={styles.loadingText}>{t('Loading Farm Center...')}</Text>
       </View>
     );
   }
@@ -1301,17 +1469,17 @@ export default function FarmHubScreen() {
             <Ionicons name="arrow-back" size={22} color="#475569" />
           </TouchableOpacity>
           <View style={styles.navTitleGroup}>
-            <Text style={styles.navbarTitle}>Farm Hub</Text>
+            <Text style={styles.navbarTitle}>{t('Farm Hub')}</Text>
           </View>
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
           <Ionicons name="alert-circle-outline" size={48} color="#dc2626" />
-          <Text style={{ marginTop: 12, fontSize: 16, fontWeight: '600', color: '#1e293b' }}>Farm Not Found</Text>
+          <Text style={{ marginTop: 12, fontSize: 16, fontWeight: '600', color: '#1e293b' }}>{t('Farm Not Found')}</Text>
           <TouchableOpacity
             style={{ marginTop: 16, backgroundColor: '#16a34a', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
             onPress={() => router.back()}
           >
-            <Text style={{ color: '#fff', fontWeight: 'bold' }}>Go Back</Text>
+            <Text style={{ color: '#fff', fontWeight: 'bold' }}>{t('Go Back')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -1335,16 +1503,23 @@ export default function FarmHubScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
 
-      {/* Navbar */}
+      {/* Navbar with Eye Icon button to View Farm */}
       <View style={styles.navbar}>
         <TouchableOpacity style={styles.navBackBtn} onPress={() => router.back()} activeOpacity={0.7}>
           <Ionicons name="arrow-back" size={22} color="#475569" />
         </TouchableOpacity>
         <View style={styles.navTitleGroup}>
           <Text style={styles.navbarTitle}>{farm.name}</Text>
-          <Text style={styles.navbarSubtitle}>📍 {farm.location || 'Location not set'}</Text>
+          <Text style={styles.navbarSubtitle}>📍 {farm.location || t('Location not set')}</Text>
         </View>
-        <View style={[styles.statusDot, !farm.is_active && styles.statusDotInactive]} />
+        <TouchableOpacity
+          style={styles.farmViewBtn}
+          onPress={() => router.push({ pathname: '/farm-view', params: { farm_id: farm.id, farm_ulid: farm.ulid || '' } })}
+          activeOpacity={0.7}
+          accessibilityLabel={t('View Farm')}
+        >
+          <Ionicons name="eye-outline" size={20} color="#166534" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -1353,57 +1528,40 @@ export default function FarmHubScreen() {
         onScroll={handleScroll}
         scrollEventThrottle={32}
       >
-        {/* Stats Grid matching PWA */}
-        <View style={styles.statsGrid}>
-          <View style={styles.statBox}>
-            <Text style={styles.statLabel}>TOTAL AREA</Text>
-            <Text style={styles.statValue}>
-              {totalAreaVal.toFixed(2)}
-              <Text style={styles.statUnit}> {farm.area_unit.toLowerCase()}</Text>
+        {/* Inactive Farm Banner */}
+        {!farm.is_active && (
+          <View style={styles.farmInactiveBanner}>
+            <Ionicons name="lock-closed-outline" size={16} color="#991b1b" style={{ marginRight: 8, marginTop: 1 }} />
+            <Text style={styles.farmInactiveBannerText}>
+              {t('This farm is inactive. You can view old records, but reactivate the farm before adding or editing records.')}
             </Text>
           </View>
-
-          <View style={styles.statBox}>
-            <Text style={styles.statLabel}>ALLOCATED USED</Text>
-            <Text style={[styles.statValue, { color: '#b45309' }]}>
-              {allocatedUsedAreaVal.toFixed(2)}
-              <Text style={styles.statUnit}> {farm.area_unit.toLowerCase()}</Text>
-            </Text>
-          </View>
-
-          <View style={styles.statBox}>
-            <Text style={styles.statLabel}>AVAILABLE</Text>
-            <Text style={[styles.statValue, { color: '#16a34a' }]}>
-              {availableAreaVal.toFixed(2)}
-              <Text style={styles.statUnit}> {farm.area_unit.toLowerCase()}</Text>
-            </Text>
-          </View>
-        </View>
+        )}
 
         {/* Tab Segmented Control */}
         <View style={styles.segmentedControl}>
           <TouchableOpacity
             style={[styles.tabButton, activeTab === 'cycles' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('cycles')}
+            onPress={() => handleTabChange('cycles')}
             activeOpacity={0.7}
           >
-            <Text style={[styles.tabText, activeTab === 'cycles' && styles.tabTextActive]}>Crops</Text>
+            <Text style={[styles.tabText, activeTab === 'cycles' && styles.tabTextActive]}>{t('Crops')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.tabButton, activeTab === 'activities' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('activities')}
+            onPress={() => handleTabChange('activities')}
             activeOpacity={0.7}
           >
-            <Text style={[styles.tabText, activeTab === 'activities' && styles.tabTextActive]}>Activities</Text>
+            <Text style={[styles.tabText, activeTab === 'activities' && styles.tabTextActive]}>{t('Activities')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.tabButton, activeTab === 'expenses' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('expenses')}
+            onPress={() => handleTabChange('expenses')}
             activeOpacity={0.7}
           >
-            <Text style={[styles.tabText, activeTab === 'expenses' && styles.tabTextActive]}>Expenses</Text>
+            <Text style={[styles.tabText, activeTab === 'expenses' && styles.tabTextActive]}>{t('Expenses')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -1411,31 +1569,92 @@ export default function FarmHubScreen() {
         {activeTab === 'cycles' && (
           <View style={styles.tabContent}>
             <View style={styles.tabHeaderRow}>
-              <Text style={styles.tabTitle}>Farm Plots & Crops</Text>
-              <TouchableOpacity style={styles.addInlineBtn} onPress={() => {
-                setSelectedCropId('');
-                setCropType('');
-                setAllocatedArea('');
-                setSeasonName('');
-                setExpectedHarvestOn('');
-                setNotes('');
-                setCropError('');
-                setAreaError('');
-                setStartedOnError('');
-                setSeasonNameError('');
-                setCycleModalVisible(true);
-              }}>
-                <Text style={styles.addInlineBtnText}>+ Start Cycle</Text>
+              <Text style={styles.tabTitle}>{t('Farm Plots & Crops')}</Text>
+              <TouchableOpacity
+                style={[styles.addInlineBtn, !farm.is_active && { opacity: 0.5 }]}
+                disabled={!farm.is_active}
+                onPress={() => {
+                  setSelectedCropId('');
+                  setCropType('');
+                  setAllocatedArea('');
+                  setSeasonName('');
+                  setExpectedHarvestOn('');
+                  setNotes('');
+                  setCropError('');
+                  setAreaError('');
+                  setStartedOnError('');
+                  setSeasonNameError('');
+                  setCycleModalVisible(true);
+                }}
+              >
+                <Text style={styles.addInlineBtnText}>+ {t('Start Cycle')}</Text>
               </TouchableOpacity>
             </View>
 
-            {cycles.length === 0 ? (
+            {/* Search & Filter Bar for Crops */}
+            <View style={styles.filterContainer}>
+              <View style={styles.searchBar}>
+                <Ionicons name="search" size={18} color="#64748b" style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder={t('Search crop cycles...')}
+                  placeholderTextColor="#94a3b8"
+                  value={cycleSearchQuery}
+                  onChangeText={setCycleSearchQuery}
+                />
+                {cycleSearchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setCycleSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="close-circle" size={18} color="#94a3b8" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <View style={styles.filterPillsRow}>
+                <TouchableOpacity
+                  style={[styles.filterPill, cycleStatusFilter === 'all' && styles.filterPillActive]}
+                  onPress={() => setCycleStatusFilter('all')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.filterPillText, cycleStatusFilter === 'all' && styles.filterPillTextActive]}>
+                    {t('All')} ({cycles.length})
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.filterPill, cycleStatusFilter === 'active' && styles.filterPillActive]}
+                  onPress={() => setCycleStatusFilter('active')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.filterPillText, cycleStatusFilter === 'active' && styles.filterPillTextActive]}>
+                    {t('Active')} ({cycles.filter(c => c.status?.toLowerCase() === 'active').length})
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.filterPill, cycleStatusFilter === 'harvested' && styles.filterPillActive]}
+                  onPress={() => setCycleStatusFilter('harvested')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.filterPillText, cycleStatusFilter === 'harvested' && styles.filterPillTextActive]}>
+                    {t('Harvested')} ({cycles.filter(c => c.status?.toLowerCase() === 'harvested').length})
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {filteredCycles.length === 0 ? (
               <View style={styles.emptyCard}>
-                <Text style={styles.emptyText}>No crop cycles on this farm</Text>
-                <Text style={styles.emptySubtext}>Tap "+ Start Cycle" to add a new cultivation plot.</Text>
+                <Text style={styles.emptyText}>
+                  {cycles.length === 0 ? t('No crop cycles on this farm') : t('No matching crop cycles found')}
+                </Text>
+                <Text style={styles.emptySubtext}>
+                  {cycles.length === 0
+                    ? t('Tap "+ Start Cycle" to add a new cultivation plot.')
+                    : t('Try searching with a different keyword or changing the filter.')}
+                </Text>
               </View>
             ) : (
-              cycles.map((item) => {
+              filteredCycles.map((item) => {
                 const isActive = item.status?.toLowerCase() === 'active';
                 const isCompleted = item.status?.toLowerCase() === 'harvested';
                 return (
@@ -1509,17 +1728,10 @@ export default function FarmHubScreen() {
                     <View style={styles.cardActionsRow}>
                       <TouchableOpacity 
                         style={styles.cardActionBtn} 
-                        onPress={() => {
-                          setSelectedActivityCycleId(item.id!.toString());
-                          setActivityDate(new Date().toISOString().split('T')[0]);
-                          setActivityNotes('');
-                          setSelectedActivityMasterId('');
-                          setActivityMasterError('');
-                          setActivityModalVisible(true);
-                        }}
+                        onPress={() => handleOpenAddActivityModal(item.id!.toString())}
                       >
                         <Ionicons name="document-text-outline" size={16} color="#64748b" style={styles.cardActionIcon} />
-                        <Text style={styles.cardActionBtnText}>Activity</Text>
+                        <Text style={styles.cardActionBtnText}>{t('Activity')}</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity 
@@ -1531,7 +1743,7 @@ export default function FarmHubScreen() {
                         }}
                       >
                         <Text style={styles.rupeeIcon}>₹</Text>
-                        <Text style={styles.cardActionBtnText}>Expense</Text>
+                        <Text style={styles.cardActionBtnText}>{t('Expense')}</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity 
@@ -1552,46 +1764,76 @@ export default function FarmHubScreen() {
         {activeTab === 'activities' && (
           <View style={styles.tabContent}>
             <View style={styles.tabHeaderRow}>
-              <Text style={styles.tabTitle}>Farm Activities</Text>
+              <Text style={styles.tabTitle}>{t('Farm Activities')}</Text>
               <TouchableOpacity
-                style={styles.addInlineBtn}
-                onPress={() => {
-                  setSelectedActivityCycleId('');
-                  setActivityDate(new Date().toISOString().split('T')[0]);
-                  setActivityNotes('');
-                  setSelectedActivityMasterId('');
-                  setActivityMasterError('');
-                  setActivityModalVisible(true);
-                }}
+                style={[styles.addInlineBtn, !farm.is_active && { opacity: 0.5 }]}
+                disabled={!farm.is_active}
+                onPress={() => handleOpenAddActivityModal('')}
               >
-                <Text style={styles.addInlineBtnText}>+ Add Activity</Text>
+                <Text style={styles.addInlineBtnText}>+ {t('Add Activity')}</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Search Input Bar */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 10, paddingHorizontal: 12, height: 42, marginBottom: 16 }}>
-              <Ionicons name="search" size={18} color="#64748b" style={{ marginRight: 8 }} />
-              <TextInput
-                style={{ flex: 1, height: '100%', fontSize: 14, color: '#0f172a', padding: 0 }}
-                placeholder="Search activities..."
-                placeholderTextColor="#94a3b8"
-                value={activitiesSearchQuery}
-                onChangeText={setActivitiesSearchQuery}
-              />
-              {activitiesSearchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setActivitiesSearchQuery('')}>
-                  <Ionicons name="close-circle" size={18} color="#94a3b8" />
+            {/* Search & Filter Bar for Activities */}
+            <View style={styles.filterContainer}>
+              <View style={styles.searchBar}>
+                <Ionicons name="search" size={18} color="#64748b" style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder={t('Search activities...')}
+                  placeholderTextColor="#94a3b8"
+                  value={activitiesSearchQuery}
+                  onChangeText={setActivitiesSearchQuery}
+                />
+                {activitiesSearchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setActivitiesSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="close-circle" size={18} color="#94a3b8" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <View style={styles.filterPillsRow}>
+                <TouchableOpacity
+                  style={[styles.filterPill, activityStatusFilter === 'all' && styles.filterPillActive]}
+                  onPress={() => setActivityStatusFilter('all')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.filterPillText, activityStatusFilter === 'all' && styles.filterPillTextActive]}>
+                    {t('All')}
+                  </Text>
                 </TouchableOpacity>
-              )}
+
+                <TouchableOpacity
+                  style={[styles.filterPill, activityStatusFilter === 'completed' && styles.filterPillActive]}
+                  onPress={() => setActivityStatusFilter('completed')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.filterPillText, activityStatusFilter === 'completed' && styles.filterPillTextActive]}>
+                    {t('Completed')}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.filterPill, activityStatusFilter === 'scheduled' && styles.filterPillActive]}
+                  onPress={() => setActivityStatusFilter('scheduled')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.filterPillText, activityStatusFilter === 'scheduled' && styles.filterPillTextActive]}>
+                    {t('Scheduled')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {loadingActivities ? (
               <View style={{ paddingVertical: 36, alignItems: 'center', justifyContent: 'center' }}>
                 <ActivityIndicator size="small" color="#16a34a" />
-                <Text style={{ marginTop: 8, fontSize: 13, color: '#64748b' }}>Searching activities...</Text>
+                <Text style={{ marginTop: 8, fontSize: 13, color: '#64748b' }}>{t('Loading activities...')}</Text>
               </View>
             ) : (() => {
               const filtered = (activities || []).filter(act => {
+                if (activityStatusFilter === 'completed' && act.status !== 'completed') return false;
+                if (activityStatusFilter === 'scheduled' && act.status !== 'scheduled') return false;
                 if (!activitiesSearchQuery) return true;
                 const query = activitiesSearchQuery.toLowerCase();
                 const name = (act.activity_type || act.farm_activity_master?.name || '').toLowerCase();
@@ -1607,8 +1849,12 @@ export default function FarmHubScreen() {
               if (filtered.length === 0) {
                 return (
                   <View style={styles.emptyCard}>
-                    <Text style={styles.emptyText}>No matching activities found</Text>
-                    <Text style={styles.emptySubtext}>Try searching with a different keyword.</Text>
+                    <Text style={styles.emptyText}>{t('No matching activities found')}</Text>
+                    <Text style={styles.emptySubtext}>
+                      {activities.length === 0
+                        ? t('Tap "+ Add Activity" to schedule or record farm work.')
+                        : t('Try searching with a different keyword or changing the filter.')}
+                    </Text>
                   </View>
                 );
               }
@@ -1809,40 +2055,82 @@ export default function FarmHubScreen() {
         {activeTab === 'expenses' && (
           <View style={styles.tabContent}>
             <View style={styles.tabHeaderRow}>
-              <Text style={styles.tabTitle}>Expenses ledger</Text>
-              <TouchableOpacity style={styles.addInlineBtn} onPress={() => {
-                setSelectedCycleId('');
-                setExpenseOpenedFromCard(false);
-                setExpenseModalVisible(true);
-              }}>
-                <Text style={styles.addInlineBtnText}>+ Log Expense</Text>
+              <Text style={styles.tabTitle}>{t('Expenses ledger')}</Text>
+              <TouchableOpacity
+                style={[styles.addInlineBtn, !farm.is_active && { opacity: 0.5 }]}
+                disabled={!farm.is_active}
+                onPress={() => {
+                  setSelectedCycleId('');
+                  setExpenseOpenedFromCard(false);
+                  setExpenseErrors({});
+                  setExpenseModalVisible(true);
+                }}
+              >
+                <Text style={styles.addInlineBtnText}>+ {t('Log Expense')}</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Search Input Bar */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 10, paddingHorizontal: 12, height: 42, marginBottom: 16 }}>
-              <Ionicons name="search" size={18} color="#64748b" style={{ marginRight: 8 }} />
-              <TextInput
-                style={{ flex: 1, height: '100%', fontSize: 14, color: '#0f172a', padding: 0 }}
-                placeholder="Search expenses..."
-                placeholderTextColor="#94a3b8"
-                value={expensesSearchQuery}
-                onChangeText={setExpensesSearchQuery}
-              />
-              {expensesSearchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setExpensesSearchQuery('')}>
-                  <Ionicons name="close-circle" size={18} color="#94a3b8" />
+            {/* Search & Filter Bar for Expenses */}
+            <View style={styles.filterContainer}>
+              <View style={styles.searchBar}>
+                <Ionicons name="search" size={18} color="#64748b" style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder={t('Search expenses...')}
+                  placeholderTextColor="#94a3b8"
+                  value={expensesSearchQuery}
+                  onChangeText={setExpensesSearchQuery}
+                />
+                {expensesSearchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setExpensesSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="close-circle" size={18} color="#94a3b8" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <View style={styles.filterPillsRow}>
+                <TouchableOpacity
+                  style={[styles.filterPill, expenseStatusFilter === 'all' && styles.filterPillActive]}
+                  onPress={() => setExpenseStatusFilter('all')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.filterPillText, expenseStatusFilter === 'all' && styles.filterPillTextActive]}>
+                    {t('All')}
+                  </Text>
                 </TouchableOpacity>
-              )}
+
+                <TouchableOpacity
+                  style={[styles.filterPill, expenseStatusFilter === 'completed' && styles.filterPillActive]}
+                  onPress={() => setExpenseStatusFilter('completed')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.filterPillText, expenseStatusFilter === 'completed' && styles.filterPillTextActive]}>
+                    {t('Paid')}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.filterPill, expenseStatusFilter === 'open' && styles.filterPillActive]}
+                  onPress={() => setExpenseStatusFilter('open')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.filterPillText, expenseStatusFilter === 'open' && styles.filterPillTextActive]}>
+                    {t('Pending')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {loadingExpenses ? (
               <View style={{ paddingVertical: 36, alignItems: 'center', justifyContent: 'center' }}>
                 <ActivityIndicator size="small" color="#16a34a" />
-                <Text style={{ marginTop: 8, fontSize: 13, color: '#64748b' }}>Searching expenses...</Text>
+                <Text style={{ marginTop: 8, fontSize: 13, color: '#64748b' }}>{t('Loading expenses...')}</Text>
               </View>
             ) : (() => {
               const filtered = (expenses || []).filter(item => {
+                const isPaid = item.payment_status?.toLowerCase() === 'completed' || item.payment_status?.toLowerCase() === 'paid';
+                if (expenseStatusFilter === 'completed' && !isPaid) return false;
+                if (expenseStatusFilter === 'open' && isPaid) return false;
                 if (!expensesSearchQuery) return true;
                 const query = expensesSearchQuery.toLowerCase();
                 const category = (item.expense_category || '').toLowerCase();
@@ -1857,8 +2145,12 @@ export default function FarmHubScreen() {
               if (filtered.length === 0) {
                 return (
                   <View style={styles.emptyCard}>
-                    <Text style={styles.emptyText}>No matching expenses found</Text>
-                    <Text style={styles.emptySubtext}>Try searching with a different category or note.</Text>
+                    <Text style={styles.emptyText}>{t('No matching expenses found')}</Text>
+                    <Text style={styles.emptySubtext}>
+                      {expenses.length === 0
+                        ? t('Tap "+ Log Expense" to record farm spending.')
+                        : t('Try searching with a different category or changing the filter.')}
+                    </Text>
                   </View>
                 );
               }
@@ -2135,8 +2427,9 @@ export default function FarmHubScreen() {
                   keyboardType="decimal-pad"
                   value={allocatedArea}
                   onChangeText={(text) => {
-                    setAllocatedArea(text);
-                    if (text.trim()) setAreaError('');
+                    const clean = sanitizeNumericInput(text, true);
+                    setAllocatedArea(clean);
+                    if (clean.trim()) setAreaError('');
                   }}
                 />
                 <View style={styles.areaUnitDivider} />
@@ -2514,7 +2807,8 @@ export default function FarmHubScreen() {
                                 style={styles.areaInputField}
                                 value={val !== undefined && val !== null ? val.toString() : ''}
                                 onChangeText={(txt) => {
-                                  setActivityFieldsValues(prev => ({ ...prev, [f.key]: txt }));
+                                  const clean = sanitizeNumericInput(txt, f.type === 'decimal');
+                                  setActivityFieldsValues(prev => ({ ...prev, [f.key]: clean }));
                                   if (activityErrors[f.key]) {
                                     setActivityErrors(prev => ({ ...prev, [f.key]: '' }));
                                   }
@@ -2886,8 +3180,9 @@ export default function FarmHubScreen() {
                       keyboardType="decimal-pad"
                       value={expenseAmount}
                       onChangeText={(txt) => {
-                        setExpenseAmount(txt);
-                        if (expenseErrors.amount) {
+                        const clean = sanitizeNumericInput(txt, true);
+                        setExpenseAmount(clean);
+                        if (clean.trim() && expenseErrors.amount) {
                           setExpenseErrors(prev => ({ ...prev, amount: '' }));
                         }
                       }}
@@ -3044,7 +3339,7 @@ export default function FarmHubScreen() {
                         style={styles.input}
                         keyboardType="decimal-pad"
                         value={editAllocatedArea}
-                        onChangeText={setEditAllocatedArea}
+                        onChangeText={(txt) => setEditAllocatedArea(sanitizeNumericInput(txt, true))}
                       />
                     </View>
 
@@ -3177,7 +3472,7 @@ export default function FarmHubScreen() {
                             placeholderTextColor="#94a3b8"
                             keyboardType="decimal-pad"
                             value={editHarvestAmount}
-                            onChangeText={setEditHarvestAmount}
+                            onChangeText={(txt) => setEditHarvestAmount(sanitizeNumericInput(txt, true))}
                           />
                         </View>
                         <View style={styles.column}>
@@ -3346,7 +3641,7 @@ export default function FarmHubScreen() {
                   <TextInput
                     style={styles.input}
                     value={editExpenseAmount}
-                    onChangeText={setEditExpenseAmount}
+                    onChangeText={(txt) => setEditExpenseAmount(sanitizeNumericInput(txt, true))}
                     keyboardType="decimal-pad"
                   />
 
@@ -4557,5 +4852,81 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#334155',
+  },
+  farmViewBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(22, 101, 52, 0.15)',
+    backgroundColor: '#ecfdf5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  farmInactiveBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    borderRadius: 12,
+    backgroundColor: '#fef2f2',
+    padding: 10,
+    marginBottom: 14,
+  },
+  farmInactiveBannerText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#991b1b',
+    lineHeight: 16,
+  },
+  filterContainer: {
+    marginBottom: 14,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 42,
+    marginBottom: 10,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0f172a',
+    height: '100%',
+    padding: 0,
+  },
+  filterPillsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  filterPill: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  filterPillActive: {
+    backgroundColor: '#16a34a',
+    borderColor: '#16a34a',
+  },
+  filterPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  filterPillTextActive: {
+    color: '#ffffff',
   },
 });
