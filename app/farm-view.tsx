@@ -26,9 +26,17 @@ import { extractErrorMessage } from '../src/api/client';
 import { useAuth } from '../src/hooks/useAuth';
 import { permissions } from '../src/utils/permissions';
 import { useToast } from '../src/context/ToastContext';
-import { ConfirmModal } from '../src/components/ui';
+import { ConfirmModal, ModalSheet, ModernInput, QuickChipGroup, ChipOption } from '../src/components/ui';
+import { useTranslation } from '../src/i18n/I18nContext';
 
 const AREA_UNITS = ['ACRE', 'HECTARE', 'BIGHAS', 'GUNTHAS'];
+
+const STAFF_ROLE_CHIP_OPTIONS: ChipOption<'Worker' | 'Manager' | 'Supervisor' | 'Consultant'>[] = [
+  { label: 'Worker', value: 'Worker' },
+  { label: 'Manager', value: 'Manager' },
+  { label: 'Supervisor', value: 'Supervisor' },
+  { label: 'Consultant', value: 'Consultant' },
+];
 
 const formatDisplayDate = (dateStr?: string | null) => {
   if (!dateStr) return 'N/A';
@@ -55,7 +63,7 @@ const isTodayDate = (dateStr?: string | null) => {
   }
 };
 
-const getStaffRoleStyle = (roles: any) => {
+const getStaffRoleStyle = (roles: any, t?: (k: string) => string) => {
   let roleStr = 'worker';
   if (Array.isArray(roles) && roles.length > 0) {
     roleStr = typeof roles[0] === 'object' ? (roles[0].name || 'worker') : roles[0];
@@ -63,17 +71,20 @@ const getStaffRoleStyle = (roles: any) => {
     roleStr = roles;
   }
   roleStr = (roleStr || '').toLowerCase();
+  const tr = t || ((k: string) => k);
 
   switch (roleStr) {
     case 'owner':
-      return { bg: '#fef3c7', text: '#92400e', label: 'Owner' };
+      return { bg: '#fef3c7', text: '#92400e', label: tr('Owner') };
     case 'manager':
-      return { bg: '#ede9fe', text: '#5b21b6', label: 'Manager' };
+      return { bg: '#ede9fe', text: '#5b21b6', label: tr('Manager') };
     case 'supervisor':
-      return { bg: '#dbeafe', text: '#1e40af', label: 'Supervisor' };
+      return { bg: '#dbeafe', text: '#1e40af', label: tr('Supervisor') };
+    case 'consultant':
+      return { bg: '#e0f2fe', text: '#0369a1', label: tr('Consultant') };
     case 'worker':
     default:
-      return { bg: '#dcfce7', text: '#15803d', label: 'Worker' };
+      return { bg: '#dcfce7', text: '#15803d', label: tr('Worker') };
   }
 };
 
@@ -96,6 +107,17 @@ export default function FarmViewScreen() {
   const farmIdentifier = (farm_ulid as string) || (farm_id as string);
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { t } = useTranslation();
+
+  const formatUnitLabel = (unit?: string) => {
+    if (!unit) return t('Acre');
+    const u = unit.toLowerCase();
+    if (u === 'acre') return t('Acre');
+    if (u === 'hectare') return t('Hectare');
+    if (u === 'bighas' || u === 'bigha') return t('Bigha');
+    if (u === 'gunthas' || u === 'guntha') return t('Guntha');
+    return t(unit) || (unit.charAt(0).toUpperCase() + unit.slice(1).toLowerCase());
+  };
 
   const [farm, setFarm] = useState<Farm | null>(null);
   const [loading, setLoading] = useState(true);
@@ -135,12 +157,25 @@ export default function FarmViewScreen() {
   const [staffMeta, setStaffMeta] = useState<PaginationMeta | null>(null);
   const [staffSearchQuery, setStaffSearchQuery] = useState('');
 
-  // Add Staff Modal State
+  // Add / Manage Staff Modal State
   const [addStaffModalVisible, setAddStaffModalVisible] = useState(false);
-  const [availableStaff, setAvailableStaff] = useState<StaffMember[]>([]);
+  const [staffModalMode, setStaffModalMode] = useState<'manage' | 'create'>('manage');
+  const [allStaff, setAllStaff] = useState<StaffMember[]>([]);
   const [loadingAvailableStaff, setLoadingAvailableStaff] = useState(false);
-  const [selectedStaffIdToAssign, setSelectedStaffIdToAssign] = useState<string | number>('');
-  const [assigningStaff, setAssigningStaff] = useState(false);
+  const [selectedStaffIds, setSelectedStaffIds] = useState<Set<number>>(new Set());
+  const [initialAssignedIds, setInitialAssignedIds] = useState<Set<number>>(new Set());
+  const [modalStaffSearch, setModalStaffSearch] = useState('');
+  const [savingStaffAssignments, setSavingStaffAssignments] = useState(false);
+
+  // Create Staff Form State
+  const [newStaffName, setNewStaffName] = useState('');
+  const [newStaffRole, setNewStaffRole] = useState<'Worker' | 'Manager' | 'Supervisor' | 'Consultant'>('Worker');
+  const [newStaffPhone, setNewStaffPhone] = useState('');
+  const [newStaffUsername, setNewStaffUsername] = useState('');
+  const [newStaffEmail, setNewStaffEmail] = useState('');
+  const [newStaffPassword, setNewStaffPassword] = useState('');
+  const [creatingStaff, setCreatingStaff] = useState(false);
+  const [newStaffError, setNewStaffError] = useState('');
 
   const isInitialStaffSearchMount = useRef(true);
 
@@ -255,23 +290,35 @@ export default function FarmViewScreen() {
     fetchFarmDetails();
   };
 
+  const filteredModalStaff = allStaff.filter((s) => {
+    if (!modalStaffSearch.trim()) return true;
+    const q = modalStaffSearch.toLowerCase();
+    return (
+      (s.name && s.name.toLowerCase().includes(q)) ||
+      (s.phone && s.phone.includes(q)) ||
+      (s.email && s.email.toLowerCase().includes(q))
+    );
+  });
+
   const handleUpdateFarm = async () => {
     if (!farm || !farmIdentifier) return;
     if (!editName.trim() || !editArea.trim()) {
-      Alert.alert('Validation Error', 'Farm name and area are required.');
+      Alert.alert(t('Validation Error') || 'Validation Error', t('Farm name and area are required.'));
       return;
     }
 
     const newAreaNum = parseFloat(editArea);
     if (isNaN(newAreaNum) || newAreaNum <= 0) {
-      Alert.alert('Validation Error', 'Area must be a valid positive number.');
+      Alert.alert(t('Validation Error') || 'Validation Error', t('Area size must be a valid positive number.'));
       return;
     }
 
     if (farm.active_crop_cycles_area && newAreaNum < farm.active_crop_cycles_area - 0.0001) {
       Alert.alert(
-        'Area Downsize Error',
-        `Total area cannot be less than the active crop cycles area (${farm.active_crop_cycles_area} ${editAreaUnit.toLowerCase()}).`
+        t('Area Downsize Error') || 'Area Downsize Error',
+        t('Total area cannot be less than the active crop cycles area (:area).', {
+          area: `${farm.active_crop_cycles_area} ${formatUnitLabel(editAreaUnit)}`,
+        })
       );
       return;
     }
@@ -287,7 +334,7 @@ export default function FarmViewScreen() {
       });
       setFarm(updated);
       setEditModalVisible(false);
-      showToast('Farm details updated successfully.', 'success');
+      showToast(t('Farm details updated successfully.'), 'success');
     } catch (error) {
       console.error('Error updating farm:', error);
       showToast(extractErrorMessage(error), 'error');
@@ -306,7 +353,12 @@ export default function FarmViewScreen() {
         is_active: nextStatus,
       });
       setFarm(updated);
-      showToast(`Farm ${nextStatus ? 'activated' : 'deactivated'} successfully.`, 'success');
+      showToast(
+        nextStatus
+          ? t('Farm activated successfully.') || 'Farm activated successfully.'
+          : t('Farm deactivated successfully.') || 'Farm deactivated successfully.',
+        'success'
+      );
     } catch (error) {
       console.error('Error toggling farm status:', error);
       showToast(extractErrorMessage(error), 'error');
@@ -326,7 +378,7 @@ export default function FarmViewScreen() {
     try {
       await farmsApi.delete(farmIdentifier);
       setDeleteConfirmVisible(false);
-      showToast('Farm deleted successfully.', 'success');
+      showToast(t('Farm deleted successfully.'), 'success');
       router.back();
     } catch (error) {
       console.error('Error deleting farm:', error);
@@ -338,42 +390,154 @@ export default function FarmViewScreen() {
 
   const handleOpenAddStaffModal = async () => {
     setAddStaffModalVisible(true);
-    setSelectedStaffIdToAssign('');
+    setStaffModalMode('manage');
+    setModalStaffSearch('');
     setLoadingAvailableStaff(true);
     try {
-      const all = await staffApi.getAll({ status: 'active' });
-      // Filter out staff members that are already assigned to this farm
-      const currentAssignedIds = new Set(staffList.map((s) => s.id?.toString()));
-      const unassigned = (all || []).filter((s) => !currentAssignedIds.has(s.id?.toString()));
-      setAvailableStaff(unassigned);
-      if (unassigned.length > 0) {
-        setSelectedStaffIdToAssign(unassigned[0].id);
-      }
+      const [all, assignedToFarm] = await Promise.all([
+        staffApi.getAll({ status: 'active' }),
+        farm?.id ? staffApi.getAll({ farm_id: farm.id }) : Promise.resolve([]),
+      ]);
+      setAllStaff(all || []);
+
+      const assignedIds = new Set<number>();
+      (assignedToFarm || []).forEach((s) => {
+        if (s.id) assignedIds.add(Number(s.id));
+      });
+      (all || []).forEach((s) => {
+        if (
+          s.id &&
+          s.farms?.some(
+            (f) => Number(f.id) === Number(farm?.id) || (farm?.ulid && f.ulid === farm.ulid)
+          )
+        ) {
+          assignedIds.add(Number(s.id));
+        }
+      });
+
+      setSelectedStaffIds(new Set(assignedIds));
+      setInitialAssignedIds(new Set(assignedIds));
     } catch (err) {
-      console.error('Error loading available staff:', err);
+      console.error('Error loading staff for assignment:', err);
     } finally {
       setLoadingAvailableStaff(false);
     }
   };
 
-  const handleAssignStaff = async () => {
-    if (!selectedStaffIdToAssign || !farm?.id) {
-      Alert.alert('Validation Error', 'Please select a staff member.');
-      return;
-    }
-    setAssigningStaff(true);
+  const handleToggleStaffSelection = (id: number) => {
+    setSelectedStaffIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAllFilteredStaff = () => {
+    setSelectedStaffIds((prev) => {
+      const next = new Set(prev);
+      filteredModalStaff.forEach((s) => {
+        if (s.id) next.add(Number(s.id));
+      });
+      return next;
+    });
+  };
+
+  const handleDeselectAllFilteredStaff = () => {
+    setSelectedStaffIds((prev) => {
+      const next = new Set(prev);
+      filteredModalStaff.forEach((s) => {
+        if (s.id) next.delete(Number(s.id));
+      });
+      return next;
+    });
+  };
+
+  const handleSaveStaffAssignments = async () => {
+    if (!farm?.id) return;
+    setSavingStaffAssignments(true);
     try {
-      await staffApi.assignFarm(selectedStaffIdToAssign, Number(farm.id));
-      showToast('Staff member assigned successfully.', 'success');
+      const toAssign = [...selectedStaffIds].filter((id) => !initialAssignedIds.has(id));
+      const toUnassign = [...initialAssignedIds].filter((id) => !selectedStaffIds.has(id));
+
+      const ops: Promise<any>[] = [];
+      toAssign.forEach((id) => {
+        ops.push(staffApi.assignFarm(id, Number(farm.id)));
+      });
+      toUnassign.forEach((id) => {
+        ops.push(staffApi.unassignFarm(id, Number(farm.id)));
+      });
+
+      if (ops.length > 0) {
+        await Promise.allSettled(ops);
+        showToast(t('Staff assignments updated successfully.'), 'success');
+      }
+
       setAddStaffModalVisible(false);
       fetchStaffMembers(farm.id, 1, staffSearchQuery);
-      // Update farm count
       fetchFarmDetails();
     } catch (error) {
-      console.error('Error assigning staff:', error);
+      console.error('Error updating staff assignments:', error);
       showToast(extractErrorMessage(error), 'error');
     } finally {
-      setAssigningStaff(false);
+      setSavingStaffAssignments(false);
+    }
+  };
+
+  const handleCreateAndAssignStaff = async () => {
+    if (!farm?.id) return;
+    if (!newStaffName.trim()) {
+      setNewStaffError(t('Full Name is required.'));
+      return;
+    }
+    if (newStaffRole === 'Manager' && !newStaffEmail.trim()) {
+      setNewStaffError(t('Email is required for Managers.'));
+      return;
+    }
+
+    setCreatingStaff(true);
+    setNewStaffError('');
+    try {
+      const payload = {
+        name: newStaffName.trim(),
+        roles: [newStaffRole],
+        phone: newStaffPhone.trim() || undefined,
+        username: newStaffUsername.trim() || undefined,
+        email: newStaffEmail.trim() || undefined,
+        password: newStaffPassword.trim() || undefined,
+        farms: [Number(farm.id)],
+        status: true,
+      };
+
+      const created = await staffApi.create(payload as any);
+      if (created?.id) {
+        try {
+          await staffApi.assignFarm(created.id, Number(farm.id));
+        } catch {
+          // ignore if already assigned via farms field
+        }
+      }
+
+      showToast(t('Staff member registered and assigned successfully!'), 'success');
+
+      setNewStaffName('');
+      setNewStaffRole('Worker');
+      setNewStaffPhone('');
+      setNewStaffUsername('');
+      setNewStaffEmail('');
+      setNewStaffPassword('');
+
+      setAddStaffModalVisible(false);
+      fetchStaffMembers(farm.id, 1, staffSearchQuery);
+      fetchFarmDetails();
+    } catch (error: any) {
+      console.error('Error creating staff member:', error);
+      showToast(extractErrorMessage(error), 'error');
+    } finally {
+      setCreatingStaff(false);
     }
   };
 
@@ -390,7 +554,7 @@ export default function FarmViewScreen() {
         return (
           <View style={styles.paginationCaptionRow}>
             <Text style={styles.paginationCaption}>
-              Showing {from || 1}-{to || total} of {total}
+              {t('Showing')} {from || 1}-{to || total} {t('of')} {total}
             </Text>
           </View>
         );
@@ -445,7 +609,7 @@ export default function FarmViewScreen() {
         </View>
 
         <Text style={styles.paginationCaption}>
-          Showing {from || ((currentPage - 1) * 5 + 1)}-{to || Math.min(currentPage * 5, total)} of {total}
+          {t('Showing')} {from || ((currentPage - 1) * 5 + 1)}-{to || Math.min(currentPage * 5, total)} {t('of')} {total}
         </Text>
       </View>
     );
@@ -455,7 +619,7 @@ export default function FarmViewScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#166534" />
-        <Text style={styles.loadingText}>Loading Farm Overview...</Text>
+        <Text style={styles.loadingText}>{t('Loading Farm Overview...')}</Text>
       </View>
     );
   }
@@ -467,19 +631,19 @@ export default function FarmViewScreen() {
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={20} color="#475569" />
           </TouchableOpacity>
-          <Text style={styles.topbarTitle}>Farm Overview</Text>
+          <Text style={styles.topbarTitle}>{t('Farm Overview')}</Text>
           <View style={styles.topbarSpacer} />
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
           <Ionicons name="alert-circle-outline" size={48} color="#dc2626" />
           <Text style={{ marginTop: 12, fontSize: 16, fontWeight: '600', color: '#1e293b' }}>
-            Farm Not Found
+            {t('Farm Not Found')}
           </Text>
           <TouchableOpacity
             style={{ marginTop: 16, backgroundColor: '#16a34a', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
             onPress={() => router.back()}
           >
-            <Text style={{ color: '#fff', fontWeight: 'bold' }}>Go Back</Text>
+            <Text style={{ color: '#fff', fontWeight: 'bold' }}>{t('Go Back')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -510,7 +674,7 @@ export default function FarmViewScreen() {
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
           <Ionicons name="arrow-back" size={20} color="#475569" />
         </TouchableOpacity>
-        <Text style={styles.topbarTitle}>Farm Overview</Text>
+        <Text style={styles.topbarTitle}>{t('Farm Overview')}</Text>
         <View style={styles.topbarSpacer} />
       </View>
 
@@ -528,7 +692,7 @@ export default function FarmViewScreen() {
               <Text style={styles.heroName}>{farm.name}</Text>
               <View style={styles.heroLocation}>
                 <Ionicons name="location-sharp" size={14} color="#64748b" />
-                <Text style={styles.heroLocationText}>{farm.location || 'Location not set'}</Text>
+                <Text style={styles.heroLocationText}>{farm.location || t('Location not set')}</Text>
               </View>
             </View>
             <View style={[styles.statusDot, !farm.is_active && styles.statusDotInactive]} />
@@ -542,7 +706,7 @@ export default function FarmViewScreen() {
                 activeOpacity={0.7}
               >
                 <Ionicons name="pencil-sharp" size={15} color="#166534" />
-                <Text style={styles.heroEditBtnText}>Edit</Text>
+                <Text style={styles.heroEditBtnText}>{t('Edit')}</Text>
               </TouchableOpacity>
             )}
 
@@ -557,7 +721,7 @@ export default function FarmViewScreen() {
               activeOpacity={0.7}
             >
               <Ionicons name="settings-outline" size={15} color="#ffffff" />
-              <Text style={styles.heroManageBtnText}>Manage</Text>
+              <Text style={styles.heroManageBtnText}>{t('Manage')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -567,7 +731,7 @@ export default function FarmViewScreen() {
           <View style={styles.inactiveBanner}>
             <Ionicons name="lock-closed-outline" size={18} color="#991b1b" style={{ marginTop: 1 }} />
             <Text style={styles.inactiveBannerText}>
-              This farm is inactive. You can view old records, but reactivate the farm before adding or editing records.
+              {t('This farm is inactive. You can view old records, but reactivate the farm before adding or editing records.')}
             </Text>
           </View>
         )}
@@ -575,17 +739,17 @@ export default function FarmViewScreen() {
         {/* Stats Grid matching PWA vf-stats */}
         <View style={styles.statsGrid}>
           <View style={styles.statBox}>
-            <Text style={styles.statLabel}>TOTAL AREA</Text>
+            <Text style={styles.statLabel}>{t('TOTAL AREA')}</Text>
             <Text style={styles.statValue}>
               {parseFloat((farm.area as unknown as string) || '0').toFixed(2)}{' '}
-              <Text style={styles.statUnit}>{farm.area_unit.toLowerCase()}</Text>
+              <Text style={styles.statUnit}>{formatUnitLabel(farm.area_unit)}</Text>
             </Text>
           </View>
 
           <View style={styles.statBox}>
-            <Text style={styles.statLabel}>ACTIVE CROPS</Text>
+            <Text style={styles.statLabel}>{t('ACTIVE CROPS')}</Text>
             <Text style={styles.statValue}>
-              {farm.active_cycles_count ?? 0} <Text style={styles.statUnit}>Cycles</Text>
+              {farm.active_cycles_count ?? 0} <Text style={styles.statUnit}>{t('Cycles')}</Text>
             </Text>
           </View>
         </View>
@@ -594,8 +758,8 @@ export default function FarmViewScreen() {
         <View style={styles.sectionCard}>
           <View style={styles.sectionHead}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.sectionTitle}>General Activities</Text>
-              <Text style={styles.sectionSubtitle}>Activities not assigned to any crop cycle</Text>
+              <Text style={styles.sectionTitle}>{t('General Activities')}</Text>
+              <Text style={styles.sectionSubtitle}>{t('Activities not assigned to any crop cycle')}</Text>
             </View>
             <View style={styles.countBadge}>
               <Text style={styles.countBadgeText}>{activitiesTotal}</Text>
@@ -605,11 +769,11 @@ export default function FarmViewScreen() {
           {activitiesLoading ? (
             <View style={styles.inlineLoading}>
               <ActivityIndicator size="small" color="#16a34a" />
-              <Text style={styles.inlineLoadingText}>Loading activities...</Text>
+              <Text style={styles.inlineLoadingText}>{t('Loading activities...')}</Text>
             </View>
           ) : activities.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyText}>No general activities logged for this farm yet.</Text>
+              <Text style={styles.emptyText}>{t('No general activities logged for this farm yet.')}</Text>
             </View>
           ) : (
             <View style={{ gap: 10 }}>
@@ -650,7 +814,7 @@ export default function FarmViewScreen() {
                               isScheduled ? { color: '#a16207' } : { color: '#b91c1c' },
                             ]}
                           >
-                            {act.status.charAt(0).toUpperCase() + act.status.slice(1)}
+                            {t(act.status.charAt(0).toUpperCase() + act.status.slice(1))}
                           </Text>
                         </View>
                       )}
@@ -659,7 +823,7 @@ export default function FarmViewScreen() {
                     <View style={styles.itemDateRow}>
                       <Text style={[styles.itemDateText, isToday && styles.itemDateTextToday]}>
                         {formatDisplayDate(act.date)}
-                        {isToday && '  •  Today'}
+                        {isToday && `  •  ${t('Today')}`}
                       </Text>
                       <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                     </View>
@@ -668,7 +832,7 @@ export default function FarmViewScreen() {
                       <View style={styles.detailsRow}>
                         {detailsRows.map((detail, dIdx) => (
                           <Text key={dIdx} style={styles.detailText}>
-                            <Text style={styles.detailTextBold}>{detail.label}:</Text> {detail.value}
+                            <Text style={styles.detailTextBold}>{t(detail.label)}:</Text> {detail.value}
                             {dIdx < detailsRows.length - 1 ? '   ' : ''}
                           </Text>
                         ))}
@@ -677,7 +841,7 @@ export default function FarmViewScreen() {
 
                     {act.notes ? (
                       <Text style={styles.notesText}>
-                        <Text style={{ fontWeight: '700' }}>Notes:</Text> {act.notes}
+                        <Text style={{ fontWeight: '700' }}>{t('Notes:')}</Text> {act.notes}
                       </Text>
                     ) : null}
                   </TouchableOpacity>
@@ -700,8 +864,8 @@ export default function FarmViewScreen() {
         <View style={styles.sectionCard}>
           <View style={styles.sectionHead}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.sectionTitle}>General Expenses</Text>
-              <Text style={styles.sectionSubtitle}>Expenses not assigned to any crop cycle</Text>
+              <Text style={styles.sectionTitle}>{t('General Expenses')}</Text>
+              <Text style={styles.sectionSubtitle}>{t('Expenses not assigned to any crop cycle')}</Text>
             </View>
             <View style={styles.countBadge}>
               <Text style={styles.countBadgeText}>{expensesTotal}</Text>
@@ -711,11 +875,11 @@ export default function FarmViewScreen() {
           {expensesLoading ? (
             <View style={styles.inlineLoading}>
               <ActivityIndicator size="small" color="#16a34a" />
-              <Text style={styles.inlineLoadingText}>Loading expenses...</Text>
+              <Text style={styles.inlineLoadingText}>{t('Loading expenses...')}</Text>
             </View>
           ) : expenses.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyText}>No general expenses logged for this farm yet.</Text>
+              <Text style={styles.emptyText}>{t('No general expenses logged for this farm yet.')}</Text>
             </View>
           ) : (
             <View style={{ gap: 10 }}>
@@ -757,14 +921,14 @@ export default function FarmViewScreen() {
                                 isCompleted ? { color: '#15803d' } : { color: '#b91c1c' },
                               ]}
                             >
-                              {isCompleted ? 'Paid' : 'Pending'}
+                              {isCompleted ? t('Paid') : t('Pending')}
                             </Text>
                           </View>
                         </View>
 
                         <Text style={[styles.itemDateText, isToday && styles.itemDateTextToday, { marginTop: 4 }]}>
                           {formatDisplayDate(item.date)}
-                          {isToday && '  •  Today'}
+                          {isToday && `  •  ${t('Today')}`}
                         </Text>
                       </View>
 
@@ -777,7 +941,7 @@ export default function FarmViewScreen() {
                         </View>
                         {item.payment_method ? (
                           <Text style={styles.expenseMethodText}>
-                            Method: {item.payment_method.toUpperCase()}
+                            {t('Method:')} {item.payment_method.toUpperCase()}
                           </Text>
                         ) : null}
                       </View>
@@ -785,7 +949,7 @@ export default function FarmViewScreen() {
 
                     {item.notes ? (
                       <Text style={[styles.notesText, { marginTop: 6 }]}>
-                        <Text style={{ fontWeight: '700' }}>Note:</Text> {item.notes}
+                        <Text style={{ fontWeight: '700' }}>{t('Note:')}</Text> {item.notes}
                       </Text>
                     ) : null}
                   </TouchableOpacity>
@@ -808,11 +972,11 @@ export default function FarmViewScreen() {
         <View style={styles.sectionCard}>
           <View style={styles.sectionHead}>
             <Text style={styles.sectionTitle}>
-              Staff Members <Text style={styles.sectionTitleCount}>({staffTotal})</Text>
+              {t('Staff Members')} <Text style={styles.sectionTitleCount}>({staffTotal})</Text>
             </Text>
             <TouchableOpacity style={styles.inlineActionBtn} onPress={handleOpenAddStaffModal} activeOpacity={0.7}>
               <Ionicons name="add" size={16} color="#166534" />
-              <Text style={styles.inlineActionBtnText}>Add Staff</Text>
+              <Text style={styles.inlineActionBtnText}>{t('Add Staff')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -822,7 +986,7 @@ export default function FarmViewScreen() {
               <Ionicons name="search" size={16} color="#64748b" style={{ marginRight: 8 }} />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search staff members..."
+                placeholder={t('Search staff members...')}
                 placeholderTextColor="#94a3b8"
                 value={staffSearchQuery}
                 onChangeText={setStaffSearchQuery}
@@ -838,12 +1002,12 @@ export default function FarmViewScreen() {
           {staffLoading ? (
             <View style={styles.inlineLoading}>
               <ActivityIndicator size="small" color="#16a34a" />
-              <Text style={styles.inlineLoadingText}>Loading staff...</Text>
+              <Text style={styles.inlineLoadingText}>{t('Loading staff...')}</Text>
             </View>
           ) : staffList.length === 0 ? (
             <View style={styles.emptyCard}>
               <Text style={styles.emptyText}>
-                {staffSearchQuery ? 'No staff match your search.' : 'No staff assigned to this farm yet.'}
+                {staffSearchQuery ? t('No staff match your search.') : t('No staff assigned to this farm yet.')}
               </Text>
               {!staffSearchQuery && (
                 <TouchableOpacity
@@ -852,14 +1016,14 @@ export default function FarmViewScreen() {
                   activeOpacity={0.7}
                 >
                   <Ionicons name="add" size={16} color="#166534" />
-                  <Text style={styles.inlineActionBtnText}>Add Staff</Text>
+                  <Text style={styles.inlineActionBtnText}>{t('Add Staff')}</Text>
                 </TouchableOpacity>
               )}
             </View>
           ) : (
             <View style={{ gap: 8 }}>
               {staffList.map((staff) => {
-                const roleStyle = getStaffRoleStyle(staff.roles);
+                const roleStyle = getStaffRoleStyle(staff.roles, t);
                 const initial = (staff.name || 'S').charAt(0).toUpperCase();
 
                 return (
@@ -892,7 +1056,7 @@ export default function FarmViewScreen() {
                             staff.is_active !== false ? { color: '#15803d' } : { color: '#dc2626' },
                           ]}
                         >
-                          {staff.is_active !== false ? 'Active' : 'Inactive'}
+                          {staff.is_active !== false ? t('Active') : t('Inactive')}
                         </Text>
                       </View>
                       {staff.email ? <Text style={styles.staffEmail}>{staff.email}</Text> : null}
@@ -924,8 +1088,8 @@ export default function FarmViewScreen() {
               activeOpacity={0.7}
             >
               <View style={{ flex: 1 }}>
-                <Text style={styles.dangerZoneTitle}>Danger Zone</Text>
-                <Text style={styles.dangerZoneSubtitle}>Deactivate or delete this farm</Text>
+                <Text style={styles.dangerZoneTitle}>{t('Danger Zone')}</Text>
+                <Text style={styles.dangerZoneSubtitle}>{t('Deactivate or delete this farm')}</Text>
               </View>
               <Ionicons
                 name={dangerZoneExpanded ? 'chevron-up' : 'chevron-down'}
@@ -939,15 +1103,15 @@ export default function FarmViewScreen() {
                 <View style={styles.dangerActionSection}>
                   <View style={{ flex: 1, marginRight: 10 }}>
                     <Text style={styles.dangerSectionHeading}>
-                      {farm.is_active ? 'Deactivate Farm' : 'Activate Farm'}
+                      {farm.is_active ? t('Deactivate Farm') : t('Activate Farm')}
                     </Text>
                     <Text style={styles.dangerSectionText}>
-                      Current status: {farm.is_active ? 'Active' : 'Inactive'}.
+                      {t('Current status:')} {farm.is_active ? t('Active') : t('Inactive')}.
                     </Text>
                     <Text style={styles.dangerSectionText}>
                       {farm.is_active
-                        ? 'This will make the farm inactive, but keep all old records.'
-                        : 'This will make the farm active again.'}
+                        ? t('This will make the farm inactive, but keep all old records.')
+                        : t('This will make the farm active again.')}
                     </Text>
                   </View>
                   <TouchableOpacity
@@ -957,7 +1121,7 @@ export default function FarmViewScreen() {
                     activeOpacity={0.7}
                   >
                     <Text style={[styles.dangerBtnText, farm.is_active ? { color: '#b45309' } : { color: '#15803d' }]}>
-                      {farm.is_active ? 'Deactivate' : 'Activate'}
+                      {farm.is_active ? t('Deactivate') : t('Activate')}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -966,13 +1130,13 @@ export default function FarmViewScreen() {
 
                 <View style={styles.dangerActionSection}>
                   <View style={{ flex: 1, marginRight: 10 }}>
-                    <Text style={styles.dangerSectionHeading}>Delete Farm</Text>
+                    <Text style={styles.dangerSectionHeading}>{t('Delete Farm')}</Text>
                     <Text style={styles.dangerSectionText}>
-                      This will remove the farm, but keep all old records.
+                      {t('This will remove the farm, but keep all old records.')}
                     </Text>
                   </View>
                   <TouchableOpacity style={styles.dangerBtnDanger} onPress={handleDeleteFarm} activeOpacity={0.7}>
-                    <Text style={[styles.dangerBtnText, { color: '#b91c1c' }]}>Delete Farm</Text>
+                    <Text style={[styles.dangerBtnText, { color: '#b91c1c' }]}>{t('Delete Farm')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -982,140 +1146,174 @@ export default function FarmViewScreen() {
       </ScrollView>
 
       {/* Edit Farm Modal */}
-      <Modal visible={editModalVisible} animationType="slide" transparent={true}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Farm</Text>
-              <TouchableOpacity onPress={() => setEditModalVisible(false)} style={styles.modalCloseBtn}>
-                <Ionicons name="close" size={20} color="#475569" />
+      <ModalSheet
+        visible={editModalVisible}
+        onClose={() => setEditModalVisible(false)}
+        title={t('Edit Farm Details')}
+      >
+        <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
+          <ModernInput
+            label={t('Farm Name')}
+            required
+            placeholder={t('e.g. Green Valley Farm')}
+            value={editName}
+            onChangeText={setEditName}
+          />
+
+          <ModernInput
+            label={`${t('Total Area')} (${formatUnitLabel(editAreaUnit)})`}
+            required
+            placeholder="e.g. 25.5"
+            keyboardType="decimal-pad"
+            inputMode="decimal"
+            value={editArea}
+            onChangeText={(text) => {
+              const normalized = text.replace(/,/g, '.');
+              const cleaned = normalized.replace(/[^0-9.]/g, '');
+              const parts = cleaned.split('.');
+              const sanitized = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : cleaned;
+              setEditArea(sanitized);
+            }}
+          />
+
+          <ModernInput
+            label={t('Location')}
+            placeholder={t('e.g. Anand, Gujarat')}
+            value={editLocation}
+            onChangeText={setEditLocation}
+          />
+        </ScrollView>
+
+        <View style={styles.modalActions}>
+          <TouchableOpacity
+            style={styles.modalCancelBtn}
+            onPress={() => setEditModalVisible(false)}
+            disabled={updatingFarm}
+          >
+            <Text style={styles.modalCancelBtnText}>{t('Cancel')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.modalSaveBtn}
+            onPress={handleUpdateFarm}
+            disabled={updatingFarm}
+          >
+            {updatingFarm ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.modalSaveBtnText}>{t('Save Changes')}</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ModalSheet>
+
+      {/* Add / Manage Staff Modal */}
+      <ModalSheet
+        visible={addStaffModalVisible}
+        onClose={() => setAddStaffModalVisible(false)}
+        title={staffModalMode === 'manage' ? t('Manage Farm Staff') : t('Create & Assign New Staff')}
+      >
+        {staffModalMode === 'manage' ? (
+          <View>
+            {/* Header row with + New Staff button */}
+            <View style={styles.manageStaffTopRow}>
+              <TouchableOpacity
+                style={styles.createNewStaffBtn}
+                onPress={() => {
+                  setNewStaffError('');
+                  setStaffModalMode('create');
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="person-add" size={15} color="#166534" />
+                <Text style={styles.createNewStaffBtnText}>{t('+ New Staff Member')}</Text>
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Farm Name *</Text>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="e.g. Green Valley Farm"
-                  placeholderTextColor="#94a3b8"
-                  value={editName}
-                  onChangeText={setEditName}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>
-                  Total Area ({editAreaUnit ? editAreaUnit.charAt(0).toUpperCase() + editAreaUnit.slice(1).toLowerCase() : 'Acre'}) *
-                </Text>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="e.g. 25.5"
-                  placeholderTextColor="#94a3b8"
-                  keyboardType="decimal-pad"
-                  inputMode="decimal"
-                  value={editArea}
-                  onChangeText={(text) => {
-                    const normalized = text.replace(/,/g, '.');
-                    const cleaned = normalized.replace(/[^0-9.]/g, '');
-                    const parts = cleaned.split('.');
-                    const sanitized = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : cleaned;
-                    setEditArea(sanitized);
-                  }}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Location</Text>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="e.g. Anand, Gujarat"
-                  placeholderTextColor="#94a3b8"
-                  value={editLocation}
-                  onChangeText={setEditLocation}
-                />
-              </View>
-            </ScrollView>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => setEditModalVisible(false)}
-                disabled={updatingFarm}
-              >
-                <Text style={styles.modalCancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalSaveBtn}
-                onPress={handleUpdateFarm}
-                disabled={updatingFarm}
-              >
-                {updatingFarm ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.modalSaveBtnText}>Save Changes</Text>
-                )}
-              </TouchableOpacity>
+            {/* Search staff in modal */}
+            <View style={styles.searchBar}>
+              <Ionicons name="search" size={16} color="#64748b" style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder={t('Search staff members...')}
+                placeholderTextColor="#94a3b8"
+                value={modalStaffSearch}
+                onChangeText={setModalStaffSearch}
+              />
+              {modalStaffSearch.length > 0 && (
+                <TouchableOpacity onPress={() => setModalStaffSearch('')}>
+                  <Ionicons name="close-circle" size={16} color="#94a3b8" />
+                </TouchableOpacity>
+              )}
             </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
 
-      {/* Add / Assign Staff Modal */}
-      <Modal visible={addStaffModalVisible} animationType="slide" transparent={true}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Assign Staff to Farm</Text>
-              <TouchableOpacity onPress={() => setAddStaffModalVisible(false)} style={styles.modalCloseBtn}>
-                <Ionicons name="close" size={20} color="#475569" />
-              </TouchableOpacity>
+            {/* Multi-select header row with Select all / Deselect all */}
+            <View style={styles.multiSelectHeaderRow}>
+              <Text style={styles.selectedCountText}>
+                {selectedStaffIds.size} {t('Assigned')}
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <TouchableOpacity onPress={handleSelectAllFilteredStaff} activeOpacity={0.7}>
+                  <Text style={styles.selectToggleText}>{t('Select all')}</Text>
+                </TouchableOpacity>
+                <Text style={{ color: '#cbd5e1' }}>|</Text>
+                <TouchableOpacity onPress={handleDeselectAllFilteredStaff} activeOpacity={0.7}>
+                  <Text style={styles.selectToggleText}>{t('Deselect all')}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {loadingAvailableStaff ? (
               <View style={{ paddingVertical: 32, alignItems: 'center' }}>
                 <ActivityIndicator size="small" color="#16a34a" />
-                <Text style={{ marginTop: 8, fontSize: 13, color: '#64748b' }}>Checking staff members...</Text>
+                <Text style={{ marginTop: 8, fontSize: 13, color: '#64748b' }}>{t('Loading staff...')}</Text>
               </View>
-            ) : availableStaff.length === 0 ? (
+            ) : filteredModalStaff.length === 0 ? (
               <View style={{ paddingVertical: 24, alignItems: 'center' }}>
                 <Ionicons name="information-circle-outline" size={32} color="#64748b" />
                 <Text style={{ marginTop: 8, fontSize: 14, fontWeight: '600', color: '#1e293b', textAlign: 'center' }}>
-                  All available staff members are already assigned to this farm.
+                  {modalStaffSearch ? t('No staff match your search.') : t('No staff found.')}
                 </Text>
               </View>
             ) : (
-              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 320 }}>
-                <Text style={[styles.formLabel, { marginBottom: 8 }]}>Select Staff Member</Text>
-                {availableStaff.map((s) => {
-                  const isSelected = selectedStaffIdToAssign === s.id;
-                  const roleStyle = getStaffRoleStyle(s.roles);
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 340 }}>
+                {filteredModalStaff.map((s) => {
+                  const isAssigned = selectedStaffIds.has(s.id);
+                  const roleStyle = getStaffRoleStyle(s.roles, t);
                   return (
                     <TouchableOpacity
                       key={s.id}
                       style={[
                         styles.availableStaffItem,
-                        isSelected && { borderColor: '#16a34a', backgroundColor: '#f0fdf4' },
+                        isAssigned && styles.availableStaffItemSelected,
                       ]}
-                      onPress={() => setSelectedStaffIdToAssign(s.id)}
+                      onPress={() => handleToggleStaffSelection(s.id)}
                       activeOpacity={0.7}
                     >
-                      <View style={[styles.staffAvatar, { backgroundColor: roleStyle.bg, width: 34, height: 34 }]}>
-                        <Text style={[styles.staffAvatarText, { color: roleStyle.text, fontSize: 13 }]}>
+                      <View style={[styles.staffAvatar, { backgroundColor: roleStyle.bg, width: 36, height: 36 }]}>
+                        <Text style={[styles.staffAvatarText, { color: roleStyle.text, fontSize: 14 }]}>
                           {(s.name || 'S').charAt(0).toUpperCase()}
                         </Text>
                       </View>
                       <View style={{ flex: 1, marginLeft: 10 }}>
                         <Text style={{ fontSize: 14, fontWeight: '700', color: '#1e293b' }}>{s.name}</Text>
-                        <Text style={{ fontSize: 12, color: '#64748b' }}>{roleStyle.label}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                          <Text style={{ fontSize: 12, color: '#64748b' }}>{roleStyle.label}</Text>
+                          {s.phone ? (
+                            <>
+                              <Text style={{ fontSize: 10, color: '#94a3b8' }}>•</Text>
+                              <Text style={{ fontSize: 12, color: '#64748b' }}>{s.phone}</Text>
+                            </>
+                          ) : null}
+                        </View>
                       </View>
-                      {isSelected && <Ionicons name="checkmark-circle" size={20} color="#16a34a" />}
+                      {isAssigned ? (
+                        <View style={styles.assignedBadge}>
+                          <Ionicons name="checkmark-circle" size={16} color="#15803d" />
+                          <Text style={styles.assignedBadgeText}>{t('Assigned')}</Text>
+                        </View>
+                      ) : (
+                        <Ionicons name="ellipse-outline" size={20} color="#cbd5e1" />
+                      )}
                     </TouchableOpacity>
                   );
                 })}
@@ -1126,33 +1324,139 @@ export default function FarmViewScreen() {
               <TouchableOpacity
                 style={styles.modalCancelBtn}
                 onPress={() => setAddStaffModalVisible(false)}
-                disabled={assigningStaff}
+                disabled={savingStaffAssignments}
               >
-                <Text style={styles.modalCancelBtnText}>Cancel</Text>
+                <Text style={styles.modalCancelBtnText}>{t('Cancel')}</Text>
               </TouchableOpacity>
-              {availableStaff.length > 0 && (
-                <TouchableOpacity
-                  style={styles.modalSaveBtn}
-                  onPress={handleAssignStaff}
-                  disabled={assigningStaff}
-                >
-                  {assigningStaff ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.modalSaveBtnText}>Assign</Text>
-                  )}
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                style={styles.modalSaveBtn}
+                onPress={handleSaveStaffAssignments}
+                disabled={savingStaffAssignments}
+              >
+                {savingStaffAssignments ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.modalSaveBtnText}>
+                    {t('Save Assignments')} ({selectedStaffIds.size})
+                  </Text>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        ) : (
+          <View>
+            {/* Back button */}
+            <TouchableOpacity
+              style={styles.backToListBtn}
+              onPress={() => setStaffModalMode('manage')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="arrow-back" size={16} color="#166534" />
+              <Text style={styles.backToListBtnText}>{t('Back to List')}</Text>
+            </TouchableOpacity>
+
+            {/* Auto assign notice */}
+            <View style={styles.autoAssignBanner}>
+              <Ionicons name="information-circle" size={18} color="#15803d" />
+              <Text style={styles.autoAssignText}>
+                {t('This staff member will automatically be assigned to :farm.', { farm: farm.name })}
+              </Text>
+            </View>
+
+            {newStaffError ? (
+              <View style={styles.errorBanner}>
+                <Ionicons name="alert-circle" size={16} color="#b91c1c" />
+                <Text style={styles.errorBannerText}>{newStaffError}</Text>
+              </View>
+            ) : null}
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 380 }}>
+              <ModernInput
+                label={t('Full Name')}
+                required
+                placeholder={t('Full Name')}
+                value={newStaffName}
+                onChangeText={setNewStaffName}
+              />
+
+              <View style={{ marginBottom: 14 }}>
+                <Text style={styles.formLabel}>{t('Staff Role')} *</Text>
+                <QuickChipGroup
+                  options={STAFF_ROLE_CHIP_OPTIONS.map((opt) => ({
+                    ...opt,
+                    label: t(opt.value) || opt.label,
+                  }))}
+                  selectedValue={newStaffRole}
+                  onSelect={(val) => setNewStaffRole(val as any)}
+                />
+              </View>
+
+              <ModernInput
+                label={t('Phone Number')}
+                placeholder={t('Phone Number')}
+                keyboardType="phone-pad"
+                value={newStaffPhone}
+                onChangeText={setNewStaffPhone}
+              />
+
+              <ModernInput
+                label={t('Username')}
+                placeholder={t('Username')}
+                autoCapitalize="none"
+                value={newStaffUsername}
+                onChangeText={setNewStaffUsername}
+              />
+
+              <ModernInput
+                label={`${t('Email')}${newStaffRole === 'Manager' ? ' *' : ''}`}
+                placeholder={t('Email')}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={newStaffEmail}
+                onChangeText={setNewStaffEmail}
+              />
+
+              <ModernInput
+                label={t('Password')}
+                placeholder={t('Password')}
+                secureTextEntry
+                value={newStaffPassword}
+                onChangeText={setNewStaffPassword}
+              />
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setStaffModalMode('manage')}
+                disabled={creatingStaff}
+              >
+                <Text style={styles.modalCancelBtnText}>{t('Cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalSaveBtn}
+                onPress={handleCreateAndAssignStaff}
+                disabled={creatingStaff}
+              >
+                {creatingStaff ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.modalSaveBtnText}>{t('Create & Assign')}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </ModalSheet>
 
       <ConfirmModal
         visible={deleteConfirmVisible}
-        title="Delete Farm"
-        message={`Are you sure you want to delete "${farm?.name || 'this farm'}"? This will remove the farm, but keep all old records.`}
-        confirmText="Delete Farm"
+        title={t('Delete Farm')}
+        message={t('Are you sure you want to delete :name? This will remove the farm, but keep all old records.', {
+          name: farm?.name || '',
+        })}
+        confirmText={t('Delete Farm')}
+        cancelText={t('Cancel')}
         destructive
         loading={deleting}
         onConfirm={handleConfirmDelete}
@@ -1827,5 +2131,109 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 8,
     backgroundColor: '#ffffff',
+  },
+  availableStaffItemSelected: {
+    borderColor: '#86efac',
+    backgroundColor: '#f0fdf4',
+  },
+  manageStaffTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 10,
+  },
+  createNewStaffBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  createNewStaffBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  multiSelectHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 2,
+  },
+  selectedCountText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  selectToggleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2563eb',
+  },
+  assignedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#dcfce7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  assignedBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#15803d',
+  },
+  backToListBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+    alignSelf: 'flex-start',
+  },
+  backToListBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  autoAssignBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 14,
+  },
+  autoAssignText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#15803d',
+    flex: 1,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+  },
+  errorBannerText: {
+    fontSize: 12,
+    color: '#b91c1c',
+    fontWeight: '600',
+    flex: 1,
   },
 });
