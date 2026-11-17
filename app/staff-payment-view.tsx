@@ -29,6 +29,7 @@ import {
   ChipOption,
   SearchableSelect,
   ModernDatePicker,
+  ModernInput,
 } from '../src/components/ui';
 
 const PAYMENT_METHOD_OPTIONS: ChipOption<'cash' | 'google_pay' | 'phonepe' | 'other_upi' | 'bank_transfer'>[] = [
@@ -358,26 +359,24 @@ export default function StaffPaymentViewScreen() {
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.inputLabel}>Staff Member</Text>
-              <TextInput
-                style={[styles.input, { color: colors.slate500 }]}
+              <ModernInput
+                label="Staff Member"
                 value={payment.staff?.name || 'Unknown Staff'}
                 editable={false}
               />
 
-              <Text style={styles.inputLabel}>
-                Amount Paid (₹) <Text style={{ color: colors.danger }}>*</Text>
-              </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Amount"
-                placeholderTextColor={colors.slate400}
+              <ModernInput
+                label="Amount Paid"
+                required
+                prefix="₹"
+                placeholder="0.00"
                 keyboardType="decimal-pad"
                 value={amount}
                 onChangeText={setAmount}
+                containerStyle={{ marginTop: spacing.md }}
               />
 
-              <Text style={styles.inputLabel}>Payment Method</Text>
+              <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Payment Method</Text>
               <QuickChipGroup
                 options={PAYMENT_METHOD_OPTIONS}
                 selectedValue={payMethod}
@@ -407,15 +406,14 @@ export default function StaffPaymentViewScreen() {
                 containerStyle={{ marginTop: spacing.md }}
               />
 
-              <Text style={styles.inputLabel}>Notes</Text>
-              <TextInput
-                style={[styles.input, styles.multilineInput]}
-                placeholder="Reference details..."
-                placeholderTextColor={colors.slate400}
+              <ModernInput
+                label="Notes (Optional)"
+                placeholder="Reference details, transaction ID..."
                 value={payNotes}
                 onChangeText={setPayNotes}
                 multiline
                 numberOfLines={3}
+                containerStyle={{ marginTop: spacing.md }}
               />
 
               <View style={styles.modalActions}>

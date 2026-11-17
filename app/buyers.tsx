@@ -23,6 +23,7 @@ import { mastersApi } from '../src/api/masters';
 import { Buyer } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
 import { useTranslation } from '../src/i18n/I18nContext';
+import { ModernInput } from '../src/components/ui';
 
 export default function BuyersScreen() {
   const { t } = useTranslation();
@@ -304,49 +305,50 @@ export default function BuyersScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.modalScroll}>
-              <Text style={styles.inputLabel}>{t('Buyer Name')}*</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label={t('Buyer Name')}
+                required
                 placeholder="e.g. Reliance Retail"
                 value={name}
                 onChangeText={setName}
+                containerStyle={{ marginTop: 8 }}
               />
 
-              <Text style={styles.inputLabel}>{t('Company Name')}</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label={t('Company Name')}
                 placeholder="e.g. Reliance Industries"
                 value={companyName}
                 onChangeText={setCompanyName}
+                containerStyle={{ marginTop: 8 }}
               />
 
-              <Text style={styles.inputLabel}>{t('Phone Number')}</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label={t('Phone Number')}
                 placeholder="e.g. +91 99887 76655"
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
+                containerStyle={{ marginTop: 8 }}
               />
 
-              <Text style={styles.inputLabel}>{t('Address')}</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
+              <ModernInput
+                label={t('Address')}
                 placeholder="Buyer address..."
                 multiline
-                numberOfLines={3}
+                numberOfLines={2}
                 value={address}
                 onChangeText={setAddress}
+                containerStyle={{ marginTop: 8 }}
               />
 
-              <Text style={styles.inputLabel}>{t('Notes')}</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
+              <ModernInput
+                label={t('Notes')}
                 placeholder="Specifications, payment terms, or notes..."
                 multiline
-                numberOfLines={3}
+                numberOfLines={2}
                 value={notes}
                 onChangeText={setNotes}
+                containerStyle={{ marginTop: 8 }}
               />
 
               <View style={styles.modalActions}>

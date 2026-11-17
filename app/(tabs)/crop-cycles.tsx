@@ -34,6 +34,7 @@ import {
   ChipOption,
   SearchableSelect,
   ModernDatePicker,
+  ModernInput,
 } from '../../src/components/ui';
 
 export default function CropCyclesScreen() {
@@ -623,11 +624,9 @@ export default function CropCyclesScreen() {
                 emptyMessage={t('No crops available. Create a crop in Masters first.')}
               />
 
-              <Text style={styles.inputLabel}>{t('Variety / Crop Type (Optional)')}</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label={t('Variety / Crop Type (Optional)')}
                 placeholder="e.g. Bhagwa, Kesar, Alphonso"
-                placeholderTextColor={colors.slate400}
                 value={cropType}
                 onChangeText={(val) => {
                   setCropType(val);
@@ -638,18 +637,18 @@ export default function CropCyclesScreen() {
                     setSeasonName(`${selCrop.name}${varText} ${year}`);
                   }
                 }}
+                containerStyle={{ marginTop: spacing.sm }}
               />
 
-              <Text style={styles.inputLabel}>
-                {t('Allocated Area')} <Text style={{ color: colors.danger }}>*</Text>
-              </Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label={t('Allocated Area')}
+                required
                 placeholder="e.g. 5.0"
-                placeholderTextColor={colors.slate400}
                 keyboardType="decimal-pad"
+                suffix={allocatedAreaUnit}
                 value={allocatedArea}
                 onChangeText={setAllocatedArea}
+                containerStyle={{ marginTop: spacing.sm }}
               />
               {currentFarmAreaInfo && (
                 <View style={styles.areaInfoBox}>
@@ -660,7 +659,7 @@ export default function CropCyclesScreen() {
                 </View>
               )}
 
-              <Text style={styles.inputLabel}>{t('Area Measurement Unit')}</Text>
+              <Text style={[styles.inputLabel, { marginTop: spacing.sm }]}>{t('Area Measurement Unit')}</Text>
               <QuickChipGroup
                 options={AREA_UNIT_OPTIONS}
                 selectedValue={allocatedAreaUnit}
@@ -668,13 +667,12 @@ export default function CropCyclesScreen() {
                 size="sm"
               />
 
-              <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>{t('Season Name')}</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label={t('Season Name')}
                 placeholder="e.g. Kharif 2026, Summer"
-                placeholderTextColor={colors.slate400}
                 value={seasonName}
                 onChangeText={setSeasonName}
+                containerStyle={{ marginTop: spacing.sm, marginBottom: spacing.sm }}
               />
 
               <ModernDatePicker
@@ -691,15 +689,14 @@ export default function CropCyclesScreen() {
                 containerStyle={{ marginBottom: spacing.sm }}
               />
 
-              <Text style={styles.inputLabel}>{t('Notes')}</Text>
-              <TextInput
-                style={[styles.input, styles.multilineInput]}
+              <ModernInput
+                label={t('Notes')}
                 placeholder="Any special remarks or sowing details..."
-                placeholderTextColor={colors.slate400}
                 value={notes}
                 onChangeText={setNotes}
                 multiline
                 numberOfLines={3}
+                containerStyle={{ marginBottom: spacing.sm }}
               />
 
               <View style={styles.modalActions}>
@@ -786,21 +783,21 @@ export default function CropCyclesScreen() {
                     emptyMessage="No crops found"
                   />
 
-                  <Text style={styles.inputLabel}>{t('Variety / Crop Type (Optional)')}</Text>
-                  <TextInput
-                    style={styles.input}
+                  <ModernInput
+                    label={t('Variety / Crop Type (Optional)')}
                     placeholder="e.g. Bhagwa, Kesar, Alphonso"
-                    placeholderTextColor={colors.slate400}
                     value={editCropType}
                     onChangeText={setEditCropType}
+                    containerStyle={{ marginTop: spacing.sm }}
                   />
 
-                  <Text style={styles.inputLabel}>{t('Allocated Area')}</Text>
-                  <TextInput
-                    style={styles.input}
+                  <ModernInput
+                    label={t('Allocated Area')}
                     keyboardType="decimal-pad"
+                    suffix={editAllocatedAreaUnit}
                     value={editAllocatedArea}
                     onChangeText={setEditAllocatedArea}
+                    containerStyle={{ marginTop: spacing.sm }}
                   />
                   {editFarmAreaInfo && (
                     <View style={styles.areaInfoBox}>
@@ -811,7 +808,7 @@ export default function CropCyclesScreen() {
                     </View>
                   )}
 
-                  <Text style={styles.inputLabel}>{t('Area Measurement Unit')}</Text>
+                  <Text style={[styles.inputLabel, { marginTop: spacing.sm }]}>{t('Area Measurement Unit')}</Text>
                   <QuickChipGroup
                     options={AREA_UNIT_OPTIONS}
                     selectedValue={editAllocatedAreaUnit}
@@ -819,11 +816,11 @@ export default function CropCyclesScreen() {
                     size="sm"
                   />
 
-                  <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>{t('Season Name')}</Text>
-                  <TextInput
-                    style={styles.input}
+                  <ModernInput
+                    label={t('Season Name')}
                     value={editSeasonName}
                     onChangeText={setEditSeasonName}
+                    containerStyle={{ marginTop: spacing.sm, marginBottom: spacing.sm }}
                   />
 
                   <ModernDatePicker
@@ -857,34 +854,32 @@ export default function CropCyclesScreen() {
                         containerStyle={{ marginBottom: spacing.sm }}
                       />
 
-                      <Text style={styles.inputLabel}>{t('Harvest Yield Amount')}</Text>
-                      <TextInput
-                        style={styles.input}
+                      <ModernInput
+                        label={t('Harvest Yield Amount')}
                         placeholder="e.g. 500"
-                        placeholderTextColor={colors.slate400}
                         keyboardType="decimal-pad"
                         value={editHarvestAmount}
                         onChangeText={setEditHarvestAmount}
+                        containerStyle={{ marginBottom: spacing.sm }}
                       />
 
-                      <Text style={styles.inputLabel}>{t('Harvest Yield Unit')}</Text>
-                      <TextInput
-                        style={styles.input}
+                      <ModernInput
+                        label={t('Harvest Yield Unit')}
                         placeholder="e.g. KG, QUINTAL, BAGS"
-                        placeholderTextColor={colors.slate400}
                         value={editHarvestUnit}
                         onChangeText={setEditHarvestUnit}
+                        containerStyle={{ marginBottom: spacing.sm }}
                       />
                     </View>
                   )}
 
-                  <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>{t('Notes')}</Text>
-                  <TextInput
-                    style={[styles.input, styles.multilineInput]}
+                  <ModernInput
+                    label={t('Notes')}
                     value={editNotes}
                     onChangeText={setEditNotes}
                     multiline
                     numberOfLines={3}
+                    containerStyle={{ marginTop: spacing.sm, marginBottom: spacing.sm }}
                   />
 
                   <View style={styles.modalActions}>

@@ -22,6 +22,7 @@ import { mastersApi } from '../src/api/masters';
 import { AgroInputProduct } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
 import { useTranslation } from '../src/i18n/I18nContext';
+import { ModernInput } from '../src/components/ui';
 
 export default function AgroInputProductsScreen() {
   const { t } = useTranslation();
@@ -343,46 +344,47 @@ export default function AgroInputProductsScreen() {
                 ))}
               </View>
 
-              <Text style={styles.inputLabel}>{t('Product Name')}*</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label={t('Product Name')}
+                required
                 placeholder="e.g. Urea"
                 value={name}
                 onChangeText={setName}
+                containerStyle={{ marginTop: 8 }}
               />
 
-              <Text style={styles.inputLabel}>{t('Brand / Manufacturer')}</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label={t('Brand / Manufacturer')}
                 placeholder="e.g. IFFCO"
                 value={brand}
                 onChangeText={setBrand}
+                containerStyle={{ marginTop: 8 }}
               />
 
-              <Text style={styles.inputLabel}>{t('Category')}</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label={t('Category')}
                 placeholder="e.g. Nitrogenous"
                 value={category}
                 onChangeText={setCategory}
+                containerStyle={{ marginTop: 8 }}
               />
 
-              <Text style={styles.inputLabel}>{t('Formulation / Form')}</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label={t('Formulation / Form')}
                 placeholder="e.g. Granular, Liquid"
                 value={formulation}
                 onChangeText={setFormulation}
+                containerStyle={{ marginTop: 8 }}
               />
 
-              <Text style={styles.inputLabel}>{t('Notes')}</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
+              <ModernInput
+                label={t('Notes')}
                 placeholder="Specifications, instructions, or notes..."
                 multiline
-                numberOfLines={3}
+                numberOfLines={2}
                 value={notes}
                 onChangeText={setNotes}
+                containerStyle={{ marginTop: 8 }}
               />
 
               <View style={styles.modalActions}>

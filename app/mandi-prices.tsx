@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -10,6 +10,7 @@ import {
   Platform,
   StatusBar,
   Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -76,6 +77,14 @@ export default function MandiPricesScreen() {
   const [states, setStates] = useState<string[]>([]);
   const [districts, setDistricts] = useState<string[]>([]);
   const [districtModalVisible, setDistrictModalVisible] = useState(false);
+  const [districtSearch, setDistrictSearch] = useState('');
+
+  const filteredDistricts = useMemo(() => {
+    const list = ['all', ...districts];
+    if (!districtSearch.trim()) return list;
+    const q = districtSearch.toLowerCase().trim();
+    return list.filter((d) => (d === 'all' ? 'all districts'.includes(q) : d.toLowerCase().includes(q)));
+  }, [districts, districtSearch]);
 
   const fetchMeta = async (stateName: string) => {
     try {
@@ -331,18 +340,51 @@ export default function MandiPricesScreen() {
           <View style={styles.modalSheet}>
             <View style={styles.sheetHandle} />
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Mandi District</Text>
+              <View>
+                <Text style={styles.modalTitle}>Select Mandi District</Text>
+                <Text style={styles.modalSubtitle}>
+                  {filteredDistricts.length} {filteredDistricts.length === 1 ? 'district' : 'districts'} available
+                </Text>
+              </View>
               <TouchableOpacity
-                onPress={() => setDistrictModalVisible(false)}
+                onPress={() => {
+                  setDistrictModalVisible(false);
+                  setDistrictSearch('');
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 activeOpacity={0.7}
               >
                 <Ionicons name="close" size={22} color={colors.slate600} />
               </TouchableOpacity>
             </View>
+
+            {/* Instant District Search Input */}
+            <View style={styles.modalSearchBox}>
+              <Ionicons name="search-outline" size={16} color={colors.slate400} />
+              <TextInput
+                style={styles.modalSearchInput}
+                placeholder="Search district name..."
+                placeholderTextColor={colors.slate400}
+                value={districtSearch}
+                onChangeText={setDistrictSearch}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {districtSearch.length > 0 ? (
+                <TouchableOpacity
+                  onPress={() => setDistrictSearch('')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="close-circle" size={16} color={colors.slate400} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
             <FlatList
-              data={['all', ...districts]}
+              data={filteredDistricts}
               keyExtractor={(item) => item}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={[
@@ -352,6 +394,7 @@ export default function MandiPricesScreen() {
                   onPress={() => {
                     setSelectedDistrict(item);
                     setDistrictModalVisible(false);
+                    setDistrictSearch('');
                   }}
                   activeOpacity={0.7}
                 >
@@ -368,6 +411,12 @@ export default function MandiPricesScreen() {
                   )}
                 </TouchableOpacity>
               )}
+              ListEmptyComponent={
+                <View style={styles.modalEmptyWrap}>
+                  <Ionicons name="location-outline" size={28} color={colors.slate300} />
+                  <Text style={styles.modalEmptyText}>No districts matching "{districtSearch}"</Text>
+                </View>
+              }
             />
           </View>
         </View>
@@ -658,6 +707,41 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '800',
     color: colors.slate900,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: colors.slate500,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  modalSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.slate100,
+    borderWidth: 1,
+    borderColor: colors.slate200,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    height: 38,
+    marginBottom: spacing.md,
+    gap: spacing.xs,
+  },
+  modalSearchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.slate900,
+    height: '100%',
+    padding: 0,
+  },
+  modalEmptyWrap: {
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  modalEmptyText: {
+    fontSize: 13,
+    color: colors.slate400,
+    textAlign: 'center',
   },
   modalItem: {
     flexDirection: 'row',

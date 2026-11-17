@@ -26,7 +26,7 @@ import { cropCyclesApi } from '../src/api/cropCycles';
 import { ConsultantVisit, Farm, StaffMember, CropCycle } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
-import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker } from '../src/components/ui';
+import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput } from '../src/components/ui';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
 
 export default function ConsultantVisitsScreen() {
@@ -397,6 +397,11 @@ export default function ConsultantVisitsScreen() {
           placeholder="Search visits..."
           hasFilter
           isFilterActive={showFilters}
+          activeFilterCount={
+            (selectedFarmFilter !== 'all' ? 1 : 0) +
+            (selectedConsultantFilter !== 'all' ? 1 : 0) +
+            (selectedStatusFilter !== 'all' ? 1 : 0)
+          }
           onToggleFilter={() => setShowFilters(!showFilters)}
         />
 
@@ -584,16 +589,14 @@ export default function ConsultantVisitsScreen() {
                 containerStyle={{ marginBottom: spacing.md }}
               />
 
-              {/* Notes */}
-              <Text style={styles.inputLabel}>Prescriptions & Recommendations</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
+              <ModernInput
+                label="Prescriptions & Recommendations"
                 placeholder="Write observations, pest diagnosis, dosage recommendations, schedule..."
-                placeholderTextColor={colors.slate400}
                 multiline
                 numberOfLines={4}
                 value={notes}
                 onChangeText={setNotes}
+                containerStyle={{ marginBottom: spacing.md }}
               />
 
               {/* Active Switch */}

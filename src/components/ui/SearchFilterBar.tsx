@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../../theme/tokens';
 
@@ -9,6 +9,7 @@ interface SearchFilterBarProps {
   placeholder?: string;
   hasFilter?: boolean;
   isFilterActive?: boolean;
+  activeFilterCount?: number;
   onToggleFilter?: () => void;
 }
 
@@ -18,8 +19,11 @@ export const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
   placeholder = 'Search...',
   hasFilter = false,
   isFilterActive = false,
+  activeFilterCount,
   onToggleFilter,
 }) => {
+  const showBadge = (activeFilterCount && activeFilterCount > 0) || (isFilterActive && !activeFilterCount);
+
   return (
     <View style={styles.container}>
       <View style={styles.searchBox}>
@@ -34,7 +38,12 @@ export const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
           autoCapitalize="none"
         />
         {query.length > 0 ? (
-          <TouchableOpacity onPress={() => onChangeQuery('')} style={styles.clearBtn}>
+          <TouchableOpacity
+            onPress={() => onChangeQuery('')}
+            style={styles.clearBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityLabel="Clear search"
+          >
             <Ionicons name="close-circle" size={18} color={colors.slate400} />
           </TouchableOpacity>
         ) : null}
@@ -45,12 +54,19 @@ export const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
           style={[styles.filterBtn, isFilterActive && styles.filterBtnActive]}
           onPress={onToggleFilter}
           activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel="Open filters"
         >
           <Ionicons
             name="funnel"
             size={18}
             color={isFilterActive ? colors.white : colors.slate600}
           />
+          {activeFilterCount && activeFilterCount > 0 ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{activeFilterCount}</Text>
+            </View>
+          ) : null}
         </TouchableOpacity>
       ) : null}
     </View>
@@ -88,6 +104,7 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
   },
   filterBtn: {
+    position: 'relative',
     width: 42,
     height: 42,
     borderRadius: radius.pill,
@@ -100,5 +117,24 @@ const styles = StyleSheet.create({
   filterBtnActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.warning,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: colors.white,
+  },
+  badgeText: {
+    color: colors.white,
+    fontSize: 10,
+    fontWeight: '800',
   },
 });

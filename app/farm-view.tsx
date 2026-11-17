@@ -1012,7 +1012,7 @@ export default function FarmViewScreen() {
                   style={styles.formInput}
                   placeholder="e.g. 25.5"
                   placeholderTextColor="#94a3b8"
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
                   value={editArea}
                   onChangeText={setEditArea}
                 />

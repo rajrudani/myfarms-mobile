@@ -28,7 +28,7 @@ import { extractErrorMessage } from '../src/api/client';
 import { useAuth } from '../src/hooks/useAuth';
 import { permissions } from '../src/utils/permissions';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
-import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker } from '../src/components/ui';
+import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput } from '../src/components/ui';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
 import { useTranslation } from '../src/i18n/I18nContext';
 
@@ -871,24 +871,27 @@ export default function SalesScreen() {
 
               {!hasGrades ? (
                 <>
-                  <Text style={styles.inputLabel}>Total Quantity ({quantityUnit || 'units'}) *</Text>
-                  <TextInput
-                    style={styles.input}
+                  <ModernInput
+                    label={`Total Quantity (${quantityUnit || 'units'})`}
+                    required
+                    suffix={quantityUnit || 'units'}
                     placeholder="e.g. 50"
-                    placeholderTextColor={colors.slate400}
-                    keyboardType="numeric"
+                    keyboardType="decimal-pad"
                     value={totalQuantity}
                     onChangeText={setTotalQuantity}
+                    containerStyle={{ marginTop: spacing.sm }}
                   />
 
-                  <Text style={styles.inputLabel}>Rate (₹ per {quantityUnit || 'unit'}) *</Text>
-                  <TextInput
-                    style={styles.input}
+                  <ModernInput
+                    label={`Rate (per ${quantityUnit || 'unit'})`}
+                    required
+                    prefix="₹"
+                    suffix={`/${quantityUnit || 'unit'}`}
                     placeholder="e.g. 450"
-                    placeholderTextColor={colors.slate400}
-                    keyboardType="numeric"
+                    keyboardType="decimal-pad"
                     value={rate}
                     onChangeText={setRate}
+                    containerStyle={{ marginTop: spacing.sm }}
                   />
                 </>
               ) : (
@@ -957,7 +960,7 @@ export default function SalesScreen() {
                               style={[styles.input, styles.compactInput]}
                               placeholder="0"
                               placeholderTextColor={colors.slate400}
-                              keyboardType="numeric"
+                              keyboardType="decimal-pad"
                               value={grade.quantity}
                               onChangeText={(val) => handleUpdateGradeField(idx, 'quantity', val)}
                             />
@@ -968,7 +971,7 @@ export default function SalesScreen() {
                               style={[styles.input, styles.compactInput]}
                               placeholder="0"
                               placeholderTextColor={colors.slate400}
-                              keyboardType="numeric"
+                              keyboardType="decimal-pad"
                               value={grade.rate}
                               onChangeText={(val) => handleUpdateGradeField(idx, 'rate', val)}
                             />
@@ -1022,7 +1025,7 @@ export default function SalesScreen() {
                         style={[styles.input, styles.chargeValInput]}
                         placeholder="Amount"
                         placeholderTextColor={colors.slate400}
-                        keyboardType="numeric"
+                        keyboardType="decimal-pad"
                         value={charge.value}
                         onChangeText={(val) => handleUpdateChargeField(idx, 'value', val)}
                       />
@@ -1076,15 +1079,14 @@ export default function SalesScreen() {
                 </View>
               </View>
 
-              <Text style={styles.inputLabel}>Sale Notes</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
+              <ModernInput
+                label="Sale Notes"
                 placeholder="Weighment bridge details, vehicle number, trader receipt notes..."
-                placeholderTextColor={colors.slate400}
                 multiline
                 numberOfLines={3}
                 value={notes}
                 onChangeText={setNotes}
+                containerStyle={{ marginTop: spacing.md }}
               />
 
               <View style={{ marginTop: spacing.md }}>
@@ -1164,52 +1166,48 @@ export default function SalesScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.modalScroll} showsVerticalScrollIndicator={false}>
-              <Text style={styles.inputLabel}>Buyer / Trader Name *</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label="Buyer / Trader Name"
+                required
                 placeholder="e.g. Ramesh Trading Co."
-                placeholderTextColor={colors.slate400}
                 value={newBuyerName}
                 onChangeText={setNewBuyerName}
+                containerStyle={{ marginTop: spacing.sm }}
               />
 
-              <Text style={styles.inputLabel}>Phone Number</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label="Phone Number"
                 placeholder="e.g. 9876543210"
-                placeholderTextColor={colors.slate400}
                 keyboardType="phone-pad"
                 value={newBuyerPhone}
                 onChangeText={setNewBuyerPhone}
+                containerStyle={{ marginTop: spacing.sm }}
               />
 
-              <Text style={styles.inputLabel}>Company / Stall Name</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label="Company / Stall Name"
                 placeholder="e.g. APMC Shop #42"
-                placeholderTextColor={colors.slate400}
                 value={newBuyerCompany}
                 onChangeText={setNewBuyerCompany}
+                containerStyle={{ marginTop: spacing.sm }}
               />
 
-              <Text style={styles.inputLabel}>Address</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label="Address"
                 placeholder="Mandi address or city"
-                placeholderTextColor={colors.slate400}
                 value={newBuyerAddress}
                 onChangeText={setNewBuyerAddress}
+                containerStyle={{ marginTop: spacing.sm }}
               />
 
-              <Text style={styles.inputLabel}>Notes</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
+              <ModernInput
+                label="Notes"
                 placeholder="Payment terms, market agent, etc."
-                placeholderTextColor={colors.slate400}
                 multiline
                 numberOfLines={2}
                 value={newBuyerNotes}
                 onChangeText={setNewBuyerNotes}
+                containerStyle={{ marginTop: spacing.sm }}
               />
 
               <View style={styles.modalActions}>

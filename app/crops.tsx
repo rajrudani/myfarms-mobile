@@ -24,6 +24,7 @@ import { Crop } from '../src/types';
 import { extractErrorMessage, getBaseUrl } from '../src/api/client';
 import { takePhoto, pickImage, uploadMedia } from '../src/utils/media';
 import { useTranslation } from '../src/i18n/I18nContext';
+import { ModernInput } from '../src/components/ui';
 
 const getAbsoluteImageUrl = (urlPath?: string | null) => {
   if (!urlPath) return undefined;
@@ -403,28 +404,29 @@ export default function CropsScreen() {
                 )}
               </View>
 
-              <Text style={styles.inputLabel}>Crop Name (English)*</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label="Crop Name (English)"
+                required
                 placeholder="e.g. Cotton"
                 value={name}
                 onChangeText={setName}
+                containerStyle={{ marginTop: 10 }}
               />
 
-              <Text style={styles.inputLabel}>Crop Name (Gujarati)</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label="Crop Name (Gujarati)"
                 placeholder="e.g. કપાસ"
                 value={nameGu}
                 onChangeText={setNameGu}
+                containerStyle={{ marginTop: 10 }}
               />
 
-              <Text style={styles.inputLabel}>Crop Name (Hindi)</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label="Crop Name (Hindi)"
                 placeholder="e.g. कपास"
                 value={nameHi}
                 onChangeText={setNameHi}
+                containerStyle={{ marginTop: 10 }}
               />
 
               <Text style={styles.inputLabel}>Category*</Text>
@@ -462,14 +464,14 @@ export default function CropsScreen() {
                 ))}
               </View>
 
-              <Text style={styles.inputLabel}>Default Duration (Days)</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label="Default Duration (Days)"
                 placeholder="e.g. 120 (approx days from sowing to harvest)"
-                placeholderTextColor="#94a3b8"
                 keyboardType="number-pad"
+                suffix="days"
                 value={defaultDurationDays}
                 onChangeText={setDefaultDurationDays}
+                containerStyle={{ marginTop: 10 }}
               />
 
               <View style={styles.switchRow}>

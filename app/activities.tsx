@@ -22,7 +22,7 @@ import { mastersApi } from '../src/api/masters';
 import { FarmActivityMaster } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
-import { BentoCard, StatusBadge, SearchFilterBar } from '../src/components/ui';
+import { BentoCard, StatusBadge, SearchFilterBar, ModernInput } from '../src/components/ui';
 import { useTranslation } from '../src/i18n/I18nContext';
 
 export default function ActivitiesScreen() {
@@ -277,44 +277,39 @@ export default function ActivitiesScreen() {
               contentContainerStyle={styles.modalScroll}
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.inputLabel}>
-                {t('Activity Name (English)')} <Text style={{ color: colors.danger }}>*</Text>
-              </Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label={t('Activity Name (English)')}
+                required
                 placeholder="e.g. Sowing, Weeding, Spraying"
-                placeholderTextColor={colors.slate400}
                 value={name}
                 onChangeText={setName}
+                containerStyle={{ marginTop: 8 }}
               />
 
-              <Text style={styles.inputLabel}>{t('Activity Name (Gujarati)')}</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label={t('Activity Name (Gujarati)')}
                 placeholder="e.g. વાવણી"
-                placeholderTextColor={colors.slate400}
                 value={nameGu}
                 onChangeText={setNameGu}
+                containerStyle={{ marginTop: 8 }}
               />
 
-              <Text style={styles.inputLabel}>{t('Activity Name (Hindi)')}</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label={t('Activity Name (Hindi)')}
                 placeholder="e.g. बुवाई"
-                placeholderTextColor={colors.slate400}
                 value={nameHi}
                 onChangeText={setNameHi}
+                containerStyle={{ marginTop: 8 }}
               />
 
-              <Text style={styles.inputLabel}>{t('Notes & Instructions')}</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
+              <ModernInput
+                label={t('Notes & Instructions')}
                 placeholder="Standard operating instructions or protocol notes..."
-                placeholderTextColor={colors.slate400}
                 multiline
-                numberOfLines={3}
+                numberOfLines={2}
                 value={notes}
                 onChangeText={setNotes}
+                containerStyle={{ marginTop: 8 }}
               />
 
               <View style={styles.modalActions}>

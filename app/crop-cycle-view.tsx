@@ -1629,15 +1629,14 @@ export default function CropCycleViewScreen() {
                 containerStyle={{ marginBottom: spacing.md }}
               />
 
-              <Text style={styles.inputLabel}>Notes / Remarks</Text>
-              <TextInput
-                style={[styles.input, styles.multilineInput]}
+              <ModernInput
+                label="Notes / Remarks"
                 value={activityNotes}
                 onChangeText={setActivityNotes}
                 placeholder="Workers count, chemicals used, etc."
-                placeholderTextColor={colors.slate400}
                 multiline
                 numberOfLines={3}
+                containerStyle={{ marginBottom: spacing.md }}
               />
 
               <View style={styles.modalActions}>

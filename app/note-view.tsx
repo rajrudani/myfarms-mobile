@@ -24,7 +24,7 @@ import { NoteReminder, NoteReminderStatus } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
 import { colors, radius, spacing, typography } from '../src/theme/tokens';
-import { ModernDatePicker } from '../src/components/ui';
+import { ModernDatePicker, ModernInput } from '../src/components/ui';
 
 export default function NoteViewScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
@@ -487,26 +487,23 @@ export default function NoteViewScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.editModalScroll} showsVerticalScrollIndicator={false}>
-              <Text style={styles.inputLabel}>
-                Title <Text style={{ color: '#dc2626' }}>*</Text>
-              </Text>
-              <TextInput
-                style={styles.textInput}
+              <ModernInput
+                label="Title"
+                required
                 value={editTitle}
                 onChangeText={setEditTitle}
                 placeholder="e.g. Check irrigation valves"
-                placeholderTextColor="#94a3b8"
+                containerStyle={{ marginBottom: spacing.md }}
               />
 
-              <Text style={styles.inputLabel}>Details & Instructions</Text>
-              <TextInput
-                style={[styles.textInput, styles.textArea]}
+              <ModernInput
+                label="Details & Instructions"
                 value={editDetails}
                 onChangeText={setEditDetails}
                 placeholder="Write observations, notes or instructions..."
-                placeholderTextColor="#94a3b8"
                 multiline
                 numberOfLines={4}
+                containerStyle={{ marginBottom: spacing.md }}
               />
 
               {/* Reminder Switch */}

@@ -475,7 +475,7 @@ export default function ExpenseViewScreen() {
             label="Amount"
             value={editAmount}
             onChangeText={setEditAmount}
-            keyboardType="numeric"
+            keyboardType="decimal-pad"
             placeholder="0.00"
             placeholderTextColor="#94a3b8"
             prefix={<Text style={{ color: '#059669', fontWeight: '700', marginRight: 4 }}>₹</Text>}

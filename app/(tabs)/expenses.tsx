@@ -35,6 +35,7 @@ import {
   ChipOption,
   SearchableSelect,
   ModernDatePicker,
+  ModernInput,
 } from '../../src/components/ui';
 
 const CATEGORIES = ['Labor', 'Seed', 'Fertilizer', 'Pesticide', 'Equipment', 'Fuel', 'Other'];
@@ -641,16 +642,15 @@ export default function ExpensesScreen() {
                 size="sm"
               />
 
-              <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>
-                Amount (₹) <Text style={{ color: colors.danger }}>*</Text>
-              </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. 2500"
-                placeholderTextColor={colors.slate400}
+              <ModernInput
+                label={t('Amount') || 'Amount'}
+                required
+                prefix="₹"
+                placeholder="0.00"
                 keyboardType="decimal-pad"
                 value={amount}
                 onChangeText={setAmount}
+                containerStyle={{ marginTop: spacing.md }}
               />
 
               <View style={styles.switchRow}>
@@ -685,15 +685,14 @@ export default function ExpensesScreen() {
                 containerStyle={{ marginTop: spacing.md }}
               />
 
-              <Text style={styles.inputLabel}>Notes (Optional)</Text>
-              <TextInput
-                style={[styles.input, styles.multilineInput]}
+              <ModernInput
+                label="Notes (Optional)"
                 placeholder="Receipt details, vendor info..."
-                placeholderTextColor={colors.slate400}
                 value={notes}
                 onChangeText={setNotes}
                 multiline
                 numberOfLines={2}
+                containerStyle={{ marginTop: spacing.md }}
               />
 
               <View style={styles.modalActions}>
@@ -794,12 +793,15 @@ export default function ExpensesScreen() {
                     size="sm"
                   />
 
-                  <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Amount (₹)</Text>
-                  <TextInput
-                    style={styles.input}
+                  <ModernInput
+                    label={t('Amount') || 'Amount'}
+                    required
+                    prefix="₹"
+                    placeholder="0.00"
                     keyboardType="decimal-pad"
                     value={editAmount}
                     onChangeText={setEditAmount}
+                    containerStyle={{ marginTop: spacing.md }}
                   />
 
                   <View style={styles.switchRow}>
@@ -834,13 +836,13 @@ export default function ExpensesScreen() {
                     containerStyle={{ marginTop: spacing.md }}
                   />
 
-                  <Text style={styles.inputLabel}>Notes</Text>
-                  <TextInput
-                    style={[styles.input, styles.multilineInput]}
+                  <ModernInput
+                    label="Notes"
                     value={editNotes}
                     onChangeText={setEditNotes}
                     multiline
                     numberOfLines={3}
+                    containerStyle={{ marginTop: spacing.md }}
                   />
 
                   <View style={styles.modalActions}>

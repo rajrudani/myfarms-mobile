@@ -828,7 +828,7 @@ export default function SaleViewScreen() {
                             newRows[idx].quantity = text;
                             setGradeRows(newRows);
                           }}
-                          keyboardType="numeric"
+                          keyboardType="decimal-pad"
                           placeholder="0"
                           placeholderTextColor="#94a3b8"
                         />
@@ -843,7 +843,7 @@ export default function SaleViewScreen() {
                             newRows[idx].rate = text;
                             setGradeRows(newRows);
                           }}
-                          keyboardType="numeric"
+                          keyboardType="decimal-pad"
                           placeholder="0.00"
                           placeholderTextColor="#94a3b8"
                         />
@@ -1018,7 +1018,7 @@ export default function SaleViewScreen() {
                       newRows[idx].value = text;
                       setChargeRows(newRows);
                     }}
-                    keyboardType="numeric"
+                    keyboardType="decimal-pad"
                     placeholder="0.00"
                     placeholderTextColor="#94a3b8"
                   />

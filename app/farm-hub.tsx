@@ -2521,7 +2521,7 @@ export default function FarmHubScreen() {
                                 }}
                                 placeholder="e.g. 10"
                                 placeholderTextColor="#94a3b8"
-                                keyboardType="numeric"
+                                keyboardType="decimal-pad"
                               />
                               {f.unit ? (
                                 <>
@@ -2883,7 +2883,7 @@ export default function FarmHubScreen() {
                       style={{ flex: 1, height: '100%', fontSize: 15, color: '#0f172a', padding: 0 }}
                       placeholder="1500"
                       placeholderTextColor="#94a3b8"
-                      keyboardType="numeric"
+                      keyboardType="decimal-pad"
                       value={expenseAmount}
                       onChangeText={(txt) => {
                         setExpenseAmount(txt);
@@ -3042,7 +3042,7 @@ export default function FarmHubScreen() {
                       <Text style={styles.inputLabel}>Allocated Area</Text>
                       <TextInput
                         style={styles.input}
-                        keyboardType="numeric"
+                        keyboardType="decimal-pad"
                         value={editAllocatedArea}
                         onChangeText={setEditAllocatedArea}
                       />
@@ -3175,7 +3175,7 @@ export default function FarmHubScreen() {
                             style={styles.input}
                             placeholder="e.g. 450"
                             placeholderTextColor="#94a3b8"
-                            keyboardType="numeric"
+                            keyboardType="decimal-pad"
                             value={editHarvestAmount}
                             onChangeText={setEditHarvestAmount}
                           />
@@ -3347,7 +3347,7 @@ export default function FarmHubScreen() {
                     style={styles.input}
                     value={editExpenseAmount}
                     onChangeText={setEditExpenseAmount}
-                    keyboardType="numeric"
+                    keyboardType="decimal-pad"
                   />
 
                   <Text style={styles.inputLabel}>Payment Method</Text>

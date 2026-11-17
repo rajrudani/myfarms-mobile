@@ -26,7 +26,7 @@ import { useAuth } from '../src/hooks/useAuth';
 import { permissions } from '../src/utils/permissions';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
-import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker } from '../src/components/ui';
+import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput } from '../src/components/ui';
 import { useTranslation } from '../src/i18n/I18nContext';
 import { useResponsive } from '../src/utils/responsive';
 import { formatCurrency } from '../src/utils/formatters';
@@ -1079,54 +1079,50 @@ export default function AgroShopScreen() {
               contentContainerStyle={styles.modalScroll}
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.inputLabel}>Shop Name *</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label="Shop Name"
+                required
                 placeholder="e.g. Kisan Agro Agency"
-                placeholderTextColor={colors.slate400}
                 value={shopName}
                 onChangeText={setShopName}
+                containerStyle={{ marginTop: spacing.sm }}
               />
 
-              <Text style={styles.inputLabel}>Contact Person</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label="Contact Person"
                 placeholder="e.g. Ramesh Patel"
-                placeholderTextColor={colors.slate400}
                 value={contactName}
                 onChangeText={setContactName}
+                containerStyle={{ marginTop: spacing.sm }}
               />
 
-              <Text style={styles.inputLabel}>Phone Number</Text>
-              <TextInput
-                style={styles.input}
+              <ModernInput
+                label="Phone Number"
                 placeholder="e.g. +91 98765 43210"
-                placeholderTextColor={colors.slate400}
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
+                containerStyle={{ marginTop: spacing.sm }}
               />
 
-              <Text style={styles.inputLabel}>Address</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
+              <ModernInput
+                label="Address"
                 placeholder="Market Yard, Station Road..."
-                placeholderTextColor={colors.slate400}
                 multiline
-                numberOfLines={3}
+                numberOfLines={2}
                 value={address}
                 onChangeText={setAddress}
+                containerStyle={{ marginTop: spacing.sm }}
               />
 
-              <Text style={styles.inputLabel}>Notes</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
+              <ModernInput
+                label="Notes"
                 placeholder="GSTIN, bank details, credit terms..."
-                placeholderTextColor={colors.slate400}
                 multiline
-                numberOfLines={3}
+                numberOfLines={2}
                 value={shopNotes}
                 onChangeText={setShopNotes}
+                containerStyle={{ marginTop: spacing.sm }}
               />
 
               <View style={styles.profileStatusToggleRow}>
@@ -1267,7 +1263,7 @@ export default function AgroShopScreen() {
                             style={styles.lineInput}
                             placeholder="10"
                             placeholderTextColor={colors.slate400}
-                            keyboardType="numeric"
+                            keyboardType="decimal-pad"
                             value={pItem.quantity}
                             onChangeText={(text) => {
                               const newItems = [...purchaseItems];
@@ -1298,7 +1294,7 @@ export default function AgroShopScreen() {
                             style={styles.lineInput}
                             placeholder="500"
                             placeholderTextColor={colors.slate400}
-                            keyboardType="numeric"
+                            keyboardType="decimal-pad"
                             value={pItem.unit_price}
                             onChangeText={(text) => {
                               const newItems = [...purchaseItems];
@@ -1348,15 +1344,14 @@ export default function AgroShopScreen() {
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.inputLabel}>Purchase Notes</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
+              <ModernInput
+                label="Purchase Notes"
                 placeholder="Batch numbers, delivery terms, expiry dates..."
-                placeholderTextColor={colors.slate400}
                 multiline
                 numberOfLines={3}
                 value={purchaseNotes}
                 onChangeText={setPurchaseNotes}
+                containerStyle={{ marginTop: spacing.md }}
               />
 
               <View style={{ marginTop: spacing.md }}>
@@ -1453,14 +1448,15 @@ export default function AgroShopScreen() {
                 containerStyle={{ marginBottom: spacing.md }}
               />
 
-              <Text style={styles.inputLabel}>Payment Amount (₹) *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. 5000"
-                placeholderTextColor={colors.slate400}
-                keyboardType="numeric"
+              <ModernInput
+                label="Payment Amount"
+                required
+                prefix="₹"
+                placeholder="0.00"
+                keyboardType="decimal-pad"
                 value={paymentAmount}
                 onChangeText={setPaymentAmount}
+                containerStyle={{ marginBottom: spacing.md }}
               />
 
               {/* Payment Method */}
@@ -1473,15 +1469,14 @@ export default function AgroShopScreen() {
                 />
               </View>
 
-              <Text style={styles.inputLabel}>Payment Notes / UTR Ref</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
+              <ModernInput
+                label="Payment Notes / UTR Ref"
                 placeholder="Transaction ID, receiver details, or notes..."
-                placeholderTextColor={colors.slate400}
                 multiline
                 numberOfLines={3}
                 value={paymentNotes}
                 onChangeText={setPaymentNotes}
+                containerStyle={{ marginBottom: spacing.md }}
               />
 
               <View style={styles.modalActions}>
