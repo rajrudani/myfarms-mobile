@@ -90,19 +90,26 @@ export default function StaffScreen() {
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
   const [farmFilter, setFarmFilter] = useState<string>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
-  const [showFilters, setShowFilters] = useState(false);
 
   // TAB 2: Attendance - Filter & Date
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
+  const [attendanceSearchQuery, setAttendanceSearchQuery] = useState('');
   const [attendanceFarmFilter, setAttendanceFarmFilter] = useState<string>('all');
+  const [attendanceStatusFilter, setAttendanceStatusFilter] = useState<'all' | 'present' | 'absent' | 'half_day'>('all');
   const [attendanceRecords, setAttendanceRecords] = useState<
     { farm_staff_id: number; farm_id?: number | null; status: 'present' | 'absent' | 'half_day'; notes: string }[]
   >([]);
   const [expandedStaffIds, setExpandedStaffIds] = useState<number[]>([]);
   const [savingAttendance, setSavingAttendance] = useState(false);
+  const [workLocationModalStaffId, setWorkLocationModalStaffId] = useState<number | null>(null);
 
   // TAB 3: Payments - Filter & Search
   const [paymentSearch, setPaymentSearch] = useState('');
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>('all');
+  const [paymentStaffFilter, setPaymentStaffFilter] = useState<string>('all');
+
+  // Filter bottom sheet modal state
+  const [filterModalTab, setFilterModalTab] = useState<'staff' | 'attendance' | 'payments' | null>(null);
 
   // Modals state
   const [addStaffModalVisible, setAddStaffModalVisible] = useState(false);
@@ -159,7 +166,7 @@ export default function StaffScreen() {
           return {
             farm_staff_id: s.id,
             farm_id: existing?.farm?.id || existing?.farm_id || (s.farms?.[0]?.id as number | undefined) || null,
-            status: existing ? existing.status : ('present' as const),
+            status: existing ? existing.status : ('absent' as const),
             notes: existing?.notes || '',
           };
         });
@@ -334,6 +341,12 @@ export default function StaffScreen() {
         ...r,
         status: 'present',
       }))
+    );
+  };
+
+  const setFarmLocationForStaff = (staffId: number, farmId: number | null) => {
+    setAttendanceRecords((prev) =>
+      prev.map((r) => (r.farm_staff_id === staffId ? { ...r, farm_id: farmId } : r))
     );
   };
 
@@ -521,7 +534,7 @@ export default function StaffScreen() {
   const renderAttendanceCard = ({ item }: { item: StaffMember }) => {
     const recordIndex = attendanceRecords.findIndex((r) => r.farm_staff_id === item.id);
     const record = recordIndex !== -1 ? attendanceRecords[recordIndex] : null;
-    const status = record?.status || 'present';
+    const status = record?.status || 'absent';
     const isPresent = status === 'present' || status === 'half_day';
     const isHalfDay = status === 'half_day';
     const notes = record?.notes || '';
@@ -559,13 +572,6 @@ export default function StaffScreen() {
         setAttendanceRecords(updated);
       }
     };
-
-    if (attendanceFarmFilter !== 'all') {
-      const matchesFarm = item.farms.some(
-        (f) => f.id.toString() === attendanceFarmFilter || f.ulid === attendanceFarmFilter
-      );
-      if (!matchesFarm) return null;
-    }
 
     const primaryRole = item.roles[0]?.value || 'Worker';
     const roleColor = getRoleColor(primaryRole);
@@ -658,23 +664,20 @@ export default function StaffScreen() {
         {isPresent && isExpanded ? (
           <View style={styles.pwaAttExpanded}>
             <View style={styles.pwaWorkFarmRow}>
-              <Text style={styles.pwaWorkFarmLabel}>Work Location:</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }}>
-                {activeFarms.map((f) => {
-                  const isSelected = workFarmId === f.id;
-                  return (
-                    <TouchableOpacity
-                      key={f.id}
-                      style={[styles.pwaWorkFarmChip, isSelected && styles.pwaWorkFarmChipActive]}
-                      onPress={() => setFarmLocation(f.id as number)}
-                    >
-                      <Text style={[styles.pwaWorkFarmChipText, isSelected && styles.pwaWorkFarmChipTextActive]}>
-                        {f.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+              <Text style={styles.pwaWorkFarmLabel}>{t('Work Location')}:</Text>
+              <TouchableOpacity
+                style={styles.locationDropdownTrigger}
+                onPress={() => setWorkLocationModalStaffId(item.id)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.locationDropdownLeft}>
+                  <Ionicons name="business-outline" size={16} color="#16a34a" />
+                  <Text style={styles.locationDropdownText} numberOfLines={1}>
+                    {activeFarms.find((f) => f.id === workFarmId)?.name || t('Select Work Location')}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-down" size={16} color="#64748b" />
+              </TouchableOpacity>
             </View>
 
             <View style={styles.pwaAttNotesBox}>
@@ -753,6 +756,56 @@ export default function StaffScreen() {
   const halfDayCount = attendanceRecords.filter((r) => r.status === 'half_day').length;
   const absentCount = attendanceRecords.filter((r) => r.status === 'absent').length;
 
+  const filteredAttendanceStaff = staff.filter((item) => {
+    if (attendanceFarmFilter !== 'all') {
+      const matchesFarm = item.farms.some(
+        (f) =>
+          (f.id ? f.id.toString() === attendanceFarmFilter : false) ||
+          f.ulid === attendanceFarmFilter
+      );
+      if (!matchesFarm) return false;
+    }
+    if (attendanceStatusFilter !== 'all') {
+      const record = attendanceRecords.find((r) => r.farm_staff_id === item.id);
+      const stat = record?.status || 'absent';
+      if (attendanceStatusFilter === 'present' && stat !== 'present') return false;
+      if (attendanceStatusFilter === 'half_day' && stat !== 'half_day') return false;
+      if (attendanceStatusFilter === 'absent' && stat !== 'absent') return false;
+    }
+    if (attendanceSearchQuery.trim()) {
+      const q = attendanceSearchQuery.trim().toLowerCase();
+      const name = (item.name || '').toLowerCase();
+      const phone = (item.phone || '').toLowerCase();
+      const roles = item.roles.map((r) => r.label.toLowerCase()).join(' ');
+      if (!name.includes(q) && !phone.includes(q) && !roles.includes(q)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const filteredPayments = payments.filter((item) => {
+    if (paymentMethodFilter !== 'all') {
+      const method = (item.payment_method || '').toLowerCase();
+      if (method !== paymentMethodFilter.toLowerCase()) return false;
+    }
+    if (paymentStaffFilter !== 'all') {
+      const sid = (item.staff?.id || item.farm_staff_id)?.toString();
+      if (sid !== paymentStaffFilter) return false;
+    }
+    if (paymentSearch.trim()) {
+      const q = paymentSearch.trim().toLowerCase();
+      const name = (item.staff?.name || '').toLowerCase();
+      const givenBy = (item.given_by?.name || '').toLowerCase();
+      const notes = (item.notes || '').toLowerCase();
+      const method = (item.payment_method || '').toLowerCase();
+      if (!name.includes(q) && !givenBy.includes(q) && !notes.includes(q) && !method.includes(q)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
@@ -804,103 +857,97 @@ export default function StaffScreen() {
       {/* Main Content Area */}
       {activeTab === 'staff' && (
         <View style={styles.tabContent}>
-          <View style={styles.searchRow}>
-            <SearchFilterBar
-              query={searchQuery}
-              onChangeQuery={setSearchQuery}
-              placeholder={t('Search by name, farm and role') || 'Search by name, farm and role'}
-              hasFilter
-              isFilterActive={showFilters}
-              onToggleFilter={() => setShowFilters(!showFilters)}
-            />
-          </View>
-
-          {/* Filter Panel (Collapsible) */}
-          {showFilters && (
-            <View style={styles.filterPanel}>
-              <View style={styles.filterHeader}>
-                <Text style={styles.filterPanelTitle}>QUICK ROSTER FILTERS</Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    setStatusFilter('active');
-                    setFarmFilter('all');
-                    setRoleFilter('all');
-                  }}
-                >
-                  <Text style={styles.filterResetText}>RESET</Text>
-                </TouchableOpacity>
+          {/* Search & Filter Row */}
+          <View style={styles.filterSection}>
+            <View style={styles.searchFilterRow}>
+              <View style={styles.searchBox}>
+                <Ionicons name="search-outline" size={18} color="#64748b" style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder={t('Search by name, farm and role') || 'Search by name, farm and role'}
+                  placeholderTextColor="#94a3b8"
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
+                    <Ionicons name="close-circle" size={18} color="#94a3b8" />
+                  </TouchableOpacity>
+                )}
               </View>
 
-              <Text style={styles.filterLabel}>STATUS</Text>
-              <QuickChipGroup
-                options={[
-                  { label: 'Active', value: 'active' },
-                  { label: 'Inactive', value: 'inactive' },
-                  { label: 'All', value: 'all' },
+              <TouchableOpacity
+                style={[
+                  styles.filterBtn,
+                  (statusFilter !== 'active' || farmFilter !== 'all' || roleFilter !== 'all') &&
+                    styles.filterBtnActive,
                 ]}
-                selectedValue={statusFilter}
-                onSelect={(val) => setStatusFilter(val as any)}
-                size="sm"
-              />
-
-              <Text style={[styles.filterLabel, { marginTop: spacing.sm }]}>ASSIGNED FARM</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={{ marginBottom: 6 }}
+                onPress={() => setFilterModalTab('staff')}
+                activeOpacity={0.7}
+                accessibilityLabel="Filter staff"
               >
-                <TouchableOpacity
-                  style={[
-                    styles.filterPillBtn,
-                    farmFilter === 'all' && styles.filterPillBtnActive,
-                  ]}
-                  onPress={() => setFarmFilter('all')}
-                >
-                  <Text
-                    style={[
-                      styles.filterPillText,
-                      farmFilter === 'all' && styles.filterPillTextActive,
-                    ]}
-                  >
-                    All Farms
-                  </Text>
-                </TouchableOpacity>
-                {activeFarms.map((f) => (
-                  <TouchableOpacity
-                    key={f.ulid || f.id}
-                    style={[
-                      styles.filterPillBtn,
-                      farmFilter === (f.ulid || f.id!.toString()) && styles.filterPillBtnActive,
-                    ]}
-                    onPress={() => setFarmFilter((f.ulid || f.id!).toString())}
-                  >
-                    <Text
-                      style={[
-                        styles.filterPillText,
-                        farmFilter === (f.ulid || f.id!.toString()) && styles.filterPillTextActive,
-                      ]}
-                    >
-                      {f.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              <Text style={[styles.filterLabel, { marginTop: spacing.sm }]}>ROLE</Text>
-              <QuickChipGroup
-                options={[
-                  { label: 'All', value: 'all' },
-                  { label: 'Worker', value: 'Worker' },
-                  { label: 'Manager', value: 'Manager' },
-                  { label: 'Owner', value: 'Owner' },
-                  { label: 'Consultant', value: 'Consultant' },
-                ]}
-                selectedValue={roleFilter}
-                onSelect={(val) => setRoleFilter(val)}
-                size="sm"
-              />
+                <Ionicons
+                  name="funnel-outline"
+                  size={19}
+                  color={
+                    statusFilter !== 'active' || farmFilter !== 'all' || roleFilter !== 'all'
+                      ? '#ffffff'
+                      : '#64748b'
+                  }
+                />
+              </TouchableOpacity>
             </View>
-          )}
+
+            {/* Active Filter Chips */}
+            {(statusFilter !== 'active' || farmFilter !== 'all' || roleFilter !== 'all') && (
+              <View style={styles.activeFilterRow}>
+                {statusFilter !== 'active' && (
+                  <View style={styles.activeFilterChip}>
+                    <Text style={styles.activeFilterChipText}>
+                      {t('Status')}: {statusFilter === 'inactive' ? t('Inactive') : t('All')}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setStatusFilter('active')}
+                      style={styles.activeFilterChipClear}
+                      accessibilityLabel="Reset status filter"
+                    >
+                      <Ionicons name="close" size={13} color="#ffffff" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {farmFilter !== 'all' && (
+                  <View style={styles.activeFilterChip}>
+                    <Text style={styles.activeFilterChipText}>
+                      {t('Farm')}: {activeFarms.find((f) => (f.ulid || f.id!.toString()) === farmFilter)?.name || farmFilter}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setFarmFilter('all')}
+                      style={styles.activeFilterChipClear}
+                      accessibilityLabel="Reset farm filter"
+                    >
+                      <Ionicons name="close" size={13} color="#ffffff" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {roleFilter !== 'all' && (
+                  <View style={styles.activeFilterChip}>
+                    <Text style={styles.activeFilterChipText}>
+                      {t('Role')}: {roleFilter}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setRoleFilter('all')}
+                      style={styles.activeFilterChipClear}
+                      accessibilityLabel="Reset role filter"
+                    >
+                      <Ionicons name="close" size={13} color="#ffffff" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
 
           {loading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
@@ -1022,11 +1069,99 @@ export default function StaffScreen() {
             </View>
           </View>
 
+          {/* Search & Filter Row for Attendance */}
+          <View style={styles.filterSection}>
+            <View style={styles.searchFilterRow}>
+              <View style={styles.searchBox}>
+                <Ionicons name="search-outline" size={18} color="#64748b" style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  value={attendanceSearchQuery}
+                  onChangeText={setAttendanceSearchQuery}
+                  placeholder={t('Search staff in attendance...')}
+                  placeholderTextColor="#94a3b8"
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                />
+                {attendanceSearchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setAttendanceSearchQuery('')} style={styles.clearBtn}>
+                    <Ionicons name="close-circle" size={18} color="#94a3b8" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.filterBtn,
+                  (attendanceFarmFilter !== 'all' || attendanceStatusFilter !== 'all') &&
+                    styles.filterBtnActive,
+                ]}
+                onPress={() => setFilterModalTab('attendance')}
+                activeOpacity={0.7}
+                accessibilityLabel="Filter attendance"
+              >
+                <Ionicons
+                  name="funnel-outline"
+                  size={19}
+                  color={
+                    attendanceFarmFilter !== 'all' || attendanceStatusFilter !== 'all'
+                      ? '#ffffff'
+                      : '#64748b'
+                  }
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* Active Filter Chips */}
+            {(attendanceFarmFilter !== 'all' || attendanceStatusFilter !== 'all') && (
+              <View style={styles.activeFilterRow}>
+                {attendanceStatusFilter !== 'all' && (
+                  <View style={styles.activeFilterChip}>
+                    <Text style={styles.activeFilterChipText}>
+                      {t('Status')}:{' '}
+                      {attendanceStatusFilter === 'present'
+                        ? t('Present')
+                        : attendanceStatusFilter === 'half_day'
+                        ? t('Half Day')
+                        : t('Absent')}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setAttendanceStatusFilter('all')}
+                      style={styles.activeFilterChipClear}
+                      accessibilityLabel="Reset attendance status filter"
+                    >
+                      <Ionicons name="close" size={13} color="#ffffff" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {attendanceFarmFilter !== 'all' && (
+                  <View style={styles.activeFilterChip}>
+                    <Text style={styles.activeFilterChipText}>
+                      {t('Farm')}:{' '}
+                      {activeFarms.find(
+                        (f) =>
+                          (f.id ? f.id.toString() === attendanceFarmFilter : false) ||
+                          f.ulid === attendanceFarmFilter
+                      )?.name || attendanceFarmFilter}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setAttendanceFarmFilter('all')}
+                      style={styles.activeFilterChipClear}
+                      accessibilityLabel="Reset attendance farm filter"
+                    >
+                      <Ionicons name="close" size={13} color="#ffffff" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+
           {loading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
           ) : (
             <FlatList
-              data={staff}
+              data={filteredAttendanceStaff}
               keyExtractor={(item) => item.ulid || item.id.toString()}
               renderItem={renderAttendanceCard}
               contentContainerStyle={[styles.listContent, { paddingBottom: 120 }]}
@@ -1042,8 +1177,26 @@ export default function StaffScreen() {
               ListEmptyComponent={
                 <EmptyState
                   icon="calendar-outline"
-                  title={t('No Active Staff for Attendance')}
-                  message={t('Only active workers and staff members appear in the daily attendance sheet.')}
+                  title={
+                    attendanceSearchQuery || attendanceFarmFilter !== 'all' || attendanceStatusFilter !== 'all'
+                      ? t('No Matching Staff')
+                      : t('No Active Staff for Attendance')
+                  }
+                  message={
+                    attendanceSearchQuery || attendanceFarmFilter !== 'all' || attendanceStatusFilter !== 'all'
+                      ? t('No staff members match your filter criteria for this date.')
+                      : t('Only active workers and staff members appear in the daily attendance sheet.')
+                  }
+                  secondaryActionLabel={
+                    attendanceSearchQuery || attendanceFarmFilter !== 'all' || attendanceStatusFilter !== 'all'
+                      ? t('Clear Filters')
+                      : undefined
+                  }
+                  onSecondaryAction={() => {
+                    setAttendanceSearchQuery('');
+                    setAttendanceFarmFilter('all');
+                    setAttendanceStatusFilter('all');
+                  }}
                 />
               }
             />
@@ -1072,19 +1225,89 @@ export default function StaffScreen() {
 
       {activeTab === 'payments' && (
         <View style={styles.tabContent}>
-          <View style={styles.searchRow}>
-            <SearchFilterBar
-              query={paymentSearch}
-              onChangeQuery={setPaymentSearch}
-              placeholder="Search by name, given by and type"
-            />
+          {/* Search & Filter Row for Payments */}
+          <View style={styles.filterSection}>
+            <View style={styles.searchFilterRow}>
+              <View style={styles.searchBox}>
+                <Ionicons name="search-outline" size={18} color="#64748b" style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  value={paymentSearch}
+                  onChangeText={setPaymentSearch}
+                  placeholder={t('Search by name, given by and type')}
+                  placeholderTextColor="#94a3b8"
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                />
+                {paymentSearch.length > 0 && (
+                  <TouchableOpacity onPress={() => setPaymentSearch('')} style={styles.clearBtn}>
+                    <Ionicons name="close-circle" size={18} color="#94a3b8" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.filterBtn,
+                  (paymentMethodFilter !== 'all' || paymentStaffFilter !== 'all') &&
+                    styles.filterBtnActive,
+                ]}
+                onPress={() => setFilterModalTab('payments')}
+                activeOpacity={0.7}
+                accessibilityLabel="Filter payments"
+              >
+                <Ionicons
+                  name="funnel-outline"
+                  size={19}
+                  color={
+                    paymentMethodFilter !== 'all' || paymentStaffFilter !== 'all'
+                      ? '#ffffff'
+                      : '#64748b'
+                  }
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* Active Filter Chips */}
+            {(paymentMethodFilter !== 'all' || paymentStaffFilter !== 'all') && (
+              <View style={styles.activeFilterRow}>
+                {paymentMethodFilter !== 'all' && (
+                  <View style={styles.activeFilterChip}>
+                    <Text style={styles.activeFilterChipText}>
+                      {t('Method')}: {paymentMethodFilter.replace('_', ' ').toUpperCase()}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setPaymentMethodFilter('all')}
+                      style={styles.activeFilterChipClear}
+                      accessibilityLabel="Reset payment method filter"
+                    >
+                      <Ionicons name="close" size={13} color="#ffffff" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {paymentStaffFilter !== 'all' && (
+                  <View style={styles.activeFilterChip}>
+                    <Text style={styles.activeFilterChipText}>
+                      {t('Staff')}: {staff.find((s) => s.id.toString() === paymentStaffFilter)?.name || paymentStaffFilter}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setPaymentStaffFilter('all')}
+                      style={styles.activeFilterChipClear}
+                      accessibilityLabel="Reset payment staff filter"
+                    >
+                      <Ionicons name="close" size={13} color="#ffffff" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
 
           {loading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
           ) : (
             <FlatList
-              data={payments}
+              data={filteredPayments}
               keyExtractor={(item) => item.ulid || item.id.toString()}
               renderItem={renderPaymentCard}
               contentContainerStyle={styles.listContent}
@@ -1100,20 +1323,35 @@ export default function StaffScreen() {
               ListEmptyComponent={
                 <EmptyState
                   icon="cash-outline"
-                  title={paymentSearch ? t('No Matching Payments') : t('No Payments Recorded')}
+                  title={
+                    paymentSearch || paymentMethodFilter !== 'all' || paymentStaffFilter !== 'all'
+                      ? t('No Matching Payments')
+                      : t('No Payments Recorded')
+                  }
                   message={
-                    paymentSearch
-                      ? t('No payment records match your search keyword.')
+                    paymentSearch || paymentMethodFilter !== 'all' || paymentStaffFilter !== 'all'
+                      ? t('No payment records match your search or filter options.')
                       : t('Disburse advance or wage payments to staff members.')
                   }
                   actionLabel={
-                    permissions.canManageStaff(user) && !paymentSearch
+                    permissions.canManageStaff(user) &&
+                    !paymentSearch &&
+                    paymentMethodFilter === 'all' &&
+                    paymentStaffFilter === 'all'
                       ? t('+ Record First Payment')
                       : undefined
                   }
                   onAction={() => setAddPaymentModalVisible(true)}
-                  secondaryActionLabel={paymentSearch ? t('Clear Search') : undefined}
-                  onSecondaryAction={() => setPaymentSearch('')}
+                  secondaryActionLabel={
+                    paymentSearch || paymentMethodFilter !== 'all' || paymentStaffFilter !== 'all'
+                      ? t('Clear Filters')
+                      : undefined
+                  }
+                  onSecondaryAction={() => {
+                    setPaymentSearch('');
+                    setPaymentMethodFilter('all');
+                    setPaymentStaffFilter('all');
+                  }}
                 />
               }
             />
@@ -1422,6 +1660,470 @@ export default function StaffScreen() {
               )}
             </TouchableOpacity>
           </View>
+        </ScrollView>
+      </ModalSheet>
+
+      {/* Work Location Picker ModalSheet */}
+      <ModalSheet
+        visible={workLocationModalStaffId !== null}
+        onClose={() => setWorkLocationModalStaffId(null)}
+        title={t('Select Work Location')}
+        maxHeight="55%"
+      >
+        <ScrollView style={{ maxHeight: 350, paddingBottom: 20 }}>
+          {(() => {
+            const currentStaffRecord = attendanceRecords.find(
+              (r) => r.farm_staff_id === workLocationModalStaffId
+            );
+            const currentSelectedFarmId = currentStaffRecord?.farm_id ?? null;
+
+            return (
+              <>
+                <TouchableOpacity
+                  style={[
+                    styles.filterOptionItem,
+                    currentSelectedFarmId === null && styles.filterOptionItemActive,
+                  ]}
+                  onPress={() => {
+                    if (workLocationModalStaffId) {
+                      setFarmLocationForStaff(workLocationModalStaffId, null);
+                    }
+                    setWorkLocationModalStaffId(null);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.filterOptionLeft}>
+                    <Ionicons name="close-circle-outline" size={18} color="#64748b" />
+                    <Text style={styles.filterOptionText}>{t('Unassigned')}</Text>
+                  </View>
+                  {currentSelectedFarmId === null && (
+                    <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                  )}
+                </TouchableOpacity>
+
+                {activeFarms.map((f) => {
+                  const isSelected = currentSelectedFarmId === f.id;
+                  return (
+                    <TouchableOpacity
+                      key={f.id ?? f.ulid}
+                      style={[
+                        styles.filterOptionItem,
+                        isSelected && styles.filterOptionItemActive,
+                      ]}
+                      onPress={() => {
+                        if (workLocationModalStaffId) {
+                          setFarmLocationForStaff(workLocationModalStaffId, f.id as number);
+                        }
+                        setWorkLocationModalStaffId(null);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.filterOptionLeft}>
+                        <Ionicons name="business-outline" size={18} color="#16a34a" />
+                        <View>
+                          <Text style={[styles.filterOptionText, isSelected && styles.filterOptionTextActive]}>
+                            {f.name}
+                          </Text>
+                          {f.area ? (
+                            <Text style={{ fontSize: 11, color: '#94a3b8' }}>
+                              {f.area} {f.area_unit}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </View>
+                      {isSelected && (
+                        <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </>
+            );
+          })()}
+        </ScrollView>
+      </ModalSheet>
+
+      {/* Manage Staff Filter Bottom Sheet */}
+      <ModalSheet
+        visible={filterModalTab !== null}
+        onClose={() => setFilterModalTab(null)}
+        title={
+          filterModalTab === 'staff'
+            ? t('Filter Staff')
+            : filterModalTab === 'attendance'
+            ? t('Filter Attendance')
+            : t('Filter Payments')
+        }
+        maxHeight="65%"
+      >
+        <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
+          {/* TAB 1: STAFF FILTERS */}
+          {filterModalTab === 'staff' && (
+            <View style={{ gap: 12, paddingBottom: 24 }}>
+              {(statusFilter !== 'active' || farmFilter !== 'all' || roleFilter !== 'all') && (
+                <TouchableOpacity
+                  style={styles.filterResetBtnContainer}
+                  onPress={() => {
+                    setStatusFilter('active');
+                    setFarmFilter('all');
+                    setRoleFilter('all');
+                    setFilterModalTab(null);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.filterResetBtn}>{t('RESET FILTERS')}</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Status Section */}
+              <Text style={styles.filterSectionHeader}>{t('STATUS')}</Text>
+              {[
+                { label: t('Active Staff'), value: 'active', color: '#22c55e' },
+                { label: t('Inactive Staff'), value: 'inactive', color: '#ef4444' },
+                { label: t('All Staff'), value: 'all', color: '#64748b' },
+              ].map((opt) => (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[
+                    styles.filterOptionItem,
+                    statusFilter === opt.value && styles.filterOptionItemActive,
+                  ]}
+                  onPress={() => setStatusFilter(opt.value as any)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.filterOptionLeft}>
+                    <View style={[styles.filterOptionDot, { backgroundColor: opt.color }]} />
+                    <Text
+                      style={[
+                        styles.filterOptionText,
+                        statusFilter === opt.value && styles.filterOptionTextActive,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </View>
+                  {statusFilter === opt.value && (
+                    <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                  )}
+                </TouchableOpacity>
+              ))}
+
+              {/* Assigned Farm Section */}
+              <Text style={[styles.filterSectionHeader, { marginTop: 8 }]}>{t('ASSIGNED FARM')}</Text>
+              <TouchableOpacity
+                style={[
+                  styles.filterOptionItem,
+                  farmFilter === 'all' && styles.filterOptionItemActive,
+                ]}
+                onPress={() => setFarmFilter('all')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.filterOptionLeft}>
+                  <Ionicons name="grid-outline" size={18} color="#64748b" />
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      farmFilter === 'all' && styles.filterOptionTextActive,
+                    ]}
+                  >
+                    {t('All Farms')}
+                  </Text>
+                </View>
+                {farmFilter === 'all' && (
+                  <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                )}
+              </TouchableOpacity>
+              {activeFarms.map((f) => {
+                const fVal = f.ulid || f.id!.toString();
+                const isSelected = farmFilter === fVal;
+                return (
+                  <TouchableOpacity
+                    key={fVal}
+                    style={[
+                      styles.filterOptionItem,
+                      isSelected && styles.filterOptionItemActive,
+                    ]}
+                    onPress={() => setFarmFilter(fVal)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.filterOptionLeft}>
+                      <Ionicons name="business-outline" size={18} color="#16a34a" />
+                      <Text
+                        style={[
+                          styles.filterOptionText,
+                          isSelected && styles.filterOptionTextActive,
+                        ]}
+                      >
+                        {f.name}
+                      </Text>
+                    </View>
+                    {isSelected && (
+                      <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+
+              {/* Role Section */}
+              <Text style={[styles.filterSectionHeader, { marginTop: 8 }]}>{t('ROLE')}</Text>
+              {[
+                { label: t('All Roles'), value: 'all', color: '#64748b' },
+                { label: t('Worker'), value: 'Worker', color: '#d97706' },
+                { label: t('Manager'), value: 'Manager', color: '#7e22ce' },
+                { label: t('Owner'), value: 'Owner', color: '#2563eb' },
+                { label: t('Consultant'), value: 'Consultant', color: '#16a34a' },
+              ].map((opt) => (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[
+                    styles.filterOptionItem,
+                    roleFilter === opt.value && styles.filterOptionItemActive,
+                  ]}
+                  onPress={() => setRoleFilter(opt.value)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.filterOptionLeft}>
+                    <View style={[styles.filterOptionDot, { backgroundColor: opt.color }]} />
+                    <Text
+                      style={[
+                        styles.filterOptionText,
+                        roleFilter === opt.value && styles.filterOptionTextActive,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </View>
+                  {roleFilter === opt.value && (
+                    <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* TAB 2: ATTENDANCE FILTERS */}
+          {filterModalTab === 'attendance' && (
+            <View style={{ gap: 12, paddingBottom: 24 }}>
+              {(attendanceFarmFilter !== 'all' || attendanceStatusFilter !== 'all') && (
+                <TouchableOpacity
+                  style={styles.filterResetBtnContainer}
+                  onPress={() => {
+                    setAttendanceFarmFilter('all');
+                    setAttendanceStatusFilter('all');
+                    setFilterModalTab(null);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.filterResetBtn}>{t('RESET FILTERS')}</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Status Section */}
+              <Text style={styles.filterSectionHeader}>{t('ATTENDANCE STATUS')}</Text>
+              {[
+                { label: t('All Staff'), value: 'all', count: staff.length, color: '#64748b' },
+                { label: t('Present'), value: 'present', count: presentCount, color: '#22c55e' },
+                { label: t('Half Day'), value: 'half_day', count: halfDayCount, color: '#d97706' },
+                { label: t('Absent'), value: 'absent', count: absentCount, color: '#ef4444' },
+              ].map((opt) => (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[
+                    styles.filterOptionItem,
+                    attendanceStatusFilter === opt.value && styles.filterOptionItemActive,
+                  ]}
+                  onPress={() => setAttendanceStatusFilter(opt.value as any)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.filterOptionLeft}>
+                    <View style={[styles.filterOptionDot, { backgroundColor: opt.color }]} />
+                    <Text
+                      style={[
+                        styles.filterOptionText,
+                        attendanceStatusFilter === opt.value && styles.filterOptionTextActive,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </View>
+                  <View style={styles.filterOptionRight}>
+                    <Text style={styles.filterOptionBadge}>{opt.count}</Text>
+                    {attendanceStatusFilter === opt.value && (
+                      <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+
+              {/* Farm Section */}
+              <Text style={[styles.filterSectionHeader, { marginTop: 8 }]}>{t('ASSIGNED FARM')}</Text>
+              <TouchableOpacity
+                style={[
+                  styles.filterOptionItem,
+                  attendanceFarmFilter === 'all' && styles.filterOptionItemActive,
+                ]}
+                onPress={() => setAttendanceFarmFilter('all')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.filterOptionLeft}>
+                  <Ionicons name="grid-outline" size={18} color="#64748b" />
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      attendanceFarmFilter === 'all' && styles.filterOptionTextActive,
+                    ]}
+                  >
+                    {t('All Farms')}
+                  </Text>
+                </View>
+                {attendanceFarmFilter === 'all' && (
+                  <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                )}
+              </TouchableOpacity>
+              {activeFarms.map((f) => {
+                const fVal = (f.ulid || (f.id ? f.id.toString() : ''));
+                const isSelected =
+                  attendanceFarmFilter === fVal ||
+                  (f.id ? attendanceFarmFilter === f.id.toString() : false);
+                return (
+                  <TouchableOpacity
+                    key={f.id ?? f.ulid ?? fVal}
+                    style={[
+                      styles.filterOptionItem,
+                      isSelected && styles.filterOptionItemActive,
+                    ]}
+                    onPress={() => setAttendanceFarmFilter(fVal)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.filterOptionLeft}>
+                      <Ionicons name="business-outline" size={18} color="#16a34a" />
+                      <Text
+                        style={[
+                          styles.filterOptionText,
+                          isSelected && styles.filterOptionTextActive,
+                        ]}
+                      >
+                        {f.name}
+                      </Text>
+                    </View>
+                    {isSelected && (
+                      <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
+          {/* TAB 3: PAYMENT FILTERS */}
+          {filterModalTab === 'payments' && (
+            <View style={{ gap: 12, paddingBottom: 24 }}>
+              {(paymentMethodFilter !== 'all' || paymentStaffFilter !== 'all') && (
+                <TouchableOpacity
+                  style={styles.filterResetBtnContainer}
+                  onPress={() => {
+                    setPaymentMethodFilter('all');
+                    setPaymentStaffFilter('all');
+                    setFilterModalTab(null);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.filterResetBtn}>{t('RESET FILTERS')}</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Payment Method Section */}
+              <Text style={styles.filterSectionHeader}>{t('PAYMENT METHOD')}</Text>
+              {[
+                { label: t('All Methods'), value: 'all' },
+                { label: 'Cash', value: 'cash' },
+                { label: 'Google Pay', value: 'google_pay' },
+                { label: 'PhonePe', value: 'phonepe' },
+                { label: 'UPI', value: 'other_upi' },
+                { label: 'Bank Transfer', value: 'bank_transfer' },
+              ].map((opt) => (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[
+                    styles.filterOptionItem,
+                    paymentMethodFilter === opt.value && styles.filterOptionItemActive,
+                  ]}
+                  onPress={() => setPaymentMethodFilter(opt.value)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.filterOptionLeft}>
+                    <Ionicons name="card-outline" size={18} color="#16a34a" />
+                    <Text
+                      style={[
+                        styles.filterOptionText,
+                        paymentMethodFilter === opt.value && styles.filterOptionTextActive,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </View>
+                  {paymentMethodFilter === opt.value && (
+                    <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                  )}
+                </TouchableOpacity>
+              ))}
+
+              {/* Staff Member Section */}
+              <Text style={[styles.filterSectionHeader, { marginTop: 8 }]}>{t('STAFF MEMBER')}</Text>
+              <TouchableOpacity
+                style={[
+                  styles.filterOptionItem,
+                  paymentStaffFilter === 'all' && styles.filterOptionItemActive,
+                ]}
+                onPress={() => setPaymentStaffFilter('all')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.filterOptionLeft}>
+                  <Ionicons name="people-outline" size={18} color="#64748b" />
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      paymentStaffFilter === 'all' && styles.filterOptionTextActive,
+                    ]}
+                  >
+                    {t('All Staff Members')}
+                  </Text>
+                </View>
+                {paymentStaffFilter === 'all' && (
+                  <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                )}
+              </TouchableOpacity>
+              {staff.map((s) => {
+                const isSelected = paymentStaffFilter === s.id.toString();
+                return (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={[
+                      styles.filterOptionItem,
+                      isSelected && styles.filterOptionItemActive,
+                    ]}
+                    onPress={() => setPaymentStaffFilter(s.id.toString())}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.filterOptionLeft}>
+                      <Ionicons name="person-outline" size={18} color="#16a34a" />
+                      <Text
+                        style={[
+                          styles.filterOptionText,
+                          isSelected && styles.filterOptionTextActive,
+                        ]}
+                      >
+                        {s.name}
+                      </Text>
+                    </View>
+                    {isSelected && (
+                      <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
         </ScrollView>
       </ModalSheet>
     </SafeAreaView>
@@ -2529,5 +3231,175 @@ const styles = StyleSheet.create({
   },
   farmSelectChipTextActive: {
     color: colors.white,
+  },
+  filterSection: {
+    marginBottom: 12,
+  },
+  searchFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  searchBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    height: 44,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0f172a',
+    height: '100%',
+    padding: 0,
+  },
+  clearBtn: {
+    padding: 4,
+  },
+  filterBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBtnActive: {
+    backgroundColor: '#16a34a',
+    borderColor: '#16a34a',
+  },
+  activeFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  activeFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#16a34a',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+  },
+  activeFilterChipText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  activeFilterChipClear: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderRadius: 10,
+    width: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterResetBtnContainer: {
+    alignSelf: 'flex-end',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginBottom: 4,
+  },
+  filterResetBtn: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#16a34a',
+    letterSpacing: 0.5,
+  },
+  filterSectionHeader: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748b',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  filterOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginBottom: 8,
+  },
+  filterOptionItemActive: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#86efac',
+  },
+  filterOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  filterOptionDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  filterOptionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  filterOptionTextActive: {
+    color: '#15803d',
+    fontWeight: '700',
+  },
+  filterOptionRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  filterOptionBadge: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748b',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  locationDropdownTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginTop: 4,
+  },
+  locationDropdownLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  locationDropdownText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
   },
 });
