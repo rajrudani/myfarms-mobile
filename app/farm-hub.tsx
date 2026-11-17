@@ -29,7 +29,7 @@ import { Farm, CropCycle, FarmExpense, Crop, FarmActivityMaster, FarmActivity, A
 import { useAuth } from '../src/hooks/useAuth';
 import { getBaseUrl, extractErrorMessage } from '../src/api/client';
 import { farmActivitiesApi } from '../src/api/farmActivities';
-import { SearchableSelect } from '../src/components/ui';
+import { SearchableSelect, ModalSheet } from '../src/components/ui';
 import { useTranslation } from '../src/i18n/I18nContext';
 
 const sanitizeNumericInput = (text: string, allowDecimal = true) => {
@@ -413,6 +413,7 @@ export default function FarmHubScreen() {
   const [cycleStatusFilter, setCycleStatusFilter] = useState<'all' | 'active' | 'harvested'>('all');
   const [activityStatusFilter, setActivityStatusFilter] = useState<'all' | 'completed' | 'scheduled'>('all');
   const [expenseStatusFilter, setExpenseStatusFilter] = useState<'all' | 'completed' | 'open'>('all');
+  const [filterModalTab, setFilterModalTab] = useState<'cycles' | 'activities' | 'expenses' | null>(null);
 
   // Lazy loading flags: only Crops loaded initially, Activities & Expenses loaded on tab click
   const [activitiesLoaded, setActivitiesLoaded] = useState(false);
@@ -1592,54 +1593,56 @@ export default function FarmHubScreen() {
             </View>
 
             {/* Search & Filter Bar for Crops */}
-            <View style={styles.filterContainer}>
-              <View style={styles.searchBar}>
-                <Ionicons name="search" size={18} color="#64748b" style={styles.searchIcon} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder={t('Search crop cycles...')}
-                  placeholderTextColor="#94a3b8"
-                  value={cycleSearchQuery}
-                  onChangeText={setCycleSearchQuery}
-                />
-                {cycleSearchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setCycleSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Ionicons name="close-circle" size={18} color="#94a3b8" />
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <View style={styles.filterPillsRow}>
-                <TouchableOpacity
-                  style={[styles.filterPill, cycleStatusFilter === 'all' && styles.filterPillActive]}
-                  onPress={() => setCycleStatusFilter('all')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.filterPillText, cycleStatusFilter === 'all' && styles.filterPillTextActive]}>
-                    {t('All')} ({cycles.length})
-                  </Text>
-                </TouchableOpacity>
+            <View style={styles.filterSection}>
+              <View style={styles.searchFilterRow}>
+                <View style={styles.searchBox}>
+                  <Ionicons name="search-outline" size={18} color="#64748b" style={styles.searchIcon} />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder={t('Search crop cycles...')}
+                    placeholderTextColor="#94a3b8"
+                    value={cycleSearchQuery}
+                    onChangeText={setCycleSearchQuery}
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                  />
+                  {cycleSearchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setCycleSearchQuery('')} style={styles.clearBtn}>
+                      <Ionicons name="close-circle" size={18} color="#94a3b8" />
+                    </TouchableOpacity>
+                  )}
+                </View>
 
                 <TouchableOpacity
-                  style={[styles.filterPill, cycleStatusFilter === 'active' && styles.filterPillActive]}
-                  onPress={() => setCycleStatusFilter('active')}
+                  style={[styles.filterBtn, cycleStatusFilter !== 'all' && styles.filterBtnActive]}
+                  onPress={() => setFilterModalTab('cycles')}
                   activeOpacity={0.7}
+                  accessibilityLabel="Filter crops"
                 >
-                  <Text style={[styles.filterPillText, cycleStatusFilter === 'active' && styles.filterPillTextActive]}>
-                    {t('Active')} ({cycles.filter(c => c.status?.toLowerCase() === 'active').length})
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.filterPill, cycleStatusFilter === 'harvested' && styles.filterPillActive]}
-                  onPress={() => setCycleStatusFilter('harvested')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.filterPillText, cycleStatusFilter === 'harvested' && styles.filterPillTextActive]}>
-                    {t('Harvested')} ({cycles.filter(c => c.status?.toLowerCase() === 'harvested').length})
-                  </Text>
+                  <Ionicons
+                    name="funnel-outline"
+                    size={19}
+                    color={cycleStatusFilter !== 'all' ? '#ffffff' : '#64748b'}
+                  />
                 </TouchableOpacity>
               </View>
+
+              {cycleStatusFilter !== 'all' && (
+                <View style={styles.activeFilterRow}>
+                  <View style={styles.activeFilterChip}>
+                    <Text style={styles.activeFilterChipText}>
+                      {t('Status')}: {cycleStatusFilter === 'active' ? t('Active') : t('Harvested')}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setCycleStatusFilter('all')}
+                      style={styles.activeFilterChipClear}
+                      accessibilityLabel="Reset filter"
+                    >
+                      <Ionicons name="close" size={13} color="#ffffff" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
             </View>
 
             {filteredCycles.length === 0 ? (
@@ -1775,54 +1778,56 @@ export default function FarmHubScreen() {
             </View>
 
             {/* Search & Filter Bar for Activities */}
-            <View style={styles.filterContainer}>
-              <View style={styles.searchBar}>
-                <Ionicons name="search" size={18} color="#64748b" style={styles.searchIcon} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder={t('Search activities...')}
-                  placeholderTextColor="#94a3b8"
-                  value={activitiesSearchQuery}
-                  onChangeText={setActivitiesSearchQuery}
-                />
-                {activitiesSearchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setActivitiesSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Ionicons name="close-circle" size={18} color="#94a3b8" />
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <View style={styles.filterPillsRow}>
-                <TouchableOpacity
-                  style={[styles.filterPill, activityStatusFilter === 'all' && styles.filterPillActive]}
-                  onPress={() => setActivityStatusFilter('all')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.filterPillText, activityStatusFilter === 'all' && styles.filterPillTextActive]}>
-                    {t('All')}
-                  </Text>
-                </TouchableOpacity>
+            <View style={styles.filterSection}>
+              <View style={styles.searchFilterRow}>
+                <View style={styles.searchBox}>
+                  <Ionicons name="search-outline" size={18} color="#64748b" style={styles.searchIcon} />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder={t('Search activities...')}
+                    placeholderTextColor="#94a3b8"
+                    value={activitiesSearchQuery}
+                    onChangeText={setActivitiesSearchQuery}
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                  />
+                  {activitiesSearchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setActivitiesSearchQuery('')} style={styles.clearBtn}>
+                      <Ionicons name="close-circle" size={18} color="#94a3b8" />
+                    </TouchableOpacity>
+                  )}
+                </View>
 
                 <TouchableOpacity
-                  style={[styles.filterPill, activityStatusFilter === 'completed' && styles.filterPillActive]}
-                  onPress={() => setActivityStatusFilter('completed')}
+                  style={[styles.filterBtn, activityStatusFilter !== 'all' && styles.filterBtnActive]}
+                  onPress={() => setFilterModalTab('activities')}
                   activeOpacity={0.7}
+                  accessibilityLabel="Filter activities"
                 >
-                  <Text style={[styles.filterPillText, activityStatusFilter === 'completed' && styles.filterPillTextActive]}>
-                    {t('Completed')}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.filterPill, activityStatusFilter === 'scheduled' && styles.filterPillActive]}
-                  onPress={() => setActivityStatusFilter('scheduled')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.filterPillText, activityStatusFilter === 'scheduled' && styles.filterPillTextActive]}>
-                    {t('Scheduled')}
-                  </Text>
+                  <Ionicons
+                    name="funnel-outline"
+                    size={19}
+                    color={activityStatusFilter !== 'all' ? '#ffffff' : '#64748b'}
+                  />
                 </TouchableOpacity>
               </View>
+
+              {activityStatusFilter !== 'all' && (
+                <View style={styles.activeFilterRow}>
+                  <View style={styles.activeFilterChip}>
+                    <Text style={styles.activeFilterChipText}>
+                      {t('Status')}: {activityStatusFilter === 'completed' ? t('Completed') : t('Scheduled')}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setActivityStatusFilter('all')}
+                      style={styles.activeFilterChipClear}
+                      accessibilityLabel="Reset filter"
+                    >
+                      <Ionicons name="close" size={13} color="#ffffff" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
             </View>
 
             {loadingActivities ? (
@@ -2071,54 +2076,56 @@ export default function FarmHubScreen() {
             </View>
 
             {/* Search & Filter Bar for Expenses */}
-            <View style={styles.filterContainer}>
-              <View style={styles.searchBar}>
-                <Ionicons name="search" size={18} color="#64748b" style={styles.searchIcon} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder={t('Search expenses...')}
-                  placeholderTextColor="#94a3b8"
-                  value={expensesSearchQuery}
-                  onChangeText={setExpensesSearchQuery}
-                />
-                {expensesSearchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setExpensesSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Ionicons name="close-circle" size={18} color="#94a3b8" />
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <View style={styles.filterPillsRow}>
-                <TouchableOpacity
-                  style={[styles.filterPill, expenseStatusFilter === 'all' && styles.filterPillActive]}
-                  onPress={() => setExpenseStatusFilter('all')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.filterPillText, expenseStatusFilter === 'all' && styles.filterPillTextActive]}>
-                    {t('All')}
-                  </Text>
-                </TouchableOpacity>
+            <View style={styles.filterSection}>
+              <View style={styles.searchFilterRow}>
+                <View style={styles.searchBox}>
+                  <Ionicons name="search-outline" size={18} color="#64748b" style={styles.searchIcon} />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder={t('Search expenses...')}
+                    placeholderTextColor="#94a3b8"
+                    value={expensesSearchQuery}
+                    onChangeText={setExpensesSearchQuery}
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                  />
+                  {expensesSearchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setExpensesSearchQuery('')} style={styles.clearBtn}>
+                      <Ionicons name="close-circle" size={18} color="#94a3b8" />
+                    </TouchableOpacity>
+                  )}
+                </View>
 
                 <TouchableOpacity
-                  style={[styles.filterPill, expenseStatusFilter === 'completed' && styles.filterPillActive]}
-                  onPress={() => setExpenseStatusFilter('completed')}
+                  style={[styles.filterBtn, expenseStatusFilter !== 'all' && styles.filterBtnActive]}
+                  onPress={() => setFilterModalTab('expenses')}
                   activeOpacity={0.7}
+                  accessibilityLabel="Filter expenses"
                 >
-                  <Text style={[styles.filterPillText, expenseStatusFilter === 'completed' && styles.filterPillTextActive]}>
-                    {t('Paid')}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.filterPill, expenseStatusFilter === 'open' && styles.filterPillActive]}
-                  onPress={() => setExpenseStatusFilter('open')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.filterPillText, expenseStatusFilter === 'open' && styles.filterPillTextActive]}>
-                    {t('Pending')}
-                  </Text>
+                  <Ionicons
+                    name="funnel-outline"
+                    size={19}
+                    color={expenseStatusFilter !== 'all' ? '#ffffff' : '#64748b'}
+                  />
                 </TouchableOpacity>
               </View>
+
+              {expenseStatusFilter !== 'all' && (
+                <View style={styles.activeFilterRow}>
+                  <View style={styles.activeFilterChip}>
+                    <Text style={styles.activeFilterChipText}>
+                      {t('Payment Status')}: {expenseStatusFilter === 'completed' ? t('Paid') : t('Pending')}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setExpenseStatusFilter('all')}
+                      style={styles.activeFilterChipClear}
+                      accessibilityLabel="Reset filter"
+                    >
+                      <Ionicons name="close" size={13} color="#ffffff" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
             </View>
 
             {loadingExpenses ? (
@@ -3774,6 +3781,358 @@ export default function FarmHubScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Filter Bottom Sheet Modal */}
+      <ModalSheet
+        visible={filterModalTab !== null}
+        onClose={() => setFilterModalTab(null)}
+        title={
+          filterModalTab === 'cycles'
+            ? t('Filter Crops by Status')
+            : filterModalTab === 'activities'
+            ? t('Filter Activities by Status')
+            : t('Filter Expenses by Status')
+        }
+        maxHeight="50%"
+      >
+        <View style={{ gap: 8, paddingBottom: 24 }}>
+          {/* CROPS FILTERS */}
+          {filterModalTab === 'cycles' && (
+            <>
+              {cycleStatusFilter !== 'all' && (
+                <TouchableOpacity
+                  style={styles.filterResetBtnContainer}
+                  onPress={() => {
+                    setCycleStatusFilter('all');
+                    setFilterModalTab(null);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.filterResetBtn}>{t('RESET TO ALL')}</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={[
+                  styles.filterOptionItem,
+                  cycleStatusFilter === 'all' && styles.filterOptionItemActive,
+                ]}
+                onPress={() => {
+                  setCycleStatusFilter('all');
+                  setFilterModalTab(null);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.filterOptionLeft}>
+                  <View style={[styles.filterOptionDot, { backgroundColor: '#64748b' }]} />
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      cycleStatusFilter === 'all' && styles.filterOptionTextActive,
+                    ]}
+                  >
+                    {t('All Cycles')}
+                  </Text>
+                </View>
+                <View style={styles.filterOptionRight}>
+                  <Text style={styles.filterOptionBadge}>{cycles.length}</Text>
+                  {cycleStatusFilter === 'all' && (
+                    <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.filterOptionItem,
+                  cycleStatusFilter === 'active' && styles.filterOptionItemActive,
+                ]}
+                onPress={() => {
+                  setCycleStatusFilter('active');
+                  setFilterModalTab(null);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.filterOptionLeft}>
+                  <View style={[styles.filterOptionDot, { backgroundColor: '#22c55e' }]} />
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      cycleStatusFilter === 'active' && styles.filterOptionTextActive,
+                    ]}
+                  >
+                    {t('Active Cycles')}
+                  </Text>
+                </View>
+                <View style={styles.filterOptionRight}>
+                  <Text style={styles.filterOptionBadge}>
+                    {cycles.filter(c => c.status?.toLowerCase() === 'active').length}
+                  </Text>
+                  {cycleStatusFilter === 'active' && (
+                    <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.filterOptionItem,
+                  cycleStatusFilter === 'harvested' && styles.filterOptionItemActive,
+                ]}
+                onPress={() => {
+                  setCycleStatusFilter('harvested');
+                  setFilterModalTab(null);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.filterOptionLeft}>
+                  <View style={[styles.filterOptionDot, { backgroundColor: '#3b82f6' }]} />
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      cycleStatusFilter === 'harvested' && styles.filterOptionTextActive,
+                    ]}
+                  >
+                    {t('Harvested Cycles')}
+                  </Text>
+                </View>
+                <View style={styles.filterOptionRight}>
+                  <Text style={styles.filterOptionBadge}>
+                    {cycles.filter(c => c.status?.toLowerCase() === 'harvested').length}
+                  </Text>
+                  {cycleStatusFilter === 'harvested' && (
+                    <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                  )}
+                </View>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {/* ACTIVITIES FILTERS */}
+          {filterModalTab === 'activities' && (
+            <>
+              {activityStatusFilter !== 'all' && (
+                <TouchableOpacity
+                  style={styles.filterResetBtnContainer}
+                  onPress={() => {
+                    setActivityStatusFilter('all');
+                    setFilterModalTab(null);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.filterResetBtn}>{t('RESET TO ALL')}</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={[
+                  styles.filterOptionItem,
+                  activityStatusFilter === 'all' && styles.filterOptionItemActive,
+                ]}
+                onPress={() => {
+                  setActivityStatusFilter('all');
+                  setFilterModalTab(null);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.filterOptionLeft}>
+                  <View style={[styles.filterOptionDot, { backgroundColor: '#64748b' }]} />
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      activityStatusFilter === 'all' && styles.filterOptionTextActive,
+                    ]}
+                  >
+                    {t('All Activities')}
+                  </Text>
+                </View>
+                <View style={styles.filterOptionRight}>
+                  <Text style={styles.filterOptionBadge}>{activities.length}</Text>
+                  {activityStatusFilter === 'all' && (
+                    <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.filterOptionItem,
+                  activityStatusFilter === 'completed' && styles.filterOptionItemActive,
+                ]}
+                onPress={() => {
+                  setActivityStatusFilter('completed');
+                  setFilterModalTab(null);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.filterOptionLeft}>
+                  <View style={[styles.filterOptionDot, { backgroundColor: '#22c55e' }]} />
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      activityStatusFilter === 'completed' && styles.filterOptionTextActive,
+                    ]}
+                  >
+                    {t('Completed Activities')}
+                  </Text>
+                </View>
+                <View style={styles.filterOptionRight}>
+                  <Text style={styles.filterOptionBadge}>
+                    {activities.filter(a => a.status === 'completed').length}
+                  </Text>
+                  {activityStatusFilter === 'completed' && (
+                    <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.filterOptionItem,
+                  activityStatusFilter === 'scheduled' && styles.filterOptionItemActive,
+                ]}
+                onPress={() => {
+                  setActivityStatusFilter('scheduled');
+                  setFilterModalTab(null);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.filterOptionLeft}>
+                  <View style={[styles.filterOptionDot, { backgroundColor: '#3b82f6' }]} />
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      activityStatusFilter === 'scheduled' && styles.filterOptionTextActive,
+                    ]}
+                  >
+                    {t('Scheduled Activities')}
+                  </Text>
+                </View>
+                <View style={styles.filterOptionRight}>
+                  <Text style={styles.filterOptionBadge}>
+                    {activities.filter(a => a.status === 'scheduled').length}
+                  </Text>
+                  {activityStatusFilter === 'scheduled' && (
+                    <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                  )}
+                </View>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {/* EXPENSES FILTERS */}
+          {filterModalTab === 'expenses' && (
+            <>
+              {expenseStatusFilter !== 'all' && (
+                <TouchableOpacity
+                  style={styles.filterResetBtnContainer}
+                  onPress={() => {
+                    setExpenseStatusFilter('all');
+                    setFilterModalTab(null);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.filterResetBtn}>{t('RESET TO ALL')}</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={[
+                  styles.filterOptionItem,
+                  expenseStatusFilter === 'all' && styles.filterOptionItemActive,
+                ]}
+                onPress={() => {
+                  setExpenseStatusFilter('all');
+                  setFilterModalTab(null);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.filterOptionLeft}>
+                  <View style={[styles.filterOptionDot, { backgroundColor: '#64748b' }]} />
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      expenseStatusFilter === 'all' && styles.filterOptionTextActive,
+                    ]}
+                  >
+                    {t('All Expenses')}
+                  </Text>
+                </View>
+                <View style={styles.filterOptionRight}>
+                  <Text style={styles.filterOptionBadge}>{expenses.length}</Text>
+                  {expenseStatusFilter === 'all' && (
+                    <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.filterOptionItem,
+                  expenseStatusFilter === 'completed' && styles.filterOptionItemActive,
+                ]}
+                onPress={() => {
+                  setExpenseStatusFilter('completed');
+                  setFilterModalTab(null);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.filterOptionLeft}>
+                  <View style={[styles.filterOptionDot, { backgroundColor: '#22c55e' }]} />
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      expenseStatusFilter === 'completed' && styles.filterOptionTextActive,
+                    ]}
+                  >
+                    {t('Paid Expenses')}
+                  </Text>
+                </View>
+                <View style={styles.filterOptionRight}>
+                  <Text style={styles.filterOptionBadge}>
+                    {expenses.filter(e => e.payment_status?.toLowerCase() === 'paid' || e.payment_status?.toLowerCase() === 'completed').length}
+                  </Text>
+                  {expenseStatusFilter === 'completed' && (
+                    <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.filterOptionItem,
+                  expenseStatusFilter === 'open' && styles.filterOptionItemActive,
+                ]}
+                onPress={() => {
+                  setExpenseStatusFilter('open');
+                  setFilterModalTab(null);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.filterOptionLeft}>
+                  <View style={[styles.filterOptionDot, { backgroundColor: '#f59e0b' }]} />
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      expenseStatusFilter === 'open' && styles.filterOptionTextActive,
+                    ]}
+                  >
+                    {t('Pending Expenses')}
+                  </Text>
+                </View>
+                <View style={styles.filterOptionRight}>
+                  <Text style={styles.filterOptionBadge}>
+                    {expenses.filter(e => e.payment_status?.toLowerCase() === 'pending' || e.payment_status?.toLowerCase() === 'open').length}
+                  </Text>
+                  {expenseStatusFilter === 'open' && (
+                    <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+                  )}
+                </View>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </ModalSheet>
     </SafeAreaView>
   );
 }
@@ -4880,19 +5239,24 @@ const styles = StyleSheet.create({
     color: '#991b1b',
     lineHeight: 16,
   },
-  filterContainer: {
+  filterSection: {
     marginBottom: 14,
   },
-  searchBar: {
+  searchFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  searchBox: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    borderRadius: 12,
+    borderRadius: 14,
     paddingHorizontal: 12,
-    height: 42,
-    marginBottom: 10,
+    height: 44,
   },
   searchIcon: {
     marginRight: 8,
@@ -4904,29 +5268,111 @@ const styles = StyleSheet.create({
     height: '100%',
     padding: 0,
   },
-  filterPillsRow: {
+  clearBtn: {
+    padding: 4,
+  },
+  filterBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBtnActive: {
+    backgroundColor: '#16a34a',
+    borderColor: '#16a34a',
+  },
+  activeFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  activeFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#16a34a',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+  },
+  activeFilterChipText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  activeFilterChipClear: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderRadius: 10,
+    width: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterResetBtnContainer: {
+    alignSelf: 'flex-end',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginBottom: 4,
+  },
+  filterResetBtn: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#16a34a',
+    letterSpacing: 0.5,
+  },
+  filterOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginBottom: 8,
+  },
+  filterOptionItemActive: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#86efac',
+  },
+  filterOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  filterOptionDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  filterOptionText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  filterOptionTextActive: {
+    color: '#15803d',
+    fontWeight: '700',
+  },
+  filterOptionRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  filterPill: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  filterPillActive: {
-    backgroundColor: '#16a34a',
-    borderColor: '#16a34a',
-  },
-  filterPillText: {
+  filterOptionBadge: {
     fontSize: 12,
     fontWeight: '700',
     color: '#64748b',
-  },
-  filterPillTextActive: {
-    color: '#ffffff',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
 });
