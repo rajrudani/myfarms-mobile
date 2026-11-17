@@ -839,7 +839,7 @@ const styles = StyleSheet.create({
     maxWidth: 240,
   },
   card: {
-    marginBottom: spacing.md,
+    marginBottom: 10,
     gap: spacing.sm,
   },
   cardTopRow: {

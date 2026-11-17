@@ -544,7 +544,6 @@ const styles = StyleSheet.create({
   priceCard: {
     padding: spacing.md,
     borderRadius: radius.lg,
-    marginBottom: 4,
   },
   cardHeader: {
     flexDirection: 'row',

@@ -1386,7 +1386,7 @@ const styles = StyleSheet.create({
     maxWidth: 240,
   },
   saleCard: {
-    marginBottom: spacing.md,
+    marginBottom: 10,
     gap: spacing.sm,
   },
   cardHeader: {

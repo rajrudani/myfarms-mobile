@@ -1826,7 +1826,7 @@ const styles = StyleSheet.create({
     maxWidth: 240,
   },
   purchaseCard: {
-    marginBottom: spacing.md,
+    marginBottom: 10,
     gap: spacing.sm,
   },
   cardHeader: {
@@ -1997,7 +1997,7 @@ const styles = StyleSheet.create({
     color: colors.dangerText,
   },
   paymentCard: {
-    marginBottom: spacing.md,
+    marginBottom: 10,
     gap: spacing.sm,
   },
   paymentHeader: {

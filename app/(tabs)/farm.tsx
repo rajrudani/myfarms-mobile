@@ -1006,7 +1006,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 100,
-    gap: 20,
+    gap: 10,
   },
   listContainerTablet: {
     paddingHorizontal: 28,

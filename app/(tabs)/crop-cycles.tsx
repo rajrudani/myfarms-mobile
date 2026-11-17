@@ -1113,7 +1113,7 @@ const styles = StyleSheet.create({
   listContainer: {
     padding: spacing.lg,
     paddingBottom: 90,
-    gap: spacing.md,
+    gap: 10,
   },
   cycleCard: {
     padding: spacing.md,

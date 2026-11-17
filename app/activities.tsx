@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
   listContent: {
     padding: spacing.lg,
     paddingBottom: 90,
-    gap: spacing.md,
+    gap: 10,
   },
   emptyContainer: {
     alignItems: 'center',

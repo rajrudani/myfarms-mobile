@@ -1505,7 +1505,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(226, 232, 240, 0.9)',
     padding: 14,
     position: 'relative',
-    marginBottom: 12,
     ...shadows.subtle,
   },
   pwaRoleStack: {
@@ -1664,7 +1663,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(226, 232, 240, 0.9)',
     padding: 14,
-    marginBottom: 12,
     ...shadows.subtle,
   },
   pwaAttendanceCardHalf: {
@@ -1840,7 +1838,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
     ...shadows.subtle,
   },
   pwaPaymentCardContent: {
@@ -1973,7 +1970,7 @@ const styles = StyleSheet.create({
   listContent: {
     padding: spacing.lg,
     paddingBottom: 90,
-    gap: spacing.md,
+    gap: 10,
   },
   card: {
     padding: spacing.md,

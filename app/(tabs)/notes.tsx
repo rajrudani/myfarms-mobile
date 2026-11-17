@@ -843,7 +843,7 @@ const styles = StyleSheet.create({
   listContent: {
     padding: spacing.lg,
     paddingBottom: 90,
-    gap: 14,
+    gap: 10,
   },
   card: {
     backgroundColor: '#ffffff',
