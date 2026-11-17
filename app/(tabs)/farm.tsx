@@ -312,17 +312,15 @@ export default function FarmsScreen() {
           {item.name}
         </Text>
 
-        <TouchableOpacity
-          onPress={() => handleToggleFarmStatus(item)}
-          activeOpacity={0.7}
+        <View
           style={styles.statusDotTouchArea}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           accessibilityLabel={item.is_active ? t('Active') : t('Inactive')}
+          accessible={true}
         >
           <View style={[styles.statusDotHalo, !item.is_active && styles.statusDotHaloInactive]}>
             <View style={[styles.statusDot, !item.is_active && styles.statusDotInactive]} />
           </View>
-        </TouchableOpacity>
+        </View>
       </View>
 
       {/* Location Row */}
