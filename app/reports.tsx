@@ -27,7 +27,16 @@ import {
   ExpenseReportRow,
 } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
-import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchableSelect, ModernDatePicker, EmptyState } from '../src/components/ui';
+import {
+  BentoCard,
+  MetricTile,
+  StatusBadge,
+  QuickChipGroup,
+  SearchableSelect,
+  ModernDatePicker,
+  ModalSheet,
+  EmptyState,
+} from '../src/components/ui';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
 import { useTranslation } from '../src/i18n/I18nContext';
 import { downloadAndShareReport, ReportExportFormat } from '../src/utils/exportReport';
@@ -74,24 +83,44 @@ export default function ReportsScreen() {
     }
   }, [paramType, paramWorkerId, paramFarmId]);
 
+  // Defaults
+  const defaultFromDate = useMemo(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+  }, []);
+
+  const defaultToDate = useMemo(() => {
+    return new Date().toISOString().split('T')[0];
+  }, []);
+
+  const defaultMonth = useMemo(() => new Date().getMonth() + 1, []);
+  const defaultYear = useMemo(() => new Date().getFullYear(), []);
+
   // Export States
   const [exportLoading, setExportLoading] = useState(false);
   const [exportingFormat, setExportingFormat] = useState<ReportExportFormat | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
 
   // Filter States
-  const [selectedFarm, setSelectedFarm] = useState<string>('');
-  const [selectedWorker, setSelectedWorker] = useState<string>('');
+  const [selectedFarm, setSelectedFarm] = useState<string>(paramFarmId || '');
+  const [selectedWorker, setSelectedWorker] = useState<string>(paramWorkerId || '');
   const [includeFamily, setIncludeFamily] = useState<boolean>(false);
   const [selectedCycle, setSelectedCycle] = useState<string>('');
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(defaultMonth);
+  const [selectedYear, setSelectedYear] = useState<number>(defaultYear);
+  const [fromDate, setFromDate] = useState<string>(defaultFromDate);
+  const [toDate, setToDate] = useState<string>(defaultToDate);
 
-  // Date range states (strings in YYYY-MM-DD format)
-  const [fromDate, setFromDate] = useState<string>(
-    new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
-  );
-  const [toDate, setToDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  // Draft filter states for Filter Modal Sheet
+  const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
+  const [draftFarm, setDraftFarm] = useState<string>('');
+  const [draftWorker, setDraftWorker] = useState<string>('');
+  const [draftIncludeFamily, setDraftIncludeFamily] = useState<boolean>(false);
+  const [draftCycle, setDraftCycle] = useState<string>('');
+  const [draftMonth, setDraftMonth] = useState<number>(defaultMonth);
+  const [draftYear, setDraftYear] = useState<number>(defaultYear);
+  const [draftFromDate, setDraftFromDate] = useState<string>(defaultFromDate);
+  const [draftToDate, setDraftToDate] = useState<string>(defaultToDate);
 
   // Report Data States
   const [attendanceData, setAttendanceData] = useState<{
@@ -114,33 +143,137 @@ export default function ReportsScreen() {
     summary: { total_spend: number; entries_count: number; completed_amount: number };
   } | null>(null);
 
-  // Load Filters Data
-  useEffect(() => {
-    async function loadFilters() {
-      try {
-        const data = await reportsApi.getFilters();
-        setFiltersData(data);
-      } catch (error) {
-        console.error('Error loading report filters:', error);
-        Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to load filters data.')));
-      } finally {
-        setLoadingFilters(false);
-      }
-    }
-    loadFilters();
-  }, [t]);
+  // Resolved display names for chips and summary card
+  const selectedFarmName = useMemo(() => {
+    if (!selectedFarm || !filtersData?.farms) return null;
+    return filtersData.farms.find((f) => f.id.toString() === selectedFarm)?.name || null;
+  }, [selectedFarm, filtersData]);
 
-  // Clear selections when switching reports
-  const selectReport = (type: ReportType) => {
-    setActiveReport(type);
-    setSelectedFarm('');
-    setSelectedWorker('');
-    setIncludeFamily(false);
-    setSelectedCycle('');
-    setAttendanceData(null);
-    setPaymentData(null);
-    setActivityData(null);
-    setExpenseData(null);
+  const selectedWorkerName = useMemo(() => {
+    if (!selectedWorker || !filtersData?.workers) return null;
+    return filtersData.workers.find((w) => w.ulid === selectedWorker)?.name || null;
+  }, [selectedWorker, filtersData]);
+
+  const selectedCycleName = useMemo(() => {
+    if (!selectedCycle || !filtersData?.crop_cycles) return null;
+    return filtersData.crop_cycles.find((c) => c.id.toString() === selectedCycle)?.label || null;
+  }, [selectedCycle, filtersData]);
+
+  // Format date helper for range labels
+  const formatDateLabel = (isoDate: string) => {
+    if (!isoDate) return '';
+    const d = new Date(isoDate);
+    if (isNaN(d.getTime())) return isoDate;
+    return d.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
+  const getSelectedRangeLabel = (from: string, to: string) => {
+    if (from && to) {
+      return `${formatDateLabel(from)} – ${formatDateLabel(to)}`;
+    }
+    if (from) {
+      return t('From :date', { date: formatDateLabel(from) });
+    }
+    if (to) {
+      return t('Up to :date', { date: formatDateLabel(to) });
+    }
+    return t('All Dates');
+  };
+
+  // Determine if active filters differ from default view
+  const hasActiveFilters = useMemo(() => {
+    if (!activeReport) return false;
+    const defaultFarmId = filtersData?.farms?.[0]?.id?.toString() || '';
+    const defaultWorkerId = paramWorkerId || filtersData?.workers?.[0]?.ulid || '';
+
+    if (activeReport === 'attendance') {
+      const isDefault =
+        (selectedFarm === defaultFarmId || selectedFarm === '') &&
+        selectedWorker === '' &&
+        selectedMonth === defaultMonth &&
+        selectedYear === defaultYear;
+      return !isDefault;
+    }
+    if (activeReport === 'payment') {
+      const isDefault =
+        selectedWorker === defaultWorkerId &&
+        !includeFamily &&
+        fromDate === defaultFromDate &&
+        toDate === defaultToDate;
+      return !isDefault;
+    }
+    if (activeReport === 'activity' || activeReport === 'expense') {
+      const isDefault =
+        selectedFarm === defaultFarmId &&
+        !selectedCycle &&
+        fromDate === defaultFromDate &&
+        toDate === defaultToDate;
+      return !isDefault;
+    }
+    return false;
+  }, [
+    activeReport,
+    selectedFarm,
+    selectedWorker,
+    selectedCycle,
+    includeFamily,
+    selectedMonth,
+    selectedYear,
+    fromDate,
+    toDate,
+    defaultFromDate,
+    defaultToDate,
+    defaultMonth,
+    defaultYear,
+    filtersData,
+    paramWorkerId,
+  ]);
+
+  const filterModalSubtitle = useMemo(() => {
+    if (activeReport === 'attendance') return t('Refined attendance search');
+    if (activeReport === 'payment') return t('Refined payment search');
+    if (activeReport === 'activity') return t('Refine activity records by farm, cycle, and date range.');
+    if (activeReport === 'expense') return t('Refine expense records by farm, cycle, and date range.');
+    return t('Filters');
+  }, [activeReport, t]);
+
+  // Open modal populated with current active filter states
+  const openFiltersModal = () => {
+    setDraftFarm(selectedFarm);
+    setDraftWorker(selectedWorker);
+    setDraftIncludeFamily(includeFamily);
+    setDraftCycle(selectedCycle);
+    setDraftMonth(selectedMonth);
+    setDraftYear(selectedYear);
+    setDraftFromDate(fromDate);
+    setDraftToDate(toDate);
+    setShowFilterModal(true);
+  };
+
+  // Quick Preset Helper for draft date filters inside modal
+  const applyDraftDatePreset = (preset: 'month' | '30days' | 'quarter') => {
+    const today = new Date();
+    const to = today.toISOString().split('T')[0];
+    let from = '';
+
+    if (preset === 'month') {
+      from = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+    } else if (preset === '30days') {
+      const past = new Date();
+      past.setDate(past.getDate() - 30);
+      from = past.toISOString().split('T')[0];
+    } else if (preset === 'quarter') {
+      const past = new Date();
+      past.setDate(past.getDate() - 90);
+      from = past.toISOString().split('T')[0];
+    }
+
+    setDraftFromDate(from);
+    setDraftToDate(to);
   };
 
   // Run/Fetch Attendance Report
@@ -243,6 +376,200 @@ export default function ReportsScreen() {
     }
   };
 
+  // Load Filters Data & Preload active report if opening directly
+  useEffect(() => {
+    async function loadFilters() {
+      try {
+        const data = await reportsApi.getFilters();
+        setFiltersData(data);
+
+        const initialReport = (params.type as ReportType) || activeReport;
+        const initialFarm = params.farm_id ? String(params.farm_id) : (data.farms?.[0]?.id?.toString() || '');
+        const initialWorker = params.worker_id ? String(params.worker_id) : '';
+
+        if (initialReport === 'attendance') {
+          const farmToUse = initialFarm || '';
+          if (farmToUse || initialWorker) {
+            setSelectedFarm(farmToUse);
+            if (initialWorker) setSelectedWorker(initialWorker);
+            fetchAttendanceReport(farmToUse, initialWorker, defaultMonth, defaultYear);
+          }
+        } else if (initialReport === 'payment') {
+          const workerToUse = initialWorker || data.workers?.[0]?.ulid || '';
+          if (workerToUse) {
+            setSelectedWorker(workerToUse);
+            fetchPaymentReport(workerToUse, defaultFromDate, defaultToDate, false);
+          }
+        } else if (initialReport === 'activity') {
+          if (initialFarm) {
+            setSelectedFarm(initialFarm);
+            fetchActivityReport(initialFarm, '', defaultFromDate, defaultToDate);
+          }
+        } else if (initialReport === 'expense') {
+          if (initialFarm) {
+            setSelectedFarm(initialFarm);
+            fetchExpenseReport(initialFarm, '', defaultFromDate, defaultToDate);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading report filters:', error);
+        Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to load filters data.')));
+      } finally {
+        setLoadingFilters(false);
+      }
+    }
+    loadFilters();
+  }, [t]);
+
+  // Switch report type & auto-seed default filters
+  const selectReport = (type: ReportType) => {
+    setActiveReport(type);
+    if (!type) {
+      setSelectedFarm('');
+      setSelectedWorker('');
+      setIncludeFamily(false);
+      setSelectedCycle('');
+      setAttendanceData(null);
+      setPaymentData(null);
+      setActivityData(null);
+      setExpenseData(null);
+      return;
+    }
+
+    const firstFarmId = filtersData?.farms?.[0]?.id?.toString() || '';
+    const firstWorkerId = paramWorkerId || filtersData?.workers?.[0]?.ulid || '';
+
+    setFromDate(defaultFromDate);
+    setToDate(defaultToDate);
+    setSelectedMonth(defaultMonth);
+    setSelectedYear(defaultYear);
+    setIncludeFamily(false);
+
+    if (type === 'attendance') {
+      const farmToUse = firstFarmId || '';
+      setSelectedFarm(farmToUse);
+      setSelectedWorker('');
+      setSelectedCycle('');
+      setAttendanceData(null);
+      if (farmToUse) {
+        fetchAttendanceReport(farmToUse, '', defaultMonth, defaultYear);
+      }
+    } else if (type === 'payment') {
+      setSelectedFarm('');
+      setSelectedCycle('');
+      setSelectedWorker(firstWorkerId);
+      setPaymentData(null);
+      if (firstWorkerId) {
+        fetchPaymentReport(firstWorkerId, defaultFromDate, defaultToDate, false);
+      }
+    } else if (type === 'activity') {
+      setSelectedFarm(firstFarmId);
+      setSelectedWorker('');
+      setSelectedCycle('');
+      setActivityData(null);
+      if (firstFarmId) {
+        fetchActivityReport(firstFarmId, '', defaultFromDate, defaultToDate);
+      }
+    } else if (type === 'expense') {
+      setSelectedFarm(firstFarmId);
+      setSelectedWorker('');
+      setSelectedCycle('');
+      setExpenseData(null);
+      if (firstFarmId) {
+        fetchExpenseReport(firstFarmId, '', defaultFromDate, defaultToDate);
+      }
+    }
+  };
+
+  // Reset filters to default matching PWA resetFiltersToDefault()
+  const resetFiltersToDefault = () => {
+    const firstFarmId = filtersData?.farms?.[0]?.id?.toString() || '';
+    const firstWorkerId = paramWorkerId || filtersData?.workers?.[0]?.ulid || '';
+
+    setFromDate(defaultFromDate);
+    setToDate(defaultToDate);
+    setSelectedMonth(defaultMonth);
+    setSelectedYear(defaultYear);
+    setIncludeFamily(false);
+
+    if (activeReport === 'attendance') {
+      const farmToUse = firstFarmId || '';
+      setSelectedFarm(farmToUse);
+      setSelectedWorker('');
+      fetchAttendanceReport(farmToUse, '', defaultMonth, defaultYear);
+    } else if (activeReport === 'payment') {
+      setSelectedFarm('');
+      setSelectedCycle('');
+      setSelectedWorker(firstWorkerId);
+      if (firstWorkerId) {
+        fetchPaymentReport(firstWorkerId, defaultFromDate, defaultToDate, false);
+      } else {
+        setPaymentData(null);
+      }
+    } else if (activeReport === 'activity') {
+      setSelectedFarm(firstFarmId);
+      setSelectedCycle('');
+      if (firstFarmId) {
+        fetchActivityReport(firstFarmId, '', defaultFromDate, defaultToDate);
+      }
+    } else if (activeReport === 'expense') {
+      setSelectedFarm(firstFarmId);
+      setSelectedCycle('');
+      if (firstFarmId) {
+        fetchExpenseReport(firstFarmId, '', defaultFromDate, defaultToDate);
+      }
+    }
+  };
+
+  // Apply filters from modal sheet
+  const handleApplyFilters = () => {
+    if (activeReport === 'attendance') {
+      if (!draftFarm && !draftWorker) {
+        Alert.alert(t('Filter Required'), t('Please select a Farm or Staff member before exporting.'));
+        return;
+      }
+      setSelectedFarm(draftFarm);
+      setSelectedWorker(draftWorker);
+      setSelectedMonth(draftMonth);
+      setSelectedYear(draftYear);
+      setShowFilterModal(false);
+      fetchAttendanceReport(draftFarm, draftWorker, draftMonth, draftYear);
+    } else if (activeReport === 'payment') {
+      if (!draftWorker) {
+        Alert.alert(t('Filter Required'), t('Please select a Staff member before exporting.'));
+        return;
+      }
+      setSelectedWorker(draftWorker);
+      setIncludeFamily(draftIncludeFamily);
+      setFromDate(draftFromDate);
+      setToDate(draftToDate);
+      setShowFilterModal(false);
+      fetchPaymentReport(draftWorker, draftFromDate, draftToDate, draftIncludeFamily);
+    } else if (activeReport === 'activity') {
+      if (!draftFarm) {
+        Alert.alert(t('Filter Required'), t('Please select a Farm before exporting.'));
+        return;
+      }
+      setSelectedFarm(draftFarm);
+      setSelectedCycle(draftCycle);
+      setFromDate(draftFromDate);
+      setToDate(draftToDate);
+      setShowFilterModal(false);
+      fetchActivityReport(draftFarm, draftCycle, draftFromDate, draftToDate);
+    } else if (activeReport === 'expense') {
+      if (!draftFarm) {
+        Alert.alert(t('Filter Required'), t('Please select a Farm before exporting.'));
+        return;
+      }
+      setSelectedFarm(draftFarm);
+      setSelectedCycle(draftCycle);
+      setFromDate(draftFromDate);
+      setToDate(draftToDate);
+      setShowFilterModal(false);
+      fetchExpenseReport(draftFarm, draftCycle, draftFromDate, draftToDate);
+    }
+  };
+
   // Format currency
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -250,36 +577,6 @@ export default function ReportsScreen() {
       currency: 'INR',
       maximumFractionDigits: 0,
     }).format(val);
-  };
-
-  // Quick Preset Helper for Dates
-  const applyDatePreset = (preset: 'month' | '30days' | 'quarter') => {
-    const today = new Date();
-    const to = today.toISOString().split('T')[0];
-    let from = '';
-
-    if (preset === 'month') {
-      from = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-    } else if (preset === '30days') {
-      const past = new Date();
-      past.setDate(past.getDate() - 30);
-      from = past.toISOString().split('T')[0];
-    } else if (preset === 'quarter') {
-      const past = new Date();
-      past.setDate(past.getDate() - 90);
-      from = past.toISOString().split('T')[0];
-    }
-
-    setFromDate(from);
-    setToDate(to);
-
-    if (activeReport === 'payment' && selectedWorker) {
-      fetchPaymentReport(selectedWorker, from, to);
-    } else if (activeReport === 'activity' && selectedFarm) {
-      fetchActivityReport(selectedFarm, selectedCycle, from, to);
-    } else if (activeReport === 'expense' && selectedFarm) {
-      fetchExpenseReport(selectedFarm, selectedCycle, from, to);
-    }
   };
 
   const years = useMemo(
@@ -337,6 +634,517 @@ export default function ReportsScreen() {
       setExportingFormat(null);
     }
   };
+
+  // Render Active Filter Chips Bar (matches PWA .farm-report-filter-card)
+  const renderActiveFilterChips = () => {
+    if (!activeReport) return null;
+
+    return (
+      <View style={styles.filterCard}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipsScrollContent}
+        >
+          {/* Attendance Chips */}
+          {activeReport === 'attendance' && (
+            <>
+              <TouchableOpacity
+                style={[styles.chip, styles.chipGreen]}
+                onPress={openFiltersModal}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="business-outline" size={13} color="#0f8f64" />
+                <Text style={[styles.chipText, styles.chipTextGreen]}>
+                  {t('Farm: :name', { name: selectedFarmName || t('All Farms') })}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.chip, styles.chipGreen]}
+                onPress={openFiltersModal}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="person-outline" size={13} color="#0f8f64" />
+                <Text style={[styles.chipText, styles.chipTextGreen]}>
+                  {t('Staff: :name', { name: selectedWorkerName || t('All Staff') })}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.chip, styles.chipGreen]}
+                onPress={openFiltersModal}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="calendar-outline" size={13} color="#0f8f64" />
+                <Text style={[styles.chipText, styles.chipTextGreen]}>
+                  {t('Date: :range', {
+                    range: `${
+                      MONTHS.find((m) => m.value === selectedMonth)?.label
+                        ? t(MONTHS.find((m) => m.value === selectedMonth)!.label)
+                        : selectedMonth
+                    } ${selectedYear}`,
+                  })}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {/* Payment Chips */}
+          {activeReport === 'payment' && (
+            <>
+              <TouchableOpacity
+                style={[styles.chip, selectedWorkerName ? styles.chipGreen : styles.chipWarning]}
+                onPress={openFiltersModal}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="person-outline"
+                  size={13}
+                  color={selectedWorkerName ? '#0f8f64' : '#b7791f'}
+                />
+                <Text
+                  style={[
+                    styles.chipText,
+                    selectedWorkerName ? styles.chipTextGreen : styles.chipTextWarning,
+                  ]}
+                >
+                  {t('Staff: :name', { name: selectedWorkerName || t('Select') })}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.chip, styles.chipGreen]}
+                onPress={openFiltersModal}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="calendar-outline" size={13} color="#0f8f64" />
+                <Text style={[styles.chipText, styles.chipTextGreen]}>
+                  {t('Date: :range', { range: getSelectedRangeLabel(fromDate, toDate) })}
+                </Text>
+              </TouchableOpacity>
+
+              {includeFamily && (
+                <TouchableOpacity
+                  style={[styles.chip, styles.chipGreen]}
+                  onPress={openFiltersModal}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="people-outline" size={13} color="#0f8f64" />
+                  <Text style={[styles.chipText, styles.chipTextGreen]}>
+                    {t('Family: Included')}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+
+          {/* Activity & Expense Chips */}
+          {(activeReport === 'activity' || activeReport === 'expense') && (
+            <>
+              <TouchableOpacity
+                style={[styles.chip, selectedFarmName ? styles.chipGreen : styles.chipWarning]}
+                onPress={openFiltersModal}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="business-outline"
+                  size={13}
+                  color={selectedFarmName ? '#0f8f64' : '#b7791f'}
+                />
+                <Text
+                  style={[
+                    styles.chipText,
+                    selectedFarmName ? styles.chipTextGreen : styles.chipTextWarning,
+                  ]}
+                >
+                  {t('Farm: :name', { name: selectedFarmName || t('Select') })}
+                </Text>
+              </TouchableOpacity>
+
+              {selectedCycleName && (
+                <TouchableOpacity
+                  style={[styles.chip, styles.chipGreen]}
+                  onPress={openFiltersModal}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="leaf-outline" size={13} color="#0f8f64" />
+                  <Text style={[styles.chipText, styles.chipTextGreen]}>
+                    {t('Farm Cycle: :name', { name: selectedCycleName })}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={[styles.chip, styles.chipGreen]}
+                onPress={openFiltersModal}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="calendar-outline" size={13} color="#0f8f64" />
+                <Text style={[styles.chipText, styles.chipTextGreen]}>
+                  {t('Date: :range', { range: getSelectedRangeLabel(fromDate, toDate) })}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {/* Reset All Chip when active filters exist */}
+          {hasActiveFilters && (
+            <TouchableOpacity
+              style={[styles.chip, styles.chipReset]}
+              onPress={resetFiltersToDefault}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="refresh-outline" size={13} color="#a16207" />
+              <Text style={[styles.chipText, styles.chipTextReset]}>{t('Reset All')}</Text>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // Render Selected Entity Summary Card (matches PWA .farm-report-summary-card)
+  const renderSummaryCard = () => {
+    if (activeReport === 'attendance') {
+      const titleVal = selectedWorkerName || selectedFarmName || t('All Farms');
+      const metaVal = `${selectedWorkerName && selectedFarmName ? `${selectedFarmName} • ` : ''}${
+        MONTHS.find((m) => m.value === selectedMonth)?.label
+          ? t(MONTHS.find((m) => m.value === selectedMonth)!.label)
+          : selectedMonth
+      } ${selectedYear}`;
+
+      return (
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>
+            {selectedWorkerName ? t('Selected Staff') : t('Selected Farm')}
+          </Text>
+          <Text style={styles.summaryValue}>{titleVal}</Text>
+          <Text style={styles.summaryMeta}>{metaVal}</Text>
+        </View>
+      );
+    }
+
+    if (activeReport === 'payment' && selectedWorkerName) {
+      return (
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>{t('Selected Staff')}</Text>
+          <Text style={styles.summaryValue}>{selectedWorkerName}</Text>
+          <Text style={styles.summaryMeta}>
+            {getSelectedRangeLabel(fromDate, toDate)}
+            {includeFamily ? ` • ${t('Family: Included')}` : ''}
+          </Text>
+        </View>
+      );
+    }
+
+    if ((activeReport === 'activity' || activeReport === 'expense') && selectedFarmName) {
+      return (
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>{t('Selected Farm')}</Text>
+          <Text style={styles.summaryValue}>{selectedFarmName}</Text>
+          <Text style={styles.summaryMeta}>
+            {selectedCycleName || t('All Farm Cycles')} • {getSelectedRangeLabel(fromDate, toDate)}
+          </Text>
+        </View>
+      );
+    }
+
+    return null;
+  };
+
+  // Reusable empty report card (matches PWA .farm-report-empty-card)
+  const renderEmptyReport = (
+    title: string,
+    subtitle: string,
+    iconName: keyof typeof Ionicons.glyphMap
+  ) => (
+    <View style={styles.emptyCard}>
+      <View style={styles.emptyCardIcon}>
+        <Ionicons name={iconName} size={32} color={colors.slate400} />
+      </View>
+      <Text style={styles.emptyCardTitle}>{title}</Text>
+      <Text style={styles.emptyCardCopy}>{subtitle}</Text>
+      <View style={styles.emptyCardActions}>
+        <TouchableOpacity
+          style={styles.emptyCardPrimaryBtn}
+          onPress={openFiltersModal}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="funnel-outline" size={16} color={colors.white} />
+          <Text style={styles.emptyCardPrimaryBtnText}>{t('Open Filters')}</Text>
+        </TouchableOpacity>
+
+        {hasActiveFilters && (
+          <TouchableOpacity
+            style={styles.emptyCardLinkBtn}
+            onPress={resetFiltersToDefault}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.emptyCardLinkBtnText}>{t('Reset To Default View')}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+
+  // Bottom Sheet Filter Modal (matches PWA .farm-report-modal)
+  const renderFilterModal = () => (
+    <ModalSheet
+      visible={showFilterModal}
+      onClose={() => setShowFilterModal(false)}
+      title={t('Filter Reports')}
+      kicker={filterModalSubtitle}
+      footer={
+        <View style={styles.modalFooterRow}>
+          <TouchableOpacity
+            style={styles.modalSecondaryBtn}
+            onPress={() => setShowFilterModal(false)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.modalSecondaryBtnText}>{t('Cancel')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.modalPrimaryBtn}
+            onPress={handleApplyFilters}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.modalPrimaryBtnText}>{t('Apply Filters')}</Text>
+          </TouchableOpacity>
+        </View>
+      }
+    >
+      <View style={styles.modalBody}>
+        {/* Attendance Filter Form */}
+        {activeReport === 'attendance' && (
+          <>
+            <SearchableSelect
+              label={t('Farm')}
+              placeholder={t('All Farms')}
+              searchPlaceholder={t('Search farms...')}
+              allowClear
+              clearLabel={t('All Farms')}
+              items={
+                filtersData?.farms.map((f) => ({
+                  value: f.id.toString(),
+                  label: f.name,
+                  icon: 'business-outline',
+                })) || []
+              }
+              value={draftFarm}
+              onSelect={(val) => setDraftFarm((val as string) || '')}
+              containerStyle={{ marginBottom: spacing.md }}
+            />
+
+            <SearchableSelect
+              label={t('Staff')}
+              placeholder={t('All Staff')}
+              searchPlaceholder={t('Search staff...')}
+              allowClear
+              clearLabel={t('All Staff')}
+              items={
+                filtersData?.workers.map((w) => ({
+                  value: w.ulid,
+                  label: w.name,
+                  icon: 'person-outline',
+                })) || []
+              }
+              value={draftWorker}
+              onSelect={(val) => setDraftWorker((val as string) || '')}
+              containerStyle={{ marginBottom: spacing.md }}
+            />
+
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionLabel}>{t('Month')}</Text>
+              <QuickChipGroup
+                options={MONTHS.map((m) => ({ label: t(m.label), value: m.value }))}
+                selectedValue={draftMonth}
+                onSelect={(val) => setDraftMonth(val as number)}
+                scrollable
+                size="sm"
+              />
+            </View>
+
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionLabel}>{t('Year')}</Text>
+              <QuickChipGroup
+                options={years.map((y) => ({ label: y.toString(), value: y }))}
+                selectedValue={draftYear}
+                onSelect={(val) => setDraftYear(val as number)}
+                scrollable
+                size="sm"
+              />
+            </View>
+          </>
+        )}
+
+        {/* Payment Filter Form */}
+        {activeReport === 'payment' && (
+          <>
+            <SearchableSelect
+              label={t('Staff') + ' *'}
+              placeholder={t('Select Staff Member')}
+              searchPlaceholder={t('Search staff members...')}
+              items={
+                filtersData?.workers.map((w) => ({
+                  value: w.ulid,
+                  label: w.name,
+                  icon: 'person-outline',
+                })) || []
+              }
+              value={draftWorker}
+              onSelect={(val) => setDraftWorker((val as string) || '')}
+              containerStyle={{ marginBottom: spacing.md }}
+            />
+
+            <View style={styles.familyToggleRow}>
+              <View style={{ flex: 1, paddingRight: spacing.sm }}>
+                <Text style={styles.familyToggleTitle}>{t("Include family members' payments")}</Text>
+                <Text style={styles.familyToggleSubtitle}>
+                  {t('Aggregate payments for family members')}
+                </Text>
+              </View>
+              <Switch
+                value={draftIncludeFamily}
+                onValueChange={setDraftIncludeFamily}
+                trackColor={{ false: colors.slate200, true: colors.primarySurface }}
+                thumbColor={draftIncludeFamily ? colors.primary : colors.slate400}
+              />
+            </View>
+
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionLabel}>{t('Window Presets:')}</Text>
+              <View style={styles.modalPresetRow}>
+                <TouchableOpacity
+                  style={styles.modalPresetChip}
+                  onPress={() => applyDraftDatePreset('month')}
+                >
+                  <Text style={styles.modalPresetText}>{t('This Month')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalPresetChip}
+                  onPress={() => applyDraftDatePreset('30days')}
+                >
+                  <Text style={styles.modalPresetText}>{t('Last 30 Days')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalPresetChip}
+                  onPress={() => applyDraftDatePreset('quarter')}
+                >
+                  <Text style={styles.modalPresetText}>{t('Quarter')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.dateRowContainer}>
+              <View style={{ flex: 1 }}>
+                <ModernDatePicker
+                  label={t('From Date')}
+                  value={draftFromDate}
+                  onChange={setDraftFromDate}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ModernDatePicker
+                  label={t('To Date')}
+                  value={draftToDate}
+                  onChange={setDraftToDate}
+                />
+              </View>
+            </View>
+          </>
+        )}
+
+        {/* Activity & Expense Filter Form */}
+        {(activeReport === 'activity' || activeReport === 'expense') && (
+          <>
+            <SearchableSelect
+              label={t('Farm') + ' *'}
+              placeholder={t('Select Farm')}
+              searchPlaceholder={t('Search farms...')}
+              items={
+                filtersData?.farms.map((f) => ({
+                  value: f.id.toString(),
+                  label: f.name,
+                  icon: 'business-outline',
+                })) || []
+              }
+              value={draftFarm}
+              onSelect={(val) => {
+                const nextFarm = (val as string) || '';
+                setDraftFarm(nextFarm);
+                setDraftCycle('');
+              }}
+              containerStyle={{ marginBottom: spacing.md }}
+            />
+
+            {draftFarm ? (
+              <SearchableSelect
+                label={t('Farm Cycle')}
+                placeholder={t('All Farm Cycles')}
+                searchPlaceholder={t('Search farm cycles...')}
+                allowClear
+                clearLabel={t('All Farm Cycles')}
+                items={
+                  filtersData?.crop_cycles
+                    .filter((c) => c.farm_id.toString() === draftFarm)
+                    .map((c) => ({
+                      value: c.id.toString(),
+                      label: c.label,
+                      icon: 'leaf-outline',
+                    })) || []
+                }
+                value={draftCycle}
+                onSelect={(val) => setDraftCycle((val as string) || '')}
+                containerStyle={{ marginBottom: spacing.md }}
+              />
+            ) : null}
+
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionLabel}>{t('Window Presets:')}</Text>
+              <View style={styles.modalPresetRow}>
+                <TouchableOpacity
+                  style={styles.modalPresetChip}
+                  onPress={() => applyDraftDatePreset('month')}
+                >
+                  <Text style={styles.modalPresetText}>{t('This Month')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalPresetChip}
+                  onPress={() => applyDraftDatePreset('30days')}
+                >
+                  <Text style={styles.modalPresetText}>{t('Last 30 Days')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalPresetChip}
+                  onPress={() => applyDraftDatePreset('quarter')}
+                >
+                  <Text style={styles.modalPresetText}>{t('Quarter')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.dateRowContainer}>
+              <View style={{ flex: 1 }}>
+                <ModernDatePicker
+                  label={t('From Date')}
+                  value={draftFromDate}
+                  onChange={setDraftFromDate}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ModernDatePicker
+                  label={t('To Date')}
+                  value={draftToDate}
+                  onChange={setDraftToDate}
+                />
+              </View>
+            </View>
+          </>
+        )}
+      </View>
+    </ModalSheet>
+  );
 
   // Reusable export action bar rendered in each report screen
   const renderExportToolbar = () => (
@@ -487,144 +1295,69 @@ export default function ReportsScreen() {
     // ATTENDANCE REPORT VIEW
     // ----------------------------------------------------
     if (activeReport === 'attendance') {
-      const farmOptions = [
-        { label: t('All Farms'), value: '' },
-        ...(filtersData?.farms.map((f) => ({ label: f.name, value: f.id.toString() })) || []),
-      ];
-
-      const workerOptions = [
-        { label: t('All Staff'), value: '' },
-        ...(filtersData?.workers.map((w) => ({ label: w.name, value: w.ulid })) || []),
-      ];
-
-      const monthOptions = MONTHS.map((m) => ({ label: t(m.label), value: m.value }));
-      const yearOptions = years.map((y) => ({ label: y.toString(), value: y }));
-
       return (
         <View style={styles.reportContainer}>
-          {/* Quick Filter Dock */}
-          <View style={styles.filterDock}>
-            <View style={styles.filterRow}>
-              <Text style={styles.filterSectionLabel}>{t('Farm')}:</Text>
-              <QuickChipGroup
-                options={farmOptions}
-                selectedValue={selectedFarm}
-                onSelect={(val) => {
-                  setSelectedFarm(val);
-                  fetchAttendanceReport(val, selectedWorker, selectedMonth, selectedYear);
-                }}
-                scrollable
-                size="sm"
-              />
-            </View>
-
-            <SearchableSelect
-              label={t('Staff')}
-              placeholder={t('All Staff')}
-              searchPlaceholder={t('Search staff...')}
-              allowClear
-              clearLabel={t('All Staff')}
-              items={filtersData?.workers.map((w) => ({ value: w.ulid, label: w.name, icon: 'person-outline' })) || []}
-              value={selectedWorker}
-              onSelect={(val) => {
-                const nextWorker = (val as string) || '';
-                setSelectedWorker(nextWorker);
-                fetchAttendanceReport(selectedFarm, nextWorker, selectedMonth, selectedYear);
-              }}
-              containerStyle={{ marginBottom: spacing.xs }}
-            />
-
-            <View style={styles.filterRow}>
-              <Text style={styles.filterSectionLabel}>{t('Month & Year')}:</Text>
-              <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-                <QuickChipGroup
-                  options={monthOptions}
-                  selectedValue={selectedMonth}
-                  onSelect={(val) => {
-                    setSelectedMonth(val);
-                    fetchAttendanceReport(selectedFarm, selectedWorker, val, selectedYear);
-                  }}
-                  scrollable
-                  size="sm"
-                />
-                <QuickChipGroup
-                  options={yearOptions}
-                  selectedValue={selectedYear}
-                  onSelect={(val) => {
-                    setSelectedYear(val);
-                    fetchAttendanceReport(selectedFarm, selectedWorker, selectedMonth, val);
-                  }}
-                  scrollable
-                  size="sm"
-                />
-              </View>
-            </View>
-          </View>
-
-          {/* Report Body */}
           {reportLoading ? (
             <View style={styles.centered}>
               <ActivityIndicator size="large" color={colors.primary} />
               <Text style={styles.loadingText}>{t('Generating attendance report...')}</Text>
             </View>
           ) : !selectedFarm && !selectedWorker ? (
-            <View style={styles.emptyView}>
-              <View style={styles.emptyIconCircle}>
-                <Ionicons name="clipboard-outline" size={36} color={colors.slate400} />
-              </View>
-              <Text style={styles.emptyTitle}>{t('Select a Farm or Staff')}</Text>
-              <Text style={styles.emptySubtitle}>
-                {t('Choose a farm or worker from the filters above to generate the attendance summary.')}
-              </Text>
-            </View>
+            renderEmptyReport(
+              t('Select a Farm or Staff'),
+              t('Choose a farm or worker from the filters above to generate the attendance summary.'),
+              'clipboard-outline'
+            )
           ) : (
             <FlatList
               data={attendanceData?.rows || []}
               keyExtractor={(item) => item.id.toString()}
               contentContainerStyle={styles.reportListContent}
               ListHeaderComponent={
-                attendanceData ? (
-                  <View style={{ marginBottom: spacing.md }}>
-                    <View style={styles.metricsGrid}>
-                      <View style={styles.summaryTile}>
-                        <MetricTile
-                          label={t('PRESENT')}
-                          value={attendanceData.summary.present}
-                          iconName="check-circle"
-                          iconColor={colors.successText}
-                          iconBg={colors.successSurface}
-                        />
+                <View style={{ marginBottom: spacing.md }}>
+                  {renderSummaryCard()}
+                  {attendanceData ? (
+                    <>
+                      <View style={styles.metricsGrid}>
+                        <View style={styles.summaryTile}>
+                          <MetricTile
+                            label={t('PRESENT')}
+                            value={attendanceData.summary.present}
+                            iconName="check-circle"
+                            iconColor={colors.successText}
+                            iconBg={colors.successSurface}
+                          />
+                        </View>
+                        <View style={styles.summaryTile}>
+                          <MetricTile
+                            label={t('HALF DAYS')}
+                            value={attendanceData.summary.half_day}
+                            iconName="circle-half-full"
+                            iconColor={colors.warningText}
+                            iconBg={colors.warningSurface}
+                          />
+                        </View>
+                        <View style={styles.summaryTile}>
+                          <MetricTile
+                            label={t('TOTAL')}
+                            value={attendanceData.summary.total_attendance}
+                            iconName="calendar-check"
+                            iconColor={colors.infoText}
+                            iconBg={colors.infoSurface}
+                          />
+                        </View>
                       </View>
-                      <View style={styles.summaryTile}>
-                        <MetricTile
-                          label={t('HALF DAYS')}
-                          value={attendanceData.summary.half_day}
-                          iconName="circle-half-full"
-                          iconColor={colors.warningText}
-                          iconBg={colors.warningSurface}
-                        />
-                      </View>
-                      <View style={styles.summaryTile}>
-                        <MetricTile
-                          label={t('TOTAL')}
-                          value={attendanceData.summary.total_attendance}
-                          iconName="calendar-check"
-                          iconColor={colors.infoText}
-                          iconBg={colors.infoSurface}
-                        />
-                      </View>
-                    </View>
-                    {renderExportToolbar()}
-                  </View>
-                ) : null
+                      {renderExportToolbar()}
+                    </>
+                  ) : null}
+                </View>
               }
               ListEmptyComponent={
-                <EmptyState
-                  compact
-                  icon="calendar-outline"
-                  title={t('No Attendance Records')}
-                  message={t('No muster records found for this period. Try adjusting your month or farm filter.')}
-                />
+                renderEmptyReport(
+                  t('No reports found'),
+                  t('No muster records found for this period. Try adjusting your month or farm filter.'),
+                  'calendar-outline'
+                )
               }
               renderItem={({ item }) => {
                 const statusVariant =
@@ -682,141 +1415,51 @@ export default function ReportsScreen() {
     // PAYMENT REPORT VIEW
     // ----------------------------------------------------
     if (activeReport === 'payment') {
-      const workerOptions =
-        filtersData?.workers.map((w) => ({ label: w.name, value: w.ulid })) || [];
-
       return (
         <View style={styles.reportContainer}>
-          <View style={styles.filterDock}>
-            <SearchableSelect
-              label={t('Staff') + ' *'}
-              placeholder={t('Select Staff Member')}
-              searchPlaceholder={t('Search staff members...')}
-              items={workerOptions.map((w) => ({ value: w.value, label: w.label, icon: 'person-outline' }))}
-              value={selectedWorker}
-              onSelect={(val) => {
-                const nextWorker = val as string;
-                setSelectedWorker(nextWorker);
-                fetchPaymentReport(nextWorker, fromDate, toDate, includeFamily);
-              }}
-              containerStyle={{ marginBottom: spacing.xs }}
-            />
-
-            {/* Include Family Members Toggle */}
-            <View style={[styles.filterRow, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
-              <View style={{ flex: 1, paddingRight: spacing.sm }}>
-                <Text style={styles.filterSectionLabel}>{t("Include family members' payments")}</Text>
-                <Text style={{ fontSize: 11, color: colors.slate500 }}>
-                  {t('Aggregate payments for family members')}
-                </Text>
-              </View>
-              <Switch
-                value={includeFamily}
-                onValueChange={(val) => {
-                  setIncludeFamily(val);
-                  if (selectedWorker) {
-                    fetchPaymentReport(selectedWorker, fromDate, toDate, val);
-                  }
-                }}
-                trackColor={{ false: colors.slate200, true: colors.primarySurface }}
-                thumbColor={includeFamily ? colors.primary : colors.slate400}
-              />
-            </View>
-
-            {/* Date range presets */}
-            <View style={styles.filterRow}>
-              <Text style={styles.filterSectionLabel}>{t('Window Presets:')}</Text>
-              <View style={styles.datePresetsRow}>
-                <TouchableOpacity
-                  style={styles.presetChip}
-                  onPress={() => applyDatePreset('month')}
-                >
-                  <Text style={styles.presetChipText}>{t('This Month')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.presetChip}
-                  onPress={() => applyDatePreset('30days')}
-                >
-                  <Text style={styles.presetChipText}>{t('Last 30 Days')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.presetChip}
-                  onPress={() => applyDatePreset('quarter')}
-                >
-                  <Text style={styles.presetChipText}>{t('Quarter')}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: spacing.xs }}>
-              <View style={{ flex: 1 }}>
-                <ModernDatePicker
-                  label={t('From Date')}
-                  value={fromDate}
-                  onChange={(d) => {
-                    setFromDate(d);
-                    fetchPaymentReport(selectedWorker, d, toDate, includeFamily);
-                  }}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <ModernDatePicker
-                  label={t('To Date')}
-                  value={toDate}
-                  onChange={(d) => {
-                    setToDate(d);
-                    fetchPaymentReport(selectedWorker, fromDate, d, includeFamily);
-                  }}
-                />
-              </View>
-            </View>
-          </View>
-
           {reportLoading ? (
             <View style={styles.centered}>
               <ActivityIndicator size="large" color={colors.primary} />
               <Text style={styles.loadingText}>{t('Loading payment vouchers...')}</Text>
             </View>
           ) : !selectedWorker ? (
-            <View style={styles.emptyView}>
-              <View style={styles.emptyIconCircle}>
-                <Ionicons name="cash-outline" size={36} color={colors.slate400} />
-              </View>
-              <Text style={styles.emptyTitle}>{t('Select a Staff Member')}</Text>
-              <Text style={styles.emptySubtitle}>
-                {t('Choose a staff member above to audit salary advances, payments, and payouts.')}
-              </Text>
-            </View>
+            renderEmptyReport(
+              t('Select a Staff Member'),
+              t('Choose a staff member above to audit salary advances, payments, and payouts.'),
+              'cash-outline'
+            )
           ) : (
             <FlatList
               data={paymentData?.rows || []}
               keyExtractor={(item) => item.id.toString()}
               contentContainerStyle={styles.reportListContent}
               ListHeaderComponent={
-                paymentData ? (
-                  <View style={{ marginBottom: spacing.md }}>
-                    <View style={styles.metricsGrid}>
-                      <View style={{ flex: 1 }}>
-                        <MetricTile
-                          label={t('TOTAL SALARY PAID')}
-                          value={formatCurrency(paymentData.summary.total_amount)}
-                          iconName="cash-check"
-                          iconColor={colors.successText}
-                          iconBg={colors.successSurface}
-                        />
+                <View style={{ marginBottom: spacing.md }}>
+                  {renderSummaryCard()}
+                  {paymentData ? (
+                    <>
+                      <View style={styles.metricsGrid}>
+                        <View style={{ flex: 1 }}>
+                          <MetricTile
+                            label={t('TOTAL SALARY PAID')}
+                            value={formatCurrency(paymentData.summary.total_amount)}
+                            iconName="cash-check"
+                            iconColor={colors.successText}
+                            iconBg={colors.successSurface}
+                          />
+                        </View>
                       </View>
-                    </View>
-                    {renderExportToolbar()}
-                  </View>
-                ) : null
+                      {renderExportToolbar()}
+                    </>
+                  ) : null}
+                </View>
               }
               ListEmptyComponent={
-                <EmptyState
-                  compact
-                  icon="cash-outline"
-                  title={t('No Payment Records')}
-                  message={t('No payment records found for this period. Try adjusting your date range or staff filter.')}
-                />
+                renderEmptyReport(
+                  t('No reports found'),
+                  t('No payment records found for this period. Try adjusting your date range or staff filter.'),
+                  'cash-outline'
+                )
               }
               renderItem={({ item }) => (
                 <BentoCard variant="elevated" style={styles.rowCard}>
@@ -860,162 +1503,69 @@ export default function ReportsScreen() {
     // ACTIVITIES REPORT VIEW
     // ----------------------------------------------------
     if (activeReport === 'activity') {
-      const farmOptions =
-        filtersData?.farms.map((f) => ({ label: f.name, value: f.id.toString() })) || [];
-
-      const cycleOptions = [
-        { label: t('All Cycles'), value: '' },
-        ...(filtersData?.crop_cycles
-          .filter((c) => c.farm_id.toString() === selectedFarm)
-          .map((c) => ({ label: c.label, value: c.id.toString() })) || []),
-      ];
-
       return (
         <View style={styles.reportContainer}>
-          <View style={styles.filterDock}>
-            <View style={styles.filterRow}>
-              <Text style={styles.filterSectionLabel}>{t('Farm')} *:</Text>
-              <QuickChipGroup
-                options={farmOptions}
-                selectedValue={selectedFarm}
-                onSelect={(val) => {
-                  setSelectedFarm(val);
-                  setSelectedCycle('');
-                  fetchActivityReport(val, '', fromDate, toDate);
-                }}
-                scrollable
-                size="sm"
-              />
-            </View>
-
-            {selectedFarm ? (
-              <View style={styles.filterRow}>
-                <Text style={styles.filterSectionLabel}>{t('Crop Cycle')}:</Text>
-                <QuickChipGroup
-                  options={cycleOptions}
-                  selectedValue={selectedCycle}
-                  onSelect={(val) => {
-                    setSelectedCycle(val);
-                    fetchActivityReport(selectedFarm, val, fromDate, toDate);
-                  }}
-                  scrollable
-                  size="sm"
-                />
-              </View>
-            ) : null}
-
-            {/* Presets */}
-            <View style={styles.filterRow}>
-              <Text style={styles.filterSectionLabel}>{t('Window Presets:')}</Text>
-              <View style={styles.datePresetsRow}>
-                <TouchableOpacity
-                  style={styles.presetChip}
-                  onPress={() => applyDatePreset('month')}
-                >
-                  <Text style={styles.presetChipText}>{t('This Month')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.presetChip}
-                  onPress={() => applyDatePreset('30days')}
-                >
-                  <Text style={styles.presetChipText}>{t('Last 30 Days')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.presetChip}
-                  onPress={() => applyDatePreset('quarter')}
-                >
-                  <Text style={styles.presetChipText}>{t('Quarter')}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: spacing.xs }}>
-              <View style={{ flex: 1 }}>
-                <ModernDatePicker
-                  label={t('From Date')}
-                  value={fromDate}
-                  onChange={(d) => {
-                    setFromDate(d);
-                    fetchActivityReport(selectedFarm, selectedCycle, d, toDate);
-                  }}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <ModernDatePicker
-                  label={t('To Date')}
-                  value={toDate}
-                  onChange={(d) => {
-                    setToDate(d);
-                    fetchActivityReport(selectedFarm, selectedCycle, fromDate, d);
-                  }}
-                />
-              </View>
-            </View>
-          </View>
-
           {reportLoading ? (
             <View style={styles.centered}>
               <ActivityIndicator size="large" color={colors.primary} />
               <Text style={styles.loadingText}>{t('Fetching activity timeline...')}</Text>
             </View>
           ) : !selectedFarm ? (
-            <View style={styles.emptyView}>
-              <View style={styles.emptyIconCircle}>
-                <Ionicons name="construct-outline" size={36} color={colors.slate400} />
-              </View>
-              <Text style={styles.emptyTitle}>{t('Select a Farm')}</Text>
-              <Text style={styles.emptySubtitle}>
-                {t('Select a farm to audit agricultural tasks, operations, and status.')}
-              </Text>
-            </View>
+            renderEmptyReport(
+              t('Select a Farm'),
+              t('Select a farm to audit agricultural tasks, operations, and status.'),
+              'construct-outline'
+            )
           ) : (
             <FlatList
               data={activityData?.rows || []}
               keyExtractor={(item) => item.id.toString()}
               contentContainerStyle={styles.reportListContent}
               ListHeaderComponent={
-                activityData ? (
-                  <View style={{ marginBottom: spacing.md }}>
-                    <View style={styles.metricsGrid}>
-                      <View style={styles.summaryTile}>
-                        <MetricTile
-                          label={t('ACTIVITIES')}
-                          value={activityData.summary.total}
-                          iconName="clipboard-list-outline"
-                          iconColor={colors.slate700}
-                          iconBg={colors.slate100}
-                        />
+                <View style={{ marginBottom: spacing.md }}>
+                  {renderSummaryCard()}
+                  {activityData ? (
+                    <>
+                      <View style={styles.metricsGrid}>
+                        <View style={styles.summaryTile}>
+                          <MetricTile
+                            label={t('ACTIVITIES')}
+                            value={activityData.summary.total}
+                            iconName="clipboard-list-outline"
+                            iconColor={colors.slate700}
+                            iconBg={colors.slate100}
+                          />
+                        </View>
+                        <View style={styles.summaryTile}>
+                          <MetricTile
+                            label={t('COMPLETED')}
+                            value={activityData.summary.completed}
+                            iconName="check-circle"
+                            iconColor={colors.successText}
+                            iconBg={colors.successSurface}
+                          />
+                        </View>
+                        <View style={styles.summaryTile}>
+                          <MetricTile
+                            label={t('PENDING')}
+                            value={activityData.summary.open}
+                            iconName="clock-outline"
+                            iconColor={colors.warningText}
+                            iconBg={colors.warningSurface}
+                          />
+                        </View>
                       </View>
-                      <View style={styles.summaryTile}>
-                        <MetricTile
-                          label={t('COMPLETED')}
-                          value={activityData.summary.completed}
-                          iconName="check-circle"
-                          iconColor={colors.successText}
-                          iconBg={colors.successSurface}
-                        />
-                      </View>
-                      <View style={styles.summaryTile}>
-                        <MetricTile
-                          label={t('PENDING')}
-                          value={activityData.summary.open}
-                          iconName="clock-outline"
-                          iconColor={colors.warningText}
-                          iconBg={colors.warningSurface}
-                        />
-                      </View>
-                    </View>
-                    {renderExportToolbar()}
-                  </View>
-                ) : null
+                      {renderExportToolbar()}
+                    </>
+                  ) : null}
+                </View>
               }
               ListEmptyComponent={
-                <EmptyState
-                  compact
-                  icon="clipboard-outline"
-                  title={t('No Activity Logs')}
-                  message={t('No activity logs recorded for this selection. Try adjusting your date range or farm filter.')}
-                />
+                renderEmptyReport(
+                  t('No reports found'),
+                  t('No activity logs recorded for this selection. Try adjusting your date range or farm filter.'),
+                  'clipboard-outline'
+                )
               }
               renderItem={({ item }) => {
                 const isCompleted = item.status === 'COMPLETED';
@@ -1067,162 +1617,69 @@ export default function ReportsScreen() {
     // EXPENSES REPORT VIEW
     // ----------------------------------------------------
     if (activeReport === 'expense') {
-      const farmOptions =
-        filtersData?.farms.map((f) => ({ label: f.name, value: f.id.toString() })) || [];
-
-      const cycleOptions = [
-        { label: t('All Cycles'), value: '' },
-        ...(filtersData?.crop_cycles
-          .filter((c) => c.farm_id.toString() === selectedFarm)
-          .map((c) => ({ label: c.label, value: c.id.toString() })) || []),
-      ];
-
       return (
         <View style={styles.reportContainer}>
-          <View style={styles.filterDock}>
-            <View style={styles.filterRow}>
-              <Text style={styles.filterSectionLabel}>{t('Farm')} *:</Text>
-              <QuickChipGroup
-                options={farmOptions}
-                selectedValue={selectedFarm}
-                onSelect={(val) => {
-                  setSelectedFarm(val);
-                  setSelectedCycle('');
-                  fetchExpenseReport(val, '', fromDate, toDate);
-                }}
-                scrollable
-                size="sm"
-              />
-            </View>
-
-            {selectedFarm ? (
-              <View style={styles.filterRow}>
-                <Text style={styles.filterSectionLabel}>{t('Crop Cycle')}:</Text>
-                <QuickChipGroup
-                  options={cycleOptions}
-                  selectedValue={selectedCycle}
-                  onSelect={(val) => {
-                    setSelectedCycle(val);
-                    fetchExpenseReport(selectedFarm, val, fromDate, toDate);
-                  }}
-                  scrollable
-                  size="sm"
-                />
-              </View>
-            ) : null}
-
-            {/* Presets */}
-            <View style={styles.filterRow}>
-              <Text style={styles.filterSectionLabel}>{t('Window Presets:')}</Text>
-              <View style={styles.datePresetsRow}>
-                <TouchableOpacity
-                  style={styles.presetChip}
-                  onPress={() => applyDatePreset('month')}
-                >
-                  <Text style={styles.presetChipText}>{t('This Month')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.presetChip}
-                  onPress={() => applyDatePreset('30days')}
-                >
-                  <Text style={styles.presetChipText}>{t('Last 30 Days')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.presetChip}
-                  onPress={() => applyDatePreset('quarter')}
-                >
-                  <Text style={styles.presetChipText}>{t('Quarter')}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: spacing.xs }}>
-              <View style={{ flex: 1 }}>
-                <ModernDatePicker
-                  label={t('From Date')}
-                  value={fromDate}
-                  onChange={(d) => {
-                    setFromDate(d);
-                    fetchExpenseReport(selectedFarm, selectedCycle, d, toDate);
-                  }}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <ModernDatePicker
-                  label={t('To Date')}
-                  value={toDate}
-                  onChange={(d) => {
-                    setToDate(d);
-                    fetchExpenseReport(selectedFarm, selectedCycle, fromDate, d);
-                  }}
-                />
-              </View>
-            </View>
-          </View>
-
           {reportLoading ? (
             <View style={styles.centered}>
               <ActivityIndicator size="large" color={colors.primary} />
               <Text style={styles.loadingText}>{t('Compiling farm financial audit...')}</Text>
             </View>
           ) : !selectedFarm ? (
-            <View style={styles.emptyView}>
-              <View style={styles.emptyIconCircle}>
-                <Ionicons name="receipt-outline" size={36} color={colors.slate400} />
-              </View>
-              <Text style={styles.emptyTitle}>{t('Select a Farm')}</Text>
-              <Text style={styles.emptySubtitle}>
-                {t('Select a farm and date window above to analyze spending and operational expenses.')}
-              </Text>
-            </View>
+            renderEmptyReport(
+              t('Select a Farm'),
+              t('Select a farm and date window above to analyze spending and operational expenses.'),
+              'receipt-outline'
+            )
           ) : (
             <FlatList
               data={expenseData?.rows || []}
               keyExtractor={(item) => item.id.toString()}
               contentContainerStyle={styles.reportListContent}
               ListHeaderComponent={
-                expenseData ? (
-                  <View style={{ marginBottom: spacing.md }}>
-                    <View style={styles.metricsGrid}>
-                      <View style={styles.summaryTile}>
-                        <MetricTile
-                          label={t('TOTAL SPEND')}
-                          value={formatCurrency(expenseData.summary.total_spend)}
-                          iconName="cash-multiple"
-                          iconColor={colors.dangerText}
-                          iconBg={colors.dangerSurface}
-                        />
+                <View style={{ marginBottom: spacing.md }}>
+                  {renderSummaryCard()}
+                  {expenseData ? (
+                    <>
+                      <View style={styles.metricsGrid}>
+                        <View style={styles.summaryTile}>
+                          <MetricTile
+                            label={t('TOTAL SPEND')}
+                            value={formatCurrency(expenseData.summary.total_spend)}
+                            iconName="cash-multiple"
+                            iconColor={colors.dangerText}
+                            iconBg={colors.dangerSurface}
+                          />
+                        </View>
+                        <View style={styles.summaryTile}>
+                          <MetricTile
+                            label={t('ENTRIES')}
+                            value={expenseData.summary.entries_count}
+                            iconName="receipt"
+                            iconColor={colors.slate700}
+                            iconBg={colors.slate100}
+                          />
+                        </View>
+                        <View style={styles.summaryTile}>
+                          <MetricTile
+                            label={t('CLEARED')}
+                            value={formatCurrency(expenseData.summary.completed_amount)}
+                            iconName="check-decagram"
+                            iconColor={colors.successText}
+                            iconBg={colors.successSurface}
+                          />
+                        </View>
                       </View>
-                      <View style={styles.summaryTile}>
-                        <MetricTile
-                          label={t('ENTRIES')}
-                          value={expenseData.summary.entries_count}
-                          iconName="receipt"
-                          iconColor={colors.slate700}
-                          iconBg={colors.slate100}
-                        />
-                      </View>
-                      <View style={styles.summaryTile}>
-                        <MetricTile
-                          label={t('CLEARED')}
-                          value={formatCurrency(expenseData.summary.completed_amount)}
-                          iconName="check-decagram"
-                          iconColor={colors.successText}
-                          iconBg={colors.successSurface}
-                        />
-                      </View>
-                    </View>
-                    {renderExportToolbar()}
-                  </View>
-                ) : null
+                      {renderExportToolbar()}
+                    </>
+                  ) : null}
+                </View>
               }
               ListEmptyComponent={
-                <EmptyState
-                  compact
-                  icon="wallet-outline"
-                  title={t('No Expense Records')}
-                  message={t('No expense records found for this period. Try adjusting your date range or category filter.')}
-                />
+                renderEmptyReport(
+                  t('No reports found'),
+                  t('No expense records found for this period. Try adjusting your date range or category filter.'),
+                  'wallet-outline'
+                )
               }
               renderItem={({ item }) => {
                 const isCompleted = item.payment_status === 'COMPLETED';
@@ -1303,25 +1760,40 @@ export default function ReportsScreen() {
               : t('Reports')}
           </Text>
           {activeReport ? (
-            <TouchableOpacity
-              style={styles.exportHeaderBtn}
-              onPress={() => setShowExportModal(true)}
-              disabled={exportLoading}
-              accessibilityLabel="Export options"
-            >
-              {exportLoading ? (
-                <ActivityIndicator size="small" color="#166534" />
-              ) : (
-                <Ionicons name="share-outline" size={20} color="#166534" />
-              )}
-            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                style={styles.headerIconBtn}
+                onPress={openFiltersModal}
+                accessibilityLabel={t('Filter Reports')}
+              >
+                <Ionicons name="funnel-outline" size={18} color="#166534" />
+                {hasActiveFilters ? <View style={styles.activeDot} /> : null}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.headerIconBtn}
+                onPress={() => setShowExportModal(true)}
+                disabled={exportLoading}
+                accessibilityLabel="Export options"
+              >
+                {exportLoading ? (
+                  <ActivityIndicator size="small" color="#166534" />
+                ) : (
+                  <Ionicons name="share-outline" size={18} color="#166534" />
+                )}
+              </TouchableOpacity>
+            </View>
           ) : (
             <View style={styles.headerSpacer} />
           )}
         </View>
 
+        {activeReport ? renderActiveFilterChips() : null}
         {renderContent()}
       </View>
+
+      {/* Filter Bottom Sheet Modal */}
+      {renderFilterModal()}
 
       {/* Export Options Bottom Modal */}
       <Modal
@@ -1458,6 +1930,33 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 38,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  activeDot: {
+    position: 'absolute',
+    top: 7,
+    right: 7,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#0f8f64',
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
+  },
   menuContainer: {
     padding: 16,
     paddingBottom: 60,
@@ -1548,61 +2047,237 @@ const styles = StyleSheet.create({
   reportContainer: {
     flex: 1,
   },
-  filterDock: {
-    backgroundColor: colors.white,
+  // Active Filter Chips Card (matches PWA .farm-report-filter-card)
+  filterCard: {
+    backgroundColor: '#eef2f7',
     borderBottomWidth: 1,
-    borderBottomColor: colors.slate200,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
+    borderBottomColor: 'rgba(203, 213, 225, 0.7)',
+    paddingVertical: 9,
+  },
+  chipsScrollContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+    alignItems: 'center',
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 32,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+  },
+  chipGreen: {
+    backgroundColor: '#dff8ea',
+  },
+  chipWarning: {
+    backgroundColor: '#fef3c7',
+  },
+  chipReset: {
+    backgroundColor: '#fef3c7',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  chipTextGreen: {
+    color: '#0f8f64',
+  },
+  chipTextWarning: {
+    color: '#b7791f',
+  },
+  chipTextReset: {
+    color: '#a16207',
+  },
+
+  // Summary Card (matches PWA .farm-report-summary-card)
+  summaryCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: spacing.md,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  summaryLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: '#64748b',
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  summaryMeta: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+
+  // Empty Report Card (matches PWA .farm-report-empty-card)
+  emptyCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    marginHorizontal: 16,
+  },
+  emptyCardIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  emptyCardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#111827',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  emptyCardCopy: {
+    fontSize: 13,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 18,
+  },
+  emptyCardActions: {
+    width: '100%',
+    gap: 10,
+    alignItems: 'center',
+  },
+  emptyCardPrimaryBtn: {
+    width: '100%',
+    minHeight: 44,
+    borderRadius: 14,
+    backgroundColor: '#0f8f64',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  emptyCardPrimaryBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  emptyCardLinkBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  emptyCardLinkBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f8f64',
+  },
+
+  // Filter Modal Body & Controls
+  modalBody: {
+    paddingTop: spacing.xs,
     gap: spacing.sm,
   },
-  filterRow: {
-    gap: 4,
+  modalSection: {
+    marginBottom: spacing.xs,
   },
-  filterSectionLabel: {
-    ...typography.caption,
-    fontSize: 10,
-    color: colors.slate500,
-    fontWeight: '800',
-  },
-  datePresetsRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  presetChip: {
-    backgroundColor: colors.slate100,
-    borderWidth: 1,
-    borderColor: colors.slate200,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: radius.pill,
-  },
-  presetChipText: {
+  modalSectionLabel: {
     fontSize: 11,
-    fontWeight: '700',
-    color: colors.slate700,
+    fontWeight: '800',
+    color: colors.slate600,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
   },
-  customDateRow: {
+  modalPresetRow: {
     flexDirection: 'row',
+    gap: 8,
+  },
+  modalPresetChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  modalPresetText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  dateRowContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  familyToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    marginBottom: spacing.xs,
+  },
+  familyToggleTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  familyToggleSubtitle: {
+    fontSize: 11,
+    color: '#64748b',
     marginTop: 2,
   },
-  dateFieldLabel: {
-    ...typography.caption,
-    fontSize: 10,
-    color: colors.slate500,
-    marginBottom: 2,
+  modalFooterRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
   },
-  dateInput: {
-    height: 38,
-    borderWidth: 1,
-    borderColor: colors.slate300,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    fontSize: 13,
-    color: colors.slate900,
-    backgroundColor: colors.slate50,
+  modalSecondaryBtn: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 14,
+    backgroundColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  modalSecondaryBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  modalPrimaryBtn: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 14,
+    backgroundColor: '#0f8f64',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalPrimaryBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+
   metricsGrid: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -1614,31 +2289,6 @@ const styles = StyleSheet.create({
   reportListContent: {
     padding: spacing.lg,
     paddingBottom: 90,
-  },
-  emptyView: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 80,
-    paddingHorizontal: spacing.xl,
-    gap: spacing.xs,
-  },
-  emptyIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.slate100,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.sm,
-  },
-  emptyTitle: {
-    ...typography.title2,
-    color: colors.slate800,
-  },
-  emptySubtitle: {
-    ...typography.bodySmall,
-    color: colors.slate500,
-    textAlign: 'center',
   },
   rowCard: {
     marginBottom: spacing.sm,
