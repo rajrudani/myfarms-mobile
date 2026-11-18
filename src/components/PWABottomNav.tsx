@@ -20,6 +20,7 @@ export function PWABottomNav() {
   const pathname = usePathname();
   const segments = useSegments();
   const insets = useSafeAreaInsets();
+  const { isTablet, isSmallPhone } = useResponsive();
 
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
@@ -79,8 +80,6 @@ export function PWABottomNav() {
     path.startsWith('/activities') ||
     path.startsWith('/buyers') ||
     path.startsWith('/reports');
-
-  const { isTablet, isSmallPhone } = useResponsive();
 
   const isHomeActive =
     !isFarmActive && !isStaffActive && !isNotesActive && !isMoreActive;
