@@ -2238,5 +2238,16 @@
   "1 reminder": "1 રીમાઇન્ડર",
   ":count reminders": ":count રીમાઇન્ડર્સ",
   "1 scheduled event": "1 સુનિશ્ચિત ઇવેન્ટ",
-  ":count scheduled events": ":count સુનિશ્ચિત ઇવેન્ટ્સ"
+  ":count scheduled events": ":count સુનિશ્ચિત ઇવેન્ટ્સ",
+  "Change Unit": "એકમ બદલો",
+  "Maund (મણ - 20 kg)": "મણ (20 કિલો)",
+  "Maund (મણ - 40 kg)": "મણ (40 કિલો)",
+  "Quintal (100 kg)": "ક્વિન્ટલ (100 કિલો)",
+  "per 20 kg": "પ્રતિ 20 કિલો",
+  "per 40 kg": "પ્રતિ 40 કિલો",
+  "per 100 kg": "પ્રતિ 100 કિલો",
+  "Select State": "રાજ્ય પસંદ કરો",
+  "Search state...": "રાજ્ય શોધો...",
+  "Search by commodity, market, or variety...": "પાક, માર્કેટ અથવા જાત દ્વારા શોધો...",
+  "Try adjusting your filters to find what you're looking for.": "તમે જે શોધી રહ્યાં છો તે શોધવા માટે તમારા ફિલ્ટર્સ ગોઠવવાનો પ્રયાસ કરો."
 }

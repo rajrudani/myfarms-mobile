@@ -4,6 +4,14 @@ const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_user';
 const LOCALE_KEY = 'app_locale';
 
+export type MandiUnit = 'kg' | 'maund_20' | 'maund_40' | 'quintal';
+
+export interface MandiPreferences {
+  state?: string;
+  district?: string;
+  unit?: MandiUnit;
+}
+
 export const storage = {
   async setToken(token: string): Promise<void> {
     await SecureStore.setItemAsync(TOKEN_KEY, token);
@@ -51,11 +59,11 @@ export const storage = {
     return await SecureStore.getItemAsync('push_token');
   },
 
-  async setMandiPreferences(prefs: { state?: string; district?: string; unit?: 'quintal' | 'kg' }): Promise<void> {
+  async setMandiPreferences(prefs: MandiPreferences): Promise<void> {
     await SecureStore.setItemAsync('mandi_prefs', JSON.stringify(prefs));
   },
 
-  async getMandiPreferences(): Promise<{ state?: string; district?: string; unit?: 'quintal' | 'kg' } | null> {
+  async getMandiPreferences(): Promise<MandiPreferences | null> {
     const raw = await SecureStore.getItemAsync('mandi_prefs');
     if (!raw) return null;
     try {

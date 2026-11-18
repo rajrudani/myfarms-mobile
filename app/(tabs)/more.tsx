@@ -296,7 +296,7 @@ export default function MoreScreen() {
             <View style={[styles.gridIcon, { backgroundColor: '#fdf2f8' }]}>
               <Ionicons name="trending-up-outline" size={20} color="#db2777" />
             </View>
-            <Text style={styles.gridText}>{t('Mandi Ticker') || 'Mandi Ticker'}</Text>
+            <Text style={styles.gridText}>{t('Mandi Prices')}</Text>
           </TouchableOpacity>
         </View>
 

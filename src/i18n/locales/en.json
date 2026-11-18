@@ -2238,5 +2238,16 @@
   "1 reminder": "1 reminder",
   ":count reminders": ":count reminders",
   "1 scheduled event": "1 scheduled event",
-  ":count scheduled events": ":count scheduled events"
+  ":count scheduled events": ":count scheduled events",
+  "Change Unit": "Change Unit",
+  "Maund (મણ - 20 kg)": "Maund (20 kg)",
+  "Maund (મણ - 40 kg)": "Maund (40 kg)",
+  "Quintal (100 kg)": "Quintal (100 kg)",
+  "per 20 kg": "per 20 kg",
+  "per 40 kg": "per 40 kg",
+  "per 100 kg": "per 100 kg",
+  "Select State": "Select State",
+  "Search state...": "Search state...",
+  "Search by commodity, market, or variety...": "Search by commodity, market, or variety...",
+  "Try adjusting your filters to find what you're looking for.": "Try adjusting your filters to find what you're looking for."
 }
