@@ -2228,5 +2228,15 @@
   "workers": "workers",
   "{1} :count Sale|[2,*] :count Sales": "{1} :count Sale|[2,*] :count Sales",
   "₹/Kg": "₹/Kg",
-  "₹/Qtl": "₹/Qtl"
+  "₹/Qtl": "₹/Qtl",
+  "Today's Agenda": "Today's Agenda",
+  "You have :reminders and :activities today": "You have :reminders and :activities today",
+  "You have 1 reminder today": "You have 1 reminder today",
+  "You have :count reminders today": "You have :count reminders today",
+  "You have 1 scheduled event today": "You have 1 scheduled event today",
+  "You have :count scheduled events today": "You have :count scheduled events today",
+  "1 reminder": "1 reminder",
+  ":count reminders": ":count reminders",
+  "1 scheduled event": "1 scheduled event",
+  ":count scheduled events": ":count scheduled events"
 }

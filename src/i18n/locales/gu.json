@@ -2228,5 +2228,15 @@
   "workers": "કામદારો",
   "{1} :count Sale|[2,*] :count Sales": "{1} :count વેચાણ|[2,*] :count વેચાણ",
   "₹/Kg": "₹/કિગ્રા",
-  "₹/Qtl": "₹/ક્વિન્ટલ"
+  "₹/Qtl": "₹/ક્વિન્ટલ",
+  "Today's Agenda": "આજની કાર્યસૂચિ",
+  "You have :reminders and :activities today": "તમારી પાસે આજે :reminders અને :activities છે",
+  "You have 1 reminder today": "તમારી પાસે આજે 1 રીમાઇન્ડર છે",
+  "You have :count reminders today": "તમારી પાસે આજે :count રીમાઇન્ડર્સ છે",
+  "You have 1 scheduled event today": "તમારી પાસે આજે 1 સુનિશ્ચિત ઇવેન્ટ છે",
+  "You have :count scheduled events today": "તમારી પાસે આજે :count સુનિશ્ચિત ઇવેન્ટ્સ છે",
+  "1 reminder": "1 રીમાઇન્ડર",
+  ":count reminders": ":count રીમાઇન્ડર્સ",
+  "1 scheduled event": "1 સુનિશ્ચિત ઇવેન્ટ",
+  ":count scheduled events": ":count સુનિશ્ચિત ઇવેન્ટ્સ"
 }

@@ -22,6 +22,7 @@ import { useTranslation } from '../../src/i18n/I18nContext';
 import { dashboardApi } from '../../src/api/dashboard';
 import { DashboardSummary } from '../../src/types';
 import { colors, radius, spacing } from '../../src/theme/tokens';
+import { ModalSheet } from '../../src/components/ui';
 
 export default function DashboardScreen() {
   const { user, logout } = useAuth();
@@ -38,6 +39,9 @@ export default function DashboardScreen() {
 
   // Profile Modal State
   const [profileModalVisible, setProfileModalVisible] = useState(false);
+
+  // Today's Agenda Modal State (Option 1)
+  const [agendaModalVisible, setAgendaModalVisible] = useState(false);
 
   // Quick Setup Banner Dismissal (stored in component state)
   const [quickSetupDismissed, setQuickSetupDismissed] = useState(false);
@@ -107,6 +111,29 @@ export default function DashboardScreen() {
   const tomorrowReminders = dashboardSummary?.today_reminders || [];
   const tomorrowActivities = dashboardSummary?.today_activities || [];
   const hasTodayItems = tomorrowReminders.length > 0 || tomorrowActivities.length > 0;
+  const totalAgendaCount = tomorrowReminders.length + tomorrowActivities.length;
+
+  const agendaBannerText = useMemo(() => {
+    const remCount = tomorrowReminders.length;
+    const actCount = tomorrowActivities.length;
+
+    if (remCount > 0 && actCount > 0) {
+      const remPart = remCount === 1 ? t('1 reminder') : t(':count reminders', { count: remCount });
+      const actPart = actCount === 1 ? t('1 scheduled event') : t(':count scheduled events', { count: actCount });
+      return t('You have :reminders and :activities today', { reminders: remPart, activities: actPart });
+    }
+    if (remCount > 0) {
+      return remCount === 1
+        ? t('You have 1 reminder today')
+        : t('You have :count reminders today', { count: remCount });
+    }
+    if (actCount > 0) {
+      return actCount === 1
+        ? t('You have 1 scheduled event today')
+        : t('You have :count scheduled events today', { count: actCount });
+    }
+    return '';
+  }, [tomorrowReminders.length, tomorrowActivities.length, t]);
 
   const needsFarm = dashboardSummary?.needs_farm_reminder || false;
   const needsStaff = dashboardSummary?.needs_staff_reminder || false;
@@ -190,6 +217,34 @@ export default function DashboardScreen() {
             </View>
           </View>
 
+          {/* Today's Agenda Compact Banner (Option 1) */}
+          {hasTodayItems && !loading && (
+            <View style={[styles.agendaBannerContainer, { paddingHorizontal: horizontalPadding }]}>
+              <TouchableOpacity
+                style={styles.agendaBanner}
+                onPress={() => setAgendaModalVisible(true)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={agendaBannerText}
+              >
+                <View style={styles.agendaBannerLeft}>
+                  <View style={styles.agendaBannerIconBox}>
+                    <Ionicons name="notifications-outline" size={16} color="#15803d" />
+                  </View>
+                  <Text style={styles.agendaBannerText} numberOfLines={1} ellipsizeMode="tail">
+                    {agendaBannerText}
+                  </Text>
+                </View>
+                <View style={styles.agendaBannerRight}>
+                  <View style={styles.agendaCountBadge}>
+                    <Text style={styles.agendaCountBadgeText}>{totalAgendaCount}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color="#16a34a" />
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Quick Setup Coach Overlay / Card */}
           {showCoach && (
             <View style={[styles.coachContainer, { paddingHorizontal: horizontalPadding }]}>
@@ -246,95 +301,11 @@ export default function DashboardScreen() {
             </View>
           )}
 
-          {/* Today Schedule / Highlights Card (fs-next-day) */}
-          {loading ? (
-            <View style={{ paddingHorizontal: horizontalPadding, paddingVertical: 20 }}>
+          {loading && (
+            <View style={{ paddingHorizontal: horizontalPadding, paddingVertical: 12 }}>
               <ActivityIndicator size="small" color={colors.primary} />
             </View>
-          ) : hasTodayItems ? (
-            <View style={{ paddingHorizontal: horizontalPadding, marginBottom: 12 }}>
-              <View style={styles.nextDayCard}>
-                <View style={styles.nextHead}>
-                  <Text style={styles.nextTitle}>{t('Today')}</Text>
-                  <Text style={styles.nextDate}>{todayDateFormatted()}</Text>
-                </View>
-
-                <View style={styles.nextGrid}>
-                  {/* Reminders subcard */}
-                  {tomorrowReminders.length > 0 && (
-                    <View style={styles.nextCard}>
-                      <View style={styles.nextCardHead}>
-                        <Text style={styles.nextCardTitle}>{t('REMINDERS')}</Text>
-                        <TouchableOpacity onPress={() => router.push('/notes')} activeOpacity={0.7}>
-                          <Text style={styles.nextLink}>{t('View All')}</Text>
-                        </TouchableOpacity>
-                      </View>
-
-                      <View style={styles.nextList}>
-                        {tomorrowReminders.slice(0, 6).map((reminder) => (
-                          <TouchableOpacity
-                            key={reminder.ulid || reminder.id}
-                            style={styles.nextItem}
-                            onPress={() =>
-                              router.push({
-                                pathname: '/note-view',
-                                params: { id: reminder.ulid || String(reminder.id) },
-                              })
-                            }
-                            activeOpacity={0.7}
-                          >
-                            <Text style={styles.nextItemTitle} numberOfLines={1}>
-                              {reminder.title}
-                            </Text>
-                            <View style={styles.nextItemMetaWrap}>
-                              <Text style={styles.nextItemMeta}>{reminder.time}</Text>
-                              <Ionicons name="chevron-forward" size={14} color="#94a3b8" />
-                            </View>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </View>
-                  )}
-
-                  {/* Scheduled Activities subcard */}
-                  {tomorrowActivities.length > 0 && (
-                    <View style={styles.nextCard}>
-                      <View style={styles.nextCardHead}>
-                        <Text style={styles.nextCardTitle}>{t('SCHEDULED ACTIVITIES')}</Text>
-                        <TouchableOpacity onPress={() => router.push('/farm-hub')} activeOpacity={0.7}>
-                          <Text style={styles.nextLink}>{t('View All')}</Text>
-                        </TouchableOpacity>
-                      </View>
-
-                      <View style={styles.nextList}>
-                        {tomorrowActivities.slice(0, 6).map((act) => (
-                          <TouchableOpacity
-                            key={act.ulid || act.id}
-                            style={styles.nextItem}
-                            onPress={() =>
-                              router.push({
-                                pathname: '/activity-view',
-                                params: { id: act.ulid || String(act.id) },
-                              })
-                            }
-                            activeOpacity={0.7}
-                          >
-                            <Text style={styles.nextItemTitle} numberOfLines={1}>
-                              {act.name}
-                            </Text>
-                            <View style={styles.nextItemMetaWrap}>
-                              <Text style={styles.nextItemMeta}>{act.farm_name}</Text>
-                              <Ionicons name="chevron-forward" size={14} color="#94a3b8" />
-                            </View>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </View>
-                  )}
-                </View>
-              </View>
-            </View>
-          ) : null}
+          )}
 
           {/* High-Priority Action Modules: Staff Attendance & Staff Payments (fs-module-list) */}
           <View style={[styles.moduleList, { paddingHorizontal: horizontalPadding }]}>
@@ -551,6 +522,145 @@ export default function DashboardScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Today's Agenda Bottom Sheet Modal (Option 1) */}
+      <ModalSheet
+        visible={agendaModalVisible}
+        onClose={() => setAgendaModalVisible(false)}
+        title={t("Today's Agenda")}
+        kicker={todayDateFormatted()}
+        maxHeight="82%"
+        footer={
+          <TouchableOpacity
+            style={styles.agendaModalCloseBtn}
+            onPress={() => setAgendaModalVisible(false)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.agendaModalCloseBtnText}>{t('Close')}</Text>
+          </TouchableOpacity>
+        }
+      >
+        <View style={styles.agendaModalBody}>
+          {/* Reminders Section */}
+          {tomorrowReminders.length > 0 && (
+            <View style={styles.agendaSection}>
+              <View style={styles.agendaSectionHeader}>
+                <View style={styles.agendaSectionTitleRow}>
+                  <View style={[styles.agendaSectionIconBox, { backgroundColor: '#fef3c7' }]}>
+                    <Ionicons name="notifications" size={15} color="#d97706" />
+                  </View>
+                  <Text style={styles.agendaSectionTitle}>{t('Reminders')}</Text>
+                  <View style={styles.agendaBadge}>
+                    <Text style={styles.agendaBadgeText}>{tomorrowReminders.length}</Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    setAgendaModalVisible(false);
+                    router.push('/notes');
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.agendaViewAllText}>{t('View All')}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.agendaList}>
+                {tomorrowReminders.map((reminder) => (
+                  <TouchableOpacity
+                    key={reminder.ulid || reminder.id}
+                    style={styles.agendaItem}
+                    onPress={() => {
+                      setAgendaModalVisible(false);
+                      router.push({
+                        pathname: '/note-view',
+                        params: { id: reminder.ulid || String(reminder.id) },
+                      });
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.agendaItemMain}>
+                      <Text style={styles.agendaItemTitle} numberOfLines={2}>
+                        {reminder.title}
+                      </Text>
+                      {reminder.time ? (
+                        <View style={styles.agendaItemMetaRow}>
+                          <Ionicons name="time-outline" size={12} color="#64748b" />
+                          <Text style={styles.agendaItemMetaText}>{reminder.time}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Scheduled Activities Section */}
+          {tomorrowActivities.length > 0 && (
+            <View style={styles.agendaSection}>
+              <View style={styles.agendaSectionHeader}>
+                <View style={styles.agendaSectionTitleRow}>
+                  <View style={[styles.agendaSectionIconBox, { backgroundColor: '#dbeafe' }]}>
+                    <Ionicons name="calendar" size={15} color="#2563eb" />
+                  </View>
+                  <Text style={styles.agendaSectionTitle}>{t('Scheduled Activities')}</Text>
+                  <View style={styles.agendaBadge}>
+                    <Text style={styles.agendaBadgeText}>{tomorrowActivities.length}</Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    setAgendaModalVisible(false);
+                    router.push('/farm-hub');
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.agendaViewAllText}>{t('View All')}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.agendaList}>
+                {tomorrowActivities.map((act) => (
+                  <TouchableOpacity
+                    key={act.ulid || act.id}
+                    style={styles.agendaItem}
+                    onPress={() => {
+                      setAgendaModalVisible(false);
+                      router.push({
+                        pathname: '/activity-view',
+                        params: { id: act.ulid || String(act.id) },
+                      });
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.agendaItemMain}>
+                      <Text style={styles.agendaItemTitle} numberOfLines={2}>
+                        {act.name}
+                      </Text>
+                      <View style={styles.agendaItemMetaRow}>
+                        {act.farm_name ? (
+                          <>
+                            <Ionicons name="location-outline" size={12} color="#64748b" />
+                            <Text style={styles.agendaItemMetaText}>{act.farm_name}</Text>
+                          </>
+                        ) : null}
+                        {act.crop_name ? (
+                          <Text style={styles.agendaItemMetaText}> • {act.crop_name}</Text>
+                        ) : null}
+                      </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+        </View>
+      </ModalSheet>
     </SafeAreaView>
   );
 }
@@ -709,92 +819,159 @@ const styles = StyleSheet.create({
     color: '#64748b',
   },
 
-  // 4. Today Highlights (fs-next-day)
-  nextDayCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.2)',
-    gap: 14,
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.07,
-    shadowRadius: 20,
-    elevation: 4,
+  // 4. Today's Agenda Compact Banner (Option 1)
+  agendaBannerContainer: {
+    marginBottom: 6,
   },
-  nextHead: {
+  agendaBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  nextTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  nextDate: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748b',
-  },
-  nextGrid: {
-    gap: 12,
-  },
-  nextCard: {
-    padding: 14,
-    borderRadius: 16,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#f0fdf4',
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.2)',
+    borderColor: '#bbf7d0',
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 8,
+    shadowColor: '#16a34a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  agendaBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    marginRight: 6,
+  },
+  agendaBannerIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: '#dcfce7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  agendaBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#15803d',
+  },
+  agendaBannerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 0,
+  },
+  agendaCountBadge: {
+    backgroundColor: '#16a34a',
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  agendaCountBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+
+  // Today's Agenda Modal Styles
+  agendaModalBody: {
+    gap: 18,
+    paddingBottom: 8,
+  },
+  agendaSection: {
     gap: 10,
   },
-  nextCardHead: {
+  agendaSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  nextCardTitle: {
-    fontSize: 13,
+  agendaSectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  agendaSectionIconBox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  agendaSectionTitle: {
+    fontSize: 14,
     fontWeight: '800',
     color: '#0f172a',
-    letterSpacing: 0.8,
   },
-  nextLink: {
+  agendaBadge: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 999,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  agendaBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  agendaViewAllText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#16a34a',
   },
-  nextList: {
+  agendaList: {
     gap: 8,
   },
-  nextItem: {
+  agendaItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 9,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    backgroundColor: '#ffffff',
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.15)',
+    borderColor: '#e2e8f0',
     gap: 10,
   },
-  nextItemTitle: {
+  agendaItemMain: {
     flex: 1,
+    gap: 4,
+  },
+  agendaItemTitle: {
     fontSize: 13,
     fontWeight: '700',
     color: '#0f172a',
   },
-  nextItemMetaWrap: {
+  agendaItemMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    flexShrink: 0,
   },
-  nextItemMeta: {
-    fontSize: 11,
+  agendaItemMetaText: {
+    fontSize: 12,
     color: '#64748b',
+  },
+  agendaModalCloseBtn: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  agendaModalCloseBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
   },
 
   // 5. Action Modules (fs-module-list)
