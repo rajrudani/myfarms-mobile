@@ -39,6 +39,7 @@ import { extractErrorMessage, getBaseUrl } from '../src/api/client';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
 import { QuickChipGroup, ChipOption, ModalSheet, ModernInput, SearchableSelect, ModernDatePicker } from '../src/components/ui';
 import { useResponsive } from '../src/utils/responsive';
+import { useTranslation } from '../src/i18n/I18nContext';
 
 export const getAbsoluteImageUrl = (urlPath?: string | null) => {
   if (!urlPath) return undefined;
@@ -180,6 +181,7 @@ export default function CropCycleViewScreen() {
   const params = useLocalSearchParams();
   const cycleIdentifier = (params.cycle_ulid as string) || (params.ulid as string) || (params.cycle_id as string) || (params.id as string);
   const { containerMaxWidth, isTablet } = useResponsive();
+  const { t } = useTranslation();
 
   const [cycle, setCycle] = useState<CropCycle | null>(null);
   const [farm, setFarm] = useState<Farm | null>(null);
@@ -190,11 +192,22 @@ export default function CropCycleViewScreen() {
   const [crops, setCrops] = useState<Crop[]>([]);
   const [imageError, setImageError] = useState(false);
 
-  // Pagination states (5 records per page, matching PWA)
+  // Pagination states (5 records per page, server-side)
   const PER_PAGE = 5;
   const [activityPage, setActivityPage] = useState(1);
+  const [activityTotal, setActivityTotal] = useState(0);
+  const [activityTotalPages, setActivityTotalPages] = useState(1);
+  const [loadingActivities, setLoadingActivities] = useState(false);
+
   const [expensePage, setExpensePage] = useState(1);
+  const [expenseTotal, setExpenseTotal] = useState(0);
+  const [expenseTotalPages, setExpenseTotalPages] = useState(1);
+  const [loadingExpenses, setLoadingExpenses] = useState(false);
+
   const [salePage, setSalePage] = useState(1);
+  const [saleTotal, setSaleTotal] = useState(0);
+  const [saleTotalPages, setSaleTotalPages] = useState(1);
+  const [loadingSales, setLoadingSales] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -205,6 +218,29 @@ export default function CropCycleViewScreen() {
   const [editNotesModalVisible, setEditNotesModalVisible] = useState(false);
   const [addActivityModalVisible, setAddActivityModalVisible] = useState(false);
   const [addExpenseModalVisible, setAddExpenseModalVisible] = useState(false);
+
+  // Option lists with translations
+  const areaUnitOptions: ChipOption<string>[] = useMemo(() => [
+    { label: t('Acre'), value: 'acre' },
+    { label: t('Bigha'), value: 'bigha' },
+    { label: t('Hectare'), value: 'hectare' },
+    { label: t('Guntha'), value: 'guntha' },
+  ], [t]);
+
+  const harvestUnitOptions: ChipOption<string>[] = useMemo(() => [
+    { label: t('KG (kg)'), value: 'kg' },
+    { label: t('Quintal (q)'), value: 'quintal' },
+    { label: t('Ton (t)'), value: 'ton' },
+    { label: t('Piece (pc)'), value: 'piece' },
+  ], [t]);
+
+  const expensePaymentMethodOptions: ChipOption<string>[] = useMemo(() => [
+    { label: t('Cash'), value: 'cash' },
+    { label: t('UPI'), value: 'upi' },
+    { label: t('Bank Transfer'), value: 'bank_transfer' },
+    { label: t('Cheque'), value: 'cheque' },
+    { label: t('Other'), value: 'other' },
+  ], [t]);
 
   // Edit Cycle form state
   const [editCropType, setEditCropType] = useState('');
@@ -293,20 +329,32 @@ export default function CropCycleViewScreen() {
 
       const dbCycleId = cycleData.id || cycleIdentifier;
 
-      // Fetch related data in parallel
-      const [acts, exps, sls, farmData, masters, cropsData, inputProds] = await Promise.all([
-        farmActivitiesApi.getAll({ crop_cycle_id: dbCycleId }).catch(() => []),
-        expensesApi.getAll({ crop_cycle_id: dbCycleId }).catch(() => []),
-        salesApi.getSales({ crop_cycle_id: dbCycleId }).catch(() => []),
+      // Fetch related data in parallel - load only first page (5 records) on initial opening
+      const [actsRes, expsRes, slsRes, farmData, masters, cropsData, inputProds] = await Promise.all([
+        farmActivitiesApi.getPaginated({ crop_cycle_id: dbCycleId, page: 1, per_page: PER_PAGE }).catch(() => ({ data: [], meta: { current_page: 1, last_page: 1, per_page: PER_PAGE, total: 0 } } as any)),
+        expensesApi.getPaginated({ crop_cycle_id: dbCycleId, page: 1, per_page: PER_PAGE }).catch(() => ({ data: [], meta: { current_page: 1, last_page: 1, per_page: PER_PAGE, total: 0 } } as any)),
+        salesApi.getSalesPaginated({ crop_cycle_id: dbCycleId, page: 1, per_page: PER_PAGE }).catch(() => ({ data: [], meta: { current_page: 1, last_page: 1, per_page: PER_PAGE, total: 0 } } as any)),
         cycleData.farm_id ? farmsApi.getById(cycleData.farm_id).catch(() => null) : Promise.resolve(null),
         mastersApi.getActivities().catch(() => []),
         mastersApi.getCrops().catch(() => []),
         mastersApi.getInputProducts({ status: 'active' }).catch(() => []),
       ]);
 
-      setActivities(acts);
-      setExpenses(exps);
-      setSales(sls);
+      setActivities(actsRes.data || []);
+      setActivityPage(1);
+      setActivityTotal(actsRes.meta?.total ?? (actsRes.data?.length || 0));
+      setActivityTotalPages(actsRes.meta?.last_page || Math.max(1, Math.ceil((actsRes.meta?.total ?? actsRes.data?.length ?? 0) / PER_PAGE)));
+
+      setExpenses(expsRes.data || []);
+      setExpensePage(1);
+      setExpenseTotal(expsRes.meta?.total ?? (expsRes.data?.length || 0));
+      setExpenseTotalPages(expsRes.meta?.last_page || Math.max(1, Math.ceil((expsRes.meta?.total ?? expsRes.data?.length ?? 0) / PER_PAGE)));
+
+      setSales(slsRes.data || []);
+      setSalePage(1);
+      setSaleTotal(slsRes.meta?.total ?? (slsRes.data?.length || 0));
+      setSaleTotalPages(slsRes.meta?.last_page || Math.max(1, Math.ceil((slsRes.meta?.total ?? slsRes.data?.length ?? 0) / PER_PAGE)));
+
       if (farmData) setFarm(farmData);
       const effectiveMasters = masters.length > 0 ? masters : fallbackActivityMasters;
       setActivityMasters(effectiveMasters);
@@ -317,12 +365,12 @@ export default function CropCycleViewScreen() {
       }
     } catch (error) {
       console.error('Error fetching crop cycle data:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to fetch crop cycle details.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to fetch crop cycle details.')));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [cycleIdentifier, selectedActivityMasterId]);
+  }, [cycleIdentifier, selectedActivityMasterId, t]);
 
   useEffect(() => {
     fetchCycleData();
@@ -339,20 +387,75 @@ export default function CropCycleViewScreen() {
     fetchCycleData();
   };
 
-  const activityTotalPages = Math.max(1, Math.ceil(activities.length / PER_PAGE));
-  const paginatedActivities = activities.slice((activityPage - 1) * PER_PAGE, activityPage * PER_PAGE);
+  const fetchActivitiesPage = useCallback(async (pageNum: number) => {
+    const dbCycleId = cycle?.id || cycleIdentifier;
+    if (!dbCycleId) return;
+    setLoadingActivities(true);
+    try {
+      const res = await farmActivitiesApi.getPaginated({
+        crop_cycle_id: dbCycleId,
+        page: pageNum,
+        per_page: PER_PAGE,
+      });
+      setActivities(res.data || []);
+      setActivityPage(res.meta?.current_page || pageNum);
+      setActivityTotal(res.meta?.total ?? (res.data?.length || 0));
+      setActivityTotalPages(res.meta?.last_page || Math.max(1, Math.ceil((res.meta?.total ?? res.data?.length ?? 0) / PER_PAGE)));
+    } catch (err) {
+      console.error('Error fetching paginated activities:', err);
+    } finally {
+      setLoadingActivities(false);
+    }
+  }, [cycle?.id, cycleIdentifier]);
 
-  const expenseTotalPages = Math.max(1, Math.ceil(expenses.length / PER_PAGE));
-  const paginatedExpenses = expenses.slice((expensePage - 1) * PER_PAGE, expensePage * PER_PAGE);
+  const fetchExpensesPage = useCallback(async (pageNum: number) => {
+    const dbCycleId = cycle?.id || cycleIdentifier;
+    if (!dbCycleId) return;
+    setLoadingExpenses(true);
+    try {
+      const res = await expensesApi.getPaginated({
+        crop_cycle_id: dbCycleId,
+        page: pageNum,
+        per_page: PER_PAGE,
+      });
+      setExpenses(res.data || []);
+      setExpensePage(res.meta?.current_page || pageNum);
+      setExpenseTotal(res.meta?.total ?? (res.data?.length || 0));
+      setExpenseTotalPages(res.meta?.last_page || Math.max(1, Math.ceil((res.meta?.total ?? res.data?.length ?? 0) / PER_PAGE)));
+    } catch (err) {
+      console.error('Error fetching paginated expenses:', err);
+    } finally {
+      setLoadingExpenses(false);
+    }
+  }, [cycle?.id, cycleIdentifier]);
 
-  const saleTotalPages = Math.max(1, Math.ceil(sales.length / PER_PAGE));
-  const paginatedSales = sales.slice((salePage - 1) * PER_PAGE, salePage * PER_PAGE);
+  const fetchSalesPage = useCallback(async (pageNum: number) => {
+    const dbCycleId = cycle?.id || cycleIdentifier;
+    if (!dbCycleId) return;
+    setLoadingSales(true);
+    try {
+      const res = await salesApi.getSalesPaginated({
+        crop_cycle_id: dbCycleId,
+        page: pageNum,
+        per_page: PER_PAGE,
+      });
+      setSales(res.data || []);
+      setSalePage(res.meta?.current_page || pageNum);
+      setSaleTotal(res.meta?.total ?? (res.data?.length || 0));
+      setSaleTotalPages(res.meta?.last_page || Math.max(1, Math.ceil((res.meta?.total ?? res.data?.length ?? 0) / PER_PAGE)));
+    } catch (err) {
+      console.error('Error fetching paginated sales:', err);
+    } finally {
+      setLoadingSales(false);
+    }
+  }, [cycle?.id, cycleIdentifier]);
 
   const renderPagination = (
     currentPage: number,
     totalPages: number,
     totalItems: number,
-    onPageChange: (p: number) => void
+    onPageChange: (p: number) => void,
+    isBusy?: boolean
   ) => {
     if (totalItems <= PER_PAGE) return null;
     const startItem = (currentPage - 1) * PER_PAGE + 1;
@@ -369,18 +472,19 @@ export default function CropCycleViewScreen() {
       <View style={styles.paginationWrap}>
         <View style={styles.paginationRow}>
           <TouchableOpacity
-            style={[styles.pageBtn, currentPage <= 1 && styles.pageBtnDisabled]}
-            disabled={currentPage <= 1}
+            style={[styles.pageBtn, (currentPage <= 1 || isBusy) && styles.pageBtnDisabled]}
+            disabled={currentPage <= 1 || isBusy}
             onPress={() => onPageChange(currentPage - 1)}
             activeOpacity={0.7}
           >
-            <Ionicons name="chevron-back" size={14} color={currentPage <= 1 ? '#cbd5e1' : '#1e293b'} />
+            <Ionicons name="chevron-back" size={14} color={currentPage <= 1 || isBusy ? '#cbd5e1' : '#1e293b'} />
           </TouchableOpacity>
 
           {pages.map((p) => (
             <TouchableOpacity
               key={p}
               style={[styles.pageBtn, currentPage === p && styles.pageBtnActive]}
+              disabled={isBusy}
               onPress={() => onPageChange(p)}
               activeOpacity={0.7}
             >
@@ -391,17 +495,21 @@ export default function CropCycleViewScreen() {
           ))}
 
           <TouchableOpacity
-            style={[styles.pageBtn, currentPage >= totalPages && styles.pageBtnDisabled]}
-            disabled={currentPage >= totalPages}
+            style={[styles.pageBtn, (currentPage >= totalPages || isBusy) && styles.pageBtnDisabled]}
+            disabled={currentPage >= totalPages || isBusy}
             onPress={() => onPageChange(currentPage + 1)}
             activeOpacity={0.7}
           >
-            <Ionicons name="chevron-forward" size={14} color={currentPage >= totalPages ? '#cbd5e1' : '#1e293b'} />
+            <Ionicons name="chevron-forward" size={14} color={currentPage >= totalPages || isBusy ? '#cbd5e1' : '#1e293b'} />
           </TouchableOpacity>
+
+          {isBusy && (
+            <ActivityIndicator size="small" color="#16a34a" style={{ marginLeft: 6 }} />
+          )}
         </View>
 
         <Text style={styles.paginationMeta}>
-          Showing {startItem}-{endItem} of {totalItems}
+          {t('Showing %{from}-%{to} of %{total}', { from: startItem, to: endItem, total: totalItems })}
         </Text>
       </View>
     );
@@ -464,7 +572,7 @@ export default function CropCycleViewScreen() {
   const handleSaveCycle = async () => {
     if (!cycleIdentifier || !cycle) return;
     if (!editAllocatedArea.trim() || isNaN(Number(editAllocatedArea)) || Number(editAllocatedArea) <= 0) {
-      Alert.alert('Validation Error', 'Allocated area must be a valid positive number.');
+      Alert.alert(t('Validation Error'), t('Allocated area must be a valid positive number.'));
       return;
     }
 
@@ -483,10 +591,10 @@ export default function CropCycleViewScreen() {
       const updated = await cropCyclesApi.update(cycleIdentifier, payload);
       setCycle(updated);
       setEditCycleModalVisible(false);
-      Alert.alert('Success', 'Crop cycle updated successfully!');
+      Alert.alert(t('Success'), t('Crop cycle updated successfully!'));
       fetchCycleData();
     } catch (error) {
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to update crop cycle.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to update crop cycle.')));
     } finally {
       setUpdatingCycle(false);
     }
@@ -496,7 +604,7 @@ export default function CropCycleViewScreen() {
   const handleSaveHarvest = async () => {
     if (!cycleIdentifier || !cycle) return;
     if (harvestIsHarvested && !harvestDate.trim()) {
-      Alert.alert('Validation Error', 'Actual harvest date is required.');
+      Alert.alert(t('Validation Error'), t('Actual harvest date is required.'));
       return;
     }
 
@@ -515,14 +623,14 @@ export default function CropCycleViewScreen() {
       setCycle(updated);
       setHarvestModalVisible(false);
       Alert.alert(
-        'Success',
+        t('Success'),
         harvestIsHarvested
-          ? (createNextCycle ? 'Harvest saved and next cycle created!' : 'Harvest record saved successfully!')
-          : 'Cycle moved back to Active status!'
+          ? (createNextCycle ? t('Harvest saved and next cycle created!') : t('Harvest record saved successfully!'))
+          : t('Cycle moved back to Active status!')
       );
       fetchCycleData();
     } catch (error) {
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to save harvest.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to save harvest.')));
     } finally {
       setSavingHarvest(false);
     }
@@ -541,9 +649,9 @@ export default function CropCycleViewScreen() {
       const updated = await cropCyclesApi.update(cycleIdentifier, payload);
       setCycle(updated);
       setEditNotesModalVisible(false);
-      Alert.alert('Success', 'Field notes updated.');
+      Alert.alert(t('Success'), t('Field notes updated.'));
     } catch (error) {
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to update notes.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to save notes.')));
     } finally {
       setSavingNotes(false);
     }
@@ -552,7 +660,7 @@ export default function CropCycleViewScreen() {
   // Quick Add Activity
   const handleCreateActivity = async () => {
     if (!cycle?.farm_id || !selectedActivityMasterId) {
-      Alert.alert('Validation Error', 'Please select an activity master.');
+      Alert.alert(t('Validation Error'), t('Please select an activity master.'));
       return;
     }
 
@@ -573,11 +681,11 @@ export default function CropCycleViewScreen() {
     fields.forEach((f: any) => {
       const val = activityFieldsValues[f.key];
       if (f.required && (val === undefined || val === null || val === '')) {
-        errors[f.key] = `${f.label} is required.`;
+        errors[f.key] = t('%{label} is required.', { label: f.label });
         hasError = true;
       }
       if (val === 'new' && (!customProductNames[f.key] || !customProductNames[f.key].trim())) {
-        errors[f.key] = `Please enter custom ${f.label.toLowerCase()} name.`;
+        errors[f.key] = t('Please enter custom %{label} name.', { label: f.label });
         hasError = true;
       }
     });
@@ -619,10 +727,10 @@ export default function CropCycleViewScreen() {
       setActivityNotes('');
       setActivityFieldsValues({});
       setCustomProductNames({});
-      Alert.alert('Success', 'Activity added successfully!');
-      fetchCycleData();
+      Alert.alert(t('Success'), t('Activity added successfully!'));
+      fetchActivitiesPage(1);
     } catch (error) {
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to create activity.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to create activity.')));
     } finally {
       setSavingActivity(false);
     }
@@ -631,7 +739,7 @@ export default function CropCycleViewScreen() {
   // Quick Add Expense
   const handleCreateExpense = async () => {
     if (!cycle?.farm_id || !expenseAmount.trim()) {
-      Alert.alert('Validation Error', 'Please enter a valid expense amount.');
+      Alert.alert(t('Validation Error'), t('Please enter a valid expense amount.'));
       return;
     }
 
@@ -651,10 +759,10 @@ export default function CropCycleViewScreen() {
       setAddExpenseModalVisible(false);
       setExpenseAmount('');
       setExpenseNotes('');
-      Alert.alert('Success', 'Expense logged successfully!');
-      fetchCycleData();
+      Alert.alert(t('Success'), t('Expense logged successfully!'));
+      fetchExpensesPage(1);
     } catch (error) {
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to log expense.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to log expense.')));
     } finally {
       setSavingExpense(false);
     }
@@ -664,7 +772,7 @@ export default function CropCycleViewScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#16a34a" />
-        <Text style={styles.loadingText}>Loading crop cycle details...</Text>
+        <Text style={styles.loadingText}>{t('Loading crop cycle details...')}</Text>
       </View>
     );
   }
@@ -697,18 +805,18 @@ export default function CropCycleViewScreen() {
             style={styles.iconBtn}
             onPress={() => router.back()}
             activeOpacity={0.7}
-            accessibilityLabel="Back"
+            accessibilityLabel={t('Back')}
           >
             <Ionicons name="arrow-back" size={20} color="#166534" />
           </TouchableOpacity>
 
-          <Text style={styles.topBarTitle}>Crop Cycle</Text>
+          <Text style={styles.topBarTitle}>{t('Crop Cycle')}</Text>
 
           <TouchableOpacity
             style={styles.iconBtn}
             onPress={() => setEditCycleModalVisible(true)}
             activeOpacity={0.7}
-            accessibilityLabel="Edit Crop Cycle"
+            accessibilityLabel={t('Edit Crop Cycle')}
           >
             <Ionicons name="create-outline" size={20} color="#166534" />
           </TouchableOpacity>
@@ -762,7 +870,7 @@ export default function CropCycleViewScreen() {
 
             <View style={[styles.statusPill, isHarvested && styles.statusPillHarvested]}>
               <Text style={[styles.statusPillText, isHarvested && styles.statusPillTextHarvested]}>
-                {isHarvested ? 'HARVESTED' : 'ACTIVE'}
+                {isHarvested ? t('HARVESTED') : t('ACTIVE')}
               </Text>
             </View>
           </View>
@@ -774,14 +882,14 @@ export default function CropCycleViewScreen() {
                 <Ionicons name="map-outline" size={16} color="#14532d" />
               </View>
               <View style={styles.statCopy}>
-                <Text style={styles.statLabel}>AREA</Text>
+                <Text style={styles.statLabel}>{t('AREA')}</Text>
                 <Text style={styles.statValue}>
                   {cycle?.allocated_area ? Number(cycle.allocated_area).toFixed(2) : '-'}
                 </Text>
                 <Text style={styles.statUnit}>
                   {cycle?.allocated_area_unit
-                    ? cycle.allocated_area_unit.charAt(0).toUpperCase() + cycle.allocated_area_unit.slice(1).toLowerCase()
-                    : 'Acres'}
+                    ? t(cycle.allocated_area_unit.toLowerCase() === 'acre' ? 'Acre' : cycle.allocated_area_unit.toLowerCase() === 'bigha' ? 'Bigha' : cycle.allocated_area_unit.toLowerCase() === 'hectare' ? 'Hectare' : cycle.allocated_area_unit.toLowerCase() === 'guntha' ? 'Guntha' : cycle.allocated_area_unit)
+                    : t('Acres')}
                 </Text>
               </View>
             </View>
@@ -791,12 +899,12 @@ export default function CropCycleViewScreen() {
                 <Ionicons name="location-outline" size={16} color="#14532d" />
               </View>
               <View style={styles.statCopy}>
-                <Text style={styles.statLabel}>FARM</Text>
+                <Text style={styles.statLabel}>{t('FARM')}</Text>
                 <Text style={styles.statText} numberOfLines={1}>
                   {farmName}
                 </Text>
                 <Text style={styles.statSubtext} numberOfLines={1}>
-                  {farmLocation}
+                  {farmLocation === 'Location not set' ? t('Location not set') : farmLocation}
                 </Text>
               </View>
             </View>
@@ -814,7 +922,7 @@ export default function CropCycleViewScreen() {
               activeOpacity={0.7}
             >
               <Ionicons name="clipboard-outline" size={16} color="#166534" />
-              <Text style={styles.actionBtnActivityText}>Add Activity</Text>
+              <Text style={styles.actionBtnActivityText}>{t('Add Activity')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -826,7 +934,7 @@ export default function CropCycleViewScreen() {
               activeOpacity={0.7}
             >
               <Ionicons name="cash-outline" size={16} color="#b45309" />
-              <Text style={styles.actionBtnExpenseText}>Add Expense</Text>
+              <Text style={styles.actionBtnExpenseText}>{t('Add Expense')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -835,7 +943,7 @@ export default function CropCycleViewScreen() {
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeading}>
             <Ionicons name="calendar-outline" size={18} color="#14532d" />
-            <Text style={styles.sectionTitle}>Cycle Timeline</Text>
+            <Text style={styles.sectionTitle}>{t('Cycle Timeline')}</Text>
           </View>
 
           <View style={styles.timelineContainer}>
@@ -843,7 +951,7 @@ export default function CropCycleViewScreen() {
             <View style={styles.timelineItem}>
               <View style={[styles.timelineDot, styles.timelineDotGreen]} />
               <View style={styles.timelineContent}>
-                <Text style={[styles.timelineLabel, { color: '#166534' }]}>STARTED</Text>
+                <Text style={[styles.timelineLabel, { color: '#166534' }]}>{t('STARTED')}</Text>
                 <Text style={styles.timelineDate}>{formatDate(cycle?.started_on)}</Text>
               </View>
             </View>
@@ -853,9 +961,9 @@ export default function CropCycleViewScreen() {
             <View style={styles.timelineItem}>
               <View style={[styles.timelineDot, styles.timelineDotAmber]} />
               <View style={styles.timelineContent}>
-                <Text style={[styles.timelineLabel, { color: '#b45309' }]}>EXPECTED HARVEST</Text>
+                <Text style={[styles.timelineLabel, { color: '#b45309' }]}>{t('EXPECTED HARVEST')}</Text>
                 <Text style={styles.timelineDate}>
-                  {cycle?.expected_harvest_on ? formatDate(cycle.expected_harvest_on) : 'Not Set'}
+                  {cycle?.expected_harvest_on ? formatDate(cycle.expected_harvest_on) : t('Not Set')}
                 </Text>
 
                 {progressPercent !== null && (
@@ -864,7 +972,7 @@ export default function CropCycleViewScreen() {
                       <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
                     </View>
                     <Text style={styles.progressText}>
-                      {isHarvested ? 'Harvest completed' : `${progressPercent}% through cycle`}
+                      {isHarvested ? t('Harvest completed') : t('%{percent}% through cycle', { percent: progressPercent })}
                     </Text>
                   </View>
                 )}
@@ -887,7 +995,7 @@ export default function CropCycleViewScreen() {
                     { color: cycle?.actual_harvest_on ? '#166534' : '#9ca3af' },
                   ]}
                 >
-                  ACTUAL HARVEST
+                  {t('ACTUAL HARVEST')}
                 </Text>
                 <Text
                   style={[
@@ -895,11 +1003,11 @@ export default function CropCycleViewScreen() {
                     !cycle?.actual_harvest_on && { color: '#94a3b8', fontStyle: 'italic' },
                   ]}
                 >
-                  {cycle?.actual_harvest_on ? formatDate(cycle.actual_harvest_on) : 'Awaiting harvest log'}
+                  {cycle?.actual_harvest_on ? formatDate(cycle.actual_harvest_on) : t('Awaiting harvest log')}
                 </Text>
                 {cycle?.harvest_amount ? (
                   <Text style={styles.harvestYieldText}>
-                    Yield: {cycle.harvest_amount} {cycle.harvest_unit || 'KG'}
+                    {t('Yield:')} {cycle.harvest_amount} {t(cycle.harvest_unit || 'KG')}
                   </Text>
                 ) : null}
               </View>
@@ -912,7 +1020,7 @@ export default function CropCycleViewScreen() {
           <View style={styles.sectionHeaderRow}>
             <View style={styles.sectionHeading}>
               <Ionicons name="document-text-outline" size={18} color="#14532d" />
-              <Text style={styles.sectionTitle}>Field Notes</Text>
+              <Text style={styles.sectionTitle}>{t('Field Notes')}</Text>
             </View>
 
             <TouchableOpacity
@@ -921,13 +1029,13 @@ export default function CropCycleViewScreen() {
               activeOpacity={0.7}
             >
               <Ionicons name="pencil-outline" size={14} color="#166534" />
-              <Text style={styles.pillActionBtnText}>Edit Note</Text>
+              <Text style={styles.pillActionBtnText}>{t('Edit Note')}</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.notesBox}>
             <Text style={[styles.notesText, !cycle?.notes && styles.notesTextEmpty]}>
-              {cycle?.notes || 'No field notes added yet.'}
+              {cycle?.notes || t('No field notes added yet.')}
             </Text>
           </View>
         </View>
@@ -937,7 +1045,7 @@ export default function CropCycleViewScreen() {
           <View style={styles.sectionHeaderRow}>
             <View style={styles.sectionHeading}>
               <Ionicons name="clipboard-outline" size={18} color="#14532d" />
-              <Text style={styles.sectionTitle}>Activities</Text>
+              <Text style={styles.sectionTitle}>{t('Activities')}</Text>
             </View>
 
             <TouchableOpacity
@@ -946,18 +1054,18 @@ export default function CropCycleViewScreen() {
               activeOpacity={0.7}
             >
               <Ionicons name="bar-chart-outline" size={14} color="#166534" />
-              <Text style={[styles.pillActionBtnText, { color: '#166534' }]}>Report</Text>
+              <Text style={[styles.pillActionBtnText, { color: '#166534' }]}>{t('Report')}</Text>
             </TouchableOpacity>
           </View>
 
           {activities.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyCardText}>No activities logged for this crop cycle yet.</Text>
+              <Text style={styles.emptyCardText}>{t('No activities logged for this crop cycle yet.')}</Text>
             </View>
           ) : (
             <View>
               <View style={styles.listBlock}>
-                {paginatedActivities.map((act, index) => (
+                {activities.map((act, index) => (
                   <TouchableOpacity
                     key={act.ulid || act.id || index}
                     style={styles.activityItemCard}
@@ -969,12 +1077,12 @@ export default function CropCycleViewScreen() {
                   >
                     <View style={styles.activityHeadRow}>
                       <Text style={styles.activityName} numberOfLines={1}>
-                        {act.farm_activity_master?.name || act.activity_type || 'Activity'}
+                        {act.farm_activity_master?.name || act.activity_type || t('Activity')}
                       </Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <View style={styles.activityStatusPill}>
                           <Text style={styles.activityStatusText}>
-                            {(act.status || 'Completed').toUpperCase()}
+                            {t((act.status || 'Completed').toUpperCase())}
                           </Text>
                         </View>
                         <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
@@ -994,7 +1102,7 @@ export default function CropCycleViewScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-              {renderPagination(activityPage, activityTotalPages, activities.length, setActivityPage)}
+              {renderPagination(activityPage, activityTotalPages, activityTotal, fetchActivitiesPage, loadingActivities)}
             </View>
           )}
         </View>
@@ -1004,7 +1112,7 @@ export default function CropCycleViewScreen() {
           <View style={styles.sectionHeaderRow}>
             <View style={styles.sectionHeading}>
               <Ionicons name="wallet-outline" size={18} color="#14532d" />
-              <Text style={styles.sectionTitle}>Expenses</Text>
+              <Text style={styles.sectionTitle}>{t('Expenses')}</Text>
             </View>
 
             <TouchableOpacity
@@ -1013,22 +1121,22 @@ export default function CropCycleViewScreen() {
               activeOpacity={0.7}
             >
               <Ionicons name="bar-chart-outline" size={14} color="#b45309" />
-              <Text style={[styles.pillActionBtnText, { color: '#b45309' }]}>Report</Text>
+              <Text style={[styles.pillActionBtnText, { color: '#b45309' }]}>{t('Report')}</Text>
             </TouchableOpacity>
           </View>
 
           {expenses.length > 0 && (
             <View style={styles.expenseSummaryBanner}>
               <View>
-                <Text style={styles.summaryLabel}>TOTAL EXPENSES</Text>
+                <Text style={styles.summaryLabel}>{t('PAGE EXPENSES')}</Text>
                 <Text style={styles.summaryValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                   {formatCurrency(totalExpenseSum)}
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={styles.summaryLabel}>COUNT</Text>
+                <Text style={styles.summaryLabel}>{t('TOTAL RECORDS')}</Text>
                 <Text style={styles.summaryValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
-                  {expenses.length}
+                  {expenseTotal}
                 </Text>
               </View>
             </View>
@@ -1036,12 +1144,12 @@ export default function CropCycleViewScreen() {
 
           {expenses.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyCardText}>No expenses logged for this crop cycle yet.</Text>
+              <Text style={styles.emptyCardText}>{t('No expenses logged for this crop cycle yet.')}</Text>
             </View>
           ) : (
             <View>
               <View style={styles.listBlock}>
-                {paginatedExpenses.map((exp, index) => (
+                {expenses.map((exp, index) => (
                   <TouchableOpacity
                     key={exp.ulid || exp.id || index}
                     style={styles.expenseItemCard}
@@ -1053,7 +1161,7 @@ export default function CropCycleViewScreen() {
                   >
                     <View style={styles.expenseHeadRow}>
                       <Text style={styles.expenseCategory} numberOfLines={1}>
-                        {exp.expense_name || exp.expense_category}
+                        {exp.expense_name ? t(exp.expense_name) : (exp.expense_category ? t(exp.expense_category) : '')}
                       </Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <Text style={styles.expenseAmountText}>{formatCurrency(exp.amount)}</Text>
@@ -1064,7 +1172,7 @@ export default function CropCycleViewScreen() {
                     <View style={styles.expenseMetaRow}>
                       <Text style={styles.expenseDateText}>{formatDate(exp.date)}</Text>
                       {exp.payment_method ? (
-                        <Text style={styles.expenseMethodText}>• {exp.payment_method}</Text>
+                        <Text style={styles.expenseMethodText}>• {t(exp.payment_method)}</Text>
                       ) : null}
                     </View>
 
@@ -1076,7 +1184,7 @@ export default function CropCycleViewScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-              {renderPagination(expensePage, expenseTotalPages, expenses.length, setExpensePage)}
+              {renderPagination(expensePage, expenseTotalPages, expenseTotal, fetchExpensesPage, loadingExpenses)}
             </View>
           )}
         </View>
@@ -1086,7 +1194,7 @@ export default function CropCycleViewScreen() {
           <View style={styles.sectionHeaderRow}>
             <View style={styles.sectionHeading}>
               <Ionicons name="pricetag-outline" size={18} color="#14532d" />
-              <Text style={styles.sectionTitle}>Sales</Text>
+              <Text style={styles.sectionTitle}>{t('Sales')}</Text>
             </View>
 
             <TouchableOpacity
@@ -1095,20 +1203,20 @@ export default function CropCycleViewScreen() {
               activeOpacity={0.7}
             >
               <Ionicons name="add" size={15} color="#166534" />
-              <Text style={styles.pillActionBtnText}>Add Sale</Text>
+              <Text style={styles.pillActionBtnText}>{t('Add Sale')}</Text>
             </TouchableOpacity>
           </View>
 
           {sales.length > 0 && (
             <View style={styles.salesSummaryBanner}>
               <View>
-                <Text style={[styles.summaryLabel, { color: '#15803d' }]}>GROSS AMOUNT</Text>
+                <Text style={[styles.summaryLabel, { color: '#15803d' }]}>{t('GROSS AMOUNT')}</Text>
                 <Text style={[styles.summaryValue, { color: '#14532d' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                   {formatCurrency(totalGrossSales)}
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[styles.summaryLabel, { color: '#15803d' }]}>FINAL AMOUNT</Text>
+                <Text style={[styles.summaryLabel, { color: '#15803d' }]}>{t('FINAL AMOUNT')}</Text>
                 <Text style={[styles.summaryValue, { color: '#14532d' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                   {formatCurrency(totalFinalSales)}
                 </Text>
@@ -1118,12 +1226,12 @@ export default function CropCycleViewScreen() {
 
           {sales.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyCardText}>No sales logged for this crop cycle yet.</Text>
+              <Text style={styles.emptyCardText}>{t('No sales logged for this crop cycle yet.')}</Text>
             </View>
           ) : (
             <View>
               <View style={styles.listBlock}>
-                {paginatedSales.map((sale, index) => (
+                {sales.map((sale, index) => (
                   <TouchableOpacity
                     key={sale.ulid || sale.id || index}
                     style={styles.saleItemCard}
@@ -1135,7 +1243,7 @@ export default function CropCycleViewScreen() {
                   >
                     <View style={styles.saleHeadRow}>
                       <Text style={styles.saleBuyerName} numberOfLines={1}>
-                        {sale.buyer_name || 'Buyer Sale'}
+                        {sale.buyer_name || t('Buyer Sale')}
                       </Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <Text style={styles.saleFinalAmount}>+{formatCurrency(sale.final_amount ?? sale.gross_total)}</Text>
@@ -1145,96 +1253,94 @@ export default function CropCycleViewScreen() {
 
                     <View style={styles.saleMetaRow}>
                       <Text style={styles.saleDateText}>{formatDate(sale.date)}</Text>
-                      <Text style={styles.saleGrossText}>Total: {formatCurrency(sale.gross_total)}</Text>
+                      <Text style={styles.saleGrossText}>{t('Total:')} {formatCurrency(sale.gross_total)}</Text>
                     </View>
                   </TouchableOpacity>
                 ))}
               </View>
-              {renderPagination(salePage, saleTotalPages, sales.length, setSalePage)}
+              {renderPagination(salePage, saleTotalPages, saleTotal, fetchSalesPage, loadingSales)}
             </View>
           )}
         </View>
 
-        <View style={{ height: 100 }} />
+        {/* Non-sticky Footer Actions at the end of the page */}
+        <View style={styles.footerActionsContainer}>
+          <TouchableOpacity
+            style={styles.footerEditBtn}
+            onPress={() => setEditCycleModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="pencil-outline" size={17} color="#334155" />
+            <Text style={styles.footerEditBtnText}>{t('Edit Cycle')}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.footerHarvestBtn, isHarvested && styles.footerHarvestBtnDone]}
+            onPress={() => setHarvestModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="checkmark-circle-outline" size={18} color="#ffffff" />
+            <Text style={styles.footerHarvestBtnText}>
+              {isHarvested ? t('Edit Harvest') : t('Harvest Crop')}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
-
-      {/* Bottom Sticky Footer */}
-      <View style={styles.bottomFooter}>
-        <TouchableOpacity
-          style={styles.footerEditBtn}
-          onPress={() => setEditCycleModalVisible(true)}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="pencil-outline" size={17} color="#334155" />
-          <Text style={styles.footerEditBtnText}>Edit Cycle</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.footerHarvestBtn, isHarvested && styles.footerHarvestBtnDone]}
-          onPress={() => setHarvestModalVisible(true)}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="checkmark-circle-outline" size={18} color="#ffffff" />
-          <Text style={styles.footerHarvestBtnText}>
-            {isHarvested ? 'Edit Harvest' : 'Harvest Crop'}
-          </Text>
-        </TouchableOpacity>
-      </View>
       </View>
 
       {/* MODAL 1: Edit Cycle */}
       <ModalSheet
         visible={editCycleModalVisible}
         onClose={() => setEditCycleModalVisible(false)}
-        title="Edit Crop Cycle"
+        title={t('Edit Crop Cycle')}
         maxHeight="88%"
       >
         <ScrollView showsVerticalScrollIndicator={false}>
           <ModernInput
-            label="Crop Type / Variety"
+            label={t('Crop Type / Variety')}
             value={editCropType}
             onChangeText={setEditCropType}
-            placeholder="e.g. Cotton, Wheat"
+            placeholder={t('e.g. Cotton, Wheat')}
             placeholderTextColor={colors.slate400}
             containerStyle={{ marginBottom: spacing.md }}
           />
 
           <ModernInput
-            label="Allocated Area"
+            label={t('Allocated Area')}
             value={editAllocatedArea}
             onChangeText={setEditAllocatedArea}
             keyboardType="decimal-pad"
-            placeholder="e.g. 5.5"
+            placeholder={t('e.g. 5.5')}
             placeholderTextColor={colors.slate400}
             containerStyle={{ marginBottom: spacing.sm }}
           />
 
-          <Text style={styles.inputLabel}>Area Measurement Unit</Text>
+          <Text style={styles.inputLabel}>{t('Area Measurement Unit')}</Text>
           <QuickChipGroup
-            options={AREA_UNIT_OPTIONS}
+            options={areaUnitOptions}
             selectedValue={editAllocatedAreaUnit}
             onSelect={(val) => setEditAllocatedAreaUnit(val)}
             size="sm"
           />
 
           <ModernInput
-            label="Season Name"
+            label={t('Season Name')}
             value={editSeasonName}
             onChangeText={setEditSeasonName}
-            placeholder="e.g. Kharif 2026"
+            placeholder={t('e.g. Kharif 2026')}
             placeholderTextColor={colors.slate400}
             containerStyle={{ marginTop: spacing.md, marginBottom: spacing.md }}
           />
 
           <ModernDatePicker
-            label="Started Date"
+            label={t('Started Date')}
             value={editStartedOn}
             onChange={setEditStartedOn}
             containerStyle={{ marginBottom: spacing.md }}
           />
 
           <ModernDatePicker
-            label="Expected Harvest Date"
+            label={t('Expected Harvest Date')}
             value={editExpectedHarvestOn}
             onChange={setEditExpectedHarvestOn}
             containerStyle={{ marginBottom: spacing.md }}
@@ -1247,7 +1353,7 @@ export default function CropCycleViewScreen() {
               disabled={updatingCycle}
               activeOpacity={0.7}
             >
-              <Text style={styles.cancelBtnText}>Cancel</Text>
+              <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1259,7 +1365,7 @@ export default function CropCycleViewScreen() {
               {updatingCycle ? (
                 <ActivityIndicator color={colors.white} />
               ) : (
-                <Text style={styles.saveBtnText}>Save Changes</Text>
+                <Text style={styles.saveBtnText}>{t('Save Changes')}</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -1270,18 +1376,18 @@ export default function CropCycleViewScreen() {
       <ModalSheet
         visible={harvestModalVisible}
         onClose={() => setHarvestModalVisible(false)}
-        title={harvestIsHarvested ? 'Harvest Crop Cycle' : 'Update Cycle Status'}
+        title={harvestIsHarvested ? t('Harvest Crop Cycle') : t('Update Cycle Status')}
         maxHeight="88%"
       >
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* Harvested Toggle */}
           <View style={styles.switchRow}>
             <View style={{ flex: 1, paddingRight: spacing.sm }}>
-              <Text style={styles.switchTitle}>Harvested</Text>
+              <Text style={styles.switchTitle}>{t('Harvested')}</Text>
               <Text style={styles.switchSubtitle}>
                 {harvestIsHarvested
-                  ? 'Turn off to move this cycle back to Active status'
-                  : 'Turn on to mark this crop cycle as harvested'}
+                  ? t('Turn off to move this cycle back to Active status')
+                  : t('Turn on to mark this crop cycle as harvested')}
               </Text>
             </View>
             <Switch
@@ -1302,9 +1408,9 @@ export default function CropCycleViewScreen() {
               {/* Create New Cycle Toggle (for Perennial crops like Mango, Lemon, etc.) */}
               <View style={[styles.switchRow, { marginTop: spacing.md }]}>
                 <View style={{ flex: 1, paddingRight: spacing.sm }}>
-                  <Text style={styles.switchTitle}>Create New Cycle</Text>
+                  <Text style={styles.switchTitle}>{t('Create New Cycle')}</Text>
                   <Text style={styles.switchSubtitle}>
-                    For perennial crops (mango, lemon, chikoo, etc.) where planting continues after each harvest
+                    {t('For perennial crops (mango, lemon, chikoo, etc.) where planting continues after each harvest')}
                   </Text>
                 </View>
                 <Switch
@@ -1316,7 +1422,7 @@ export default function CropCycleViewScreen() {
               </View>
 
               <ModernDatePicker
-                label="Actual Harvest Date"
+                label={t('Actual Harvest Date')}
                 required
                 value={harvestDate}
                 onChange={setHarvestDate}
@@ -1324,18 +1430,18 @@ export default function CropCycleViewScreen() {
               />
 
               <ModernInput
-                label="Harvest Yield Amount"
+                label={t('Harvest Yield Amount')}
                 value={harvestAmount}
                 onChangeText={setHarvestAmount}
                 keyboardType="decimal-pad"
-                placeholder="e.g. 1200"
+                placeholder={t('e.g. 1200')}
                 placeholderTextColor={colors.slate400}
                 containerStyle={{ marginBottom: spacing.sm }}
               />
 
-              <Text style={styles.inputLabel}>Yield Unit</Text>
+              <Text style={styles.inputLabel}>{t('Yield Unit')}</Text>
               <QuickChipGroup
-                options={HARVEST_UNITS}
+                options={harvestUnitOptions}
                 selectedValue={harvestUnit.toLowerCase()}
                 onSelect={(val) => setHarvestUnit(val.toString())}
                 size="sm"
@@ -1350,7 +1456,7 @@ export default function CropCycleViewScreen() {
               disabled={savingHarvest}
               activeOpacity={0.7}
             >
-              <Text style={styles.cancelBtnText}>Cancel</Text>
+              <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1363,7 +1469,7 @@ export default function CropCycleViewScreen() {
                 <ActivityIndicator color={colors.white} />
               ) : (
                 <Text style={styles.saveBtnText}>
-                  {harvestIsHarvested ? 'Save Harvest' : 'Move to Active'}
+                  {harvestIsHarvested ? t('Save Harvest') : t('Move to Active')}
                 </Text>
               )}
             </TouchableOpacity>
@@ -1375,14 +1481,14 @@ export default function CropCycleViewScreen() {
       <ModalSheet
         visible={editNotesModalVisible}
         onClose={() => setEditNotesModalVisible(false)}
-        title="Field Notes"
+        title={t('Field Notes')}
         maxHeight="60%"
       >
         <ModernInput
-          label="Notes"
+          label={t('Notes')}
           value={notesText}
           onChangeText={setNotesText}
-          placeholder="Record crop observations, watering notes, soil remarks..."
+          placeholder={t('Record crop observations, watering notes, soil remarks...')}
           placeholderTextColor={colors.slate400}
           multiline
           numberOfLines={5}
@@ -1396,7 +1502,7 @@ export default function CropCycleViewScreen() {
             disabled={savingNotes}
             activeOpacity={0.7}
           >
-            <Text style={styles.cancelBtnText}>Cancel</Text>
+            <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -1408,7 +1514,7 @@ export default function CropCycleViewScreen() {
             {savingNotes ? (
               <ActivityIndicator color={colors.white} />
             ) : (
-              <Text style={styles.saveBtnText}>Save Note</Text>
+              <Text style={styles.saveBtnText}>{t('Save Note')}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -1418,12 +1524,12 @@ export default function CropCycleViewScreen() {
       <ModalSheet
         visible={addActivityModalVisible}
         onClose={() => setAddActivityModalVisible(false)}
-        title="Log Field Activity"
+        title={t('Log Field Activity')}
         maxHeight="90%"
       >
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.inputLabel}>Select Activity Type *</Text>
+              <Text style={styles.inputLabel}>{t('Select Activity Type *')}</Text>
               <View style={styles.chipSelectorWrap}>
                 {activityMasters.map((master) => {
                   const isSel = selectedActivityMasterId?.toString() === master.id?.toString();
@@ -1436,7 +1542,7 @@ export default function CropCycleViewScreen() {
                       <Text
                         style={[styles.masterChipText, isSel && styles.masterChipTextSelected]}
                       >
-                        {master.name}
+                        {t(master.name)}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -1463,7 +1569,7 @@ export default function CropCycleViewScreen() {
                     <View style={styles.dynamicFieldsHeader}>
                       <Ionicons name="options-outline" size={16} color={colors.slate700} style={{ marginRight: 6 }} />
                       <Text style={styles.dynamicFieldsTitle}>
-                        {selectedMaster.name} Details
+                        {t('%{name} Details', { name: t(selectedMaster.name) })}
                       </Text>
                     </View>
 
@@ -1475,7 +1581,7 @@ export default function CropCycleViewScreen() {
                         return (
                           <View key={f.key} style={{ marginBottom: 12 }}>
                             <Text style={styles.inputLabel}>
-                              {f.label} {f.required && <Text style={{ color: colors.danger }}>*</Text>}
+                              {t(f.label)} {f.required && <Text style={{ color: colors.danger }}>*</Text>}
                             </Text>
                             <TextInput
                               style={[styles.input, { backgroundColor: colors.white }, error ? styles.inputErrorBorder : null]}
@@ -1486,7 +1592,7 @@ export default function CropCycleViewScreen() {
                                   setActivityErrors((prev) => ({ ...prev, [f.key]: '' }));
                                 }
                               }}
-                              placeholder={`Enter ${f.label.toLowerCase()}`}
+                              placeholder={t('Enter %{label}', { label: t(f.label).toLowerCase() })}
                               placeholderTextColor={colors.slate400}
                             />
                             {error ? <Text style={styles.inputErrorText}>{error}</Text> : null}
@@ -1498,7 +1604,7 @@ export default function CropCycleViewScreen() {
                         return (
                           <View key={f.key} style={{ marginBottom: 12 }}>
                             <Text style={styles.inputLabel}>
-                              {f.label} {f.required && <Text style={{ color: colors.danger }}>*</Text>}
+                              {t(f.label)} {f.required && <Text style={{ color: colors.danger }}>*</Text>}
                             </Text>
                             <TextInput
                               style={[styles.input, { backgroundColor: colors.white }, error ? styles.inputErrorBorder : null]}
@@ -1509,7 +1615,7 @@ export default function CropCycleViewScreen() {
                                   setActivityErrors((prev) => ({ ...prev, [f.key]: '' }));
                                 }
                               }}
-                              placeholder="e.g. 10"
+                              placeholder={t('e.g. 10')}
                               placeholderTextColor={colors.slate400}
                               keyboardType="numeric"
                             />
@@ -1521,7 +1627,7 @@ export default function CropCycleViewScreen() {
                       if (f.type === 'boolean') {
                         return (
                           <View key={f.key} style={styles.dynamicBoolRow}>
-                            <Text style={styles.dynamicBoolLabel}>{f.label}</Text>
+                            <Text style={styles.dynamicBoolLabel}>{t(f.label)}</Text>
                             <Switch
                               value={!!val}
                               onValueChange={(boolVal) => {
@@ -1539,7 +1645,7 @@ export default function CropCycleViewScreen() {
                         return (
                           <View key={f.key} style={{ marginBottom: 12 }}>
                             <Text style={styles.inputLabel}>
-                              {f.label} {f.required && <Text style={{ color: colors.danger }}>*</Text>}
+                              {t(f.label)} {f.required && <Text style={{ color: colors.danger }}>*</Text>}
                             </Text>
                             <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 }}>
                               {normalizedOpts.map((opt) => {
@@ -1557,7 +1663,7 @@ export default function CropCycleViewScreen() {
                                     activeOpacity={0.7}
                                   >
                                     <Text style={[styles.enumChipText, isSelected && styles.enumChipTextSelected]}>
-                                      {opt.label}
+                                      {t(opt.label)}
                                     </Text>
                                   </TouchableOpacity>
                                 );
@@ -1577,16 +1683,16 @@ export default function CropCycleViewScreen() {
                             label: p.name,
                             icon: 'flask-outline' as const,
                           })),
-                          { value: 'new', label: '+ Add Custom Product...', icon: 'add-circle-outline' as const },
+                          { value: 'new', label: t('+ Add Custom Product...'), icon: 'add-circle-outline' as const },
                         ];
 
                         return (
                           <View key={f.key} style={{ marginBottom: 12 }}>
                             <SearchableSelect
-                              label={f.label}
+                              label={t(f.label)}
                               required={f.required}
-                              placeholder={`Select ${f.label}`}
-                              searchPlaceholder={`Search ${f.label}...`}
+                              placeholder={t('Select %{label}', { label: t(f.label) })}
+                              searchPlaceholder={t('Search %{label}...', { label: t(f.label) })}
                               items={dropdownItems}
                               value={val?.toString() || null}
                               onSelect={(selectedId) => {
@@ -1601,7 +1707,7 @@ export default function CropCycleViewScreen() {
                             {isCustom && (
                               <TextInput
                                 style={[styles.input, { marginTop: 6, backgroundColor: colors.white }]}
-                                placeholder={`Enter custom ${f.label.toLowerCase()} name`}
+                                placeholder={t('Enter custom %{label} name', { label: t(f.label).toLowerCase() })}
                                 placeholderTextColor={colors.slate400}
                                 value={customProductNames[f.key] || ''}
                                 onChangeText={(txt) => {
@@ -1623,17 +1729,17 @@ export default function CropCycleViewScreen() {
               })()}
 
               <ModernDatePicker
-                label="Date"
+                label={t('Date')}
                 value={activityDate}
                 onChange={setActivityDate}
                 containerStyle={{ marginBottom: spacing.md }}
               />
 
               <ModernInput
-                label="Notes / Remarks"
+                label={t('Notes / Remarks')}
                 value={activityNotes}
                 onChangeText={setActivityNotes}
-                placeholder="Workers count, chemicals used, etc."
+                placeholder={t('Workers count, chemicals used, etc.')}
                 multiline
                 numberOfLines={3}
                 containerStyle={{ marginBottom: spacing.md }}
@@ -1645,7 +1751,7 @@ export default function CropCycleViewScreen() {
                   onPress={() => setAddActivityModalVisible(false)}
                   disabled={savingActivity}
                 >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -1656,7 +1762,7 @@ export default function CropCycleViewScreen() {
                   {savingActivity ? (
                     <ActivityIndicator color={colors.white} />
                   ) : (
-                    <Text style={styles.saveBtnText}>Save Activity</Text>
+                    <Text style={styles.saveBtnText}>{t('Save Activity')}</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -1667,11 +1773,11 @@ export default function CropCycleViewScreen() {
       <ModalSheet
         visible={addExpenseModalVisible}
         onClose={() => setAddExpenseModalVisible(false)}
-        title="Log Farm Expense"
+        title={t('Log Farm Expense')}
         maxHeight="88%"
       >
         <ScrollView showsVerticalScrollIndicator={false}>
-          <Text style={styles.inputLabel}>Expense Category *</Text>
+          <Text style={styles.inputLabel}>{t('Expense Category *')}</Text>
           <View style={styles.chipSelectorWrap}>
             {EXPENSE_CATEGORIES.map((cat) => {
               const isSel = expenseCategory === cat;
@@ -1685,7 +1791,7 @@ export default function CropCycleViewScreen() {
                   <Text
                     style={[styles.masterChipText, isSel && styles.masterChipTextSelected]}
                   >
-                    {cat}
+                    {t(cat)}
                   </Text>
                 </TouchableOpacity>
               );
@@ -1693,7 +1799,7 @@ export default function CropCycleViewScreen() {
           </View>
 
           <ModernInput
-            label="Amount"
+            label={t('Amount')}
             required
             value={expenseAmount}
             onChangeText={setExpenseAmount}
@@ -1705,7 +1811,7 @@ export default function CropCycleViewScreen() {
           />
 
           <ModernDatePicker
-            label="Expense Date"
+            label={t('Expense Date')}
             value={expenseDate}
             onChange={setExpenseDate}
             containerStyle={{ marginBottom: spacing.sm }}
@@ -1714,9 +1820,9 @@ export default function CropCycleViewScreen() {
           {/* Paid Toggle Switch */}
           <View style={[styles.switchRow, { marginTop: spacing.xs }]}>
             <View style={{ flex: 1, paddingRight: spacing.sm }}>
-              <Text style={styles.switchTitle}>Paid</Text>
+              <Text style={styles.switchTitle}>{t('Paid')}</Text>
               <Text style={styles.switchSubtitle}>
-                {expenseIsPaid ? 'Expense has been settled' : 'Expense is pending / unpaid'}
+                {expenseIsPaid ? t('Expense has been settled') : t('Expense is pending / unpaid')}
               </Text>
             </View>
             <Switch
@@ -1734,9 +1840,9 @@ export default function CropCycleViewScreen() {
           {/* Payment Method (conditional) */}
           {expenseIsPaid && (
             <View style={{ marginTop: spacing.sm }}>
-              <Text style={styles.inputLabel}>Payment Method</Text>
+              <Text style={styles.inputLabel}>{t('Payment Method')}</Text>
               <QuickChipGroup
-                options={EXPENSE_PAYMENT_METHODS}
+                options={expensePaymentMethodOptions}
                 selectedValue={expensePaymentMethod}
                 onSelect={(val) => setExpensePaymentMethod(val.toString())}
                 size="sm"
@@ -1745,10 +1851,10 @@ export default function CropCycleViewScreen() {
           )}
 
           <ModernInput
-            label="Notes"
+            label={t('Notes')}
             value={expenseNotes}
             onChangeText={setExpenseNotes}
-            placeholder="Vendor name, bill number, remarks..."
+            placeholder={t('Vendor name, bill number, remarks...')}
             placeholderTextColor={colors.slate400}
             multiline
             numberOfLines={3}
@@ -1762,7 +1868,7 @@ export default function CropCycleViewScreen() {
               disabled={savingExpense}
               activeOpacity={0.7}
             >
-              <Text style={styles.cancelBtnText}>Cancel</Text>
+              <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1774,7 +1880,7 @@ export default function CropCycleViewScreen() {
               {savingExpense ? (
                 <ActivityIndicator color={colors.white} />
               ) : (
-                <Text style={styles.saveBtnText}>Save Expense</Text>
+                <Text style={styles.saveBtnText}>{t('Save Expense')}</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -2345,20 +2451,11 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontWeight: '600',
   },
-  bottomFooter: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+  footerActionsContainer: {
     flexDirection: 'row',
     gap: 10,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 32 : 16,
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-    ...shadows.medium,
+    marginTop: 14,
+    marginBottom: 28,
   },
   footerEditBtn: {
     flex: 1,
