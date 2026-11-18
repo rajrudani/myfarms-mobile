@@ -392,7 +392,7 @@ export default function ConsultantVisitsScreen() {
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       {/* Header */}
-      <View style={[styles.header, { paddingTop: topInset + 8 }]}>
+      <View style={[styles.header, { paddingTop: Math.max(topInset, 12) + 6 }]}>
         <View style={styles.headerTopRow}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={20} color={colors.slate700} />
@@ -834,13 +834,15 @@ const styles = StyleSheet.create({
   },
   headerTitleCol: {
     flex: 1,
+    paddingTop: 2,
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: '800',
     color: '#0f172a',
     letterSpacing: -0.02,
-    lineHeight: 26,
+    lineHeight: 30,
+    paddingTop: 3,
   },
   headerSubtitle: {
     fontSize: 12,
@@ -942,7 +944,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 115,
+    paddingBottom: 130,
   },
   emptyContainer: {
     alignItems: 'center',

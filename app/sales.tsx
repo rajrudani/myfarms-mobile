@@ -71,6 +71,7 @@ export default function SalesScreen() {
   // Modal Triggers
   const [saleModalVisible, setSaleModalVisible] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
+  const [formStep, setFormStep] = useState<1 | 2 | 3>(1);
 
   // Form Fields
   const [farmId, setFarmId] = useState<string | number>('');
@@ -155,9 +156,20 @@ export default function SalesScreen() {
 
   // Open Record Sale Modal
   const openRecordModal = () => {
+    setFormStep(1);
     setEditingSale(null);
-    setFarmId(farms.length > 0 ? farms[0].id || '' : '');
-    setCropCycleId('');
+    const initialFarmId = farms.length > 0 ? (farms[0].id || farms[0].ulid || '').toString() : '';
+    setFarmId(initialFarmId);
+    if (initialFarmId) {
+      const farmCycles = cropCycles.filter((c) => c.farm_id.toString() === initialFarmId);
+      if (farmCycles.length === 1 && farmCycles[0]) {
+        setCropCycleId((farmCycles[0].ulid || farmCycles[0].id || '').toString());
+      } else {
+        setCropCycleId('');
+      }
+    } else {
+      setCropCycleId('');
+    }
     const firstBuyer = buyers.length > 0 ? buyers[0] : null;
     setBuyerId(firstBuyer ? (firstBuyer.ulid || firstBuyer.id).toString() : '');
     setBuyerName(firstBuyer ? firstBuyer.name : '');
@@ -176,6 +188,7 @@ export default function SalesScreen() {
 
   // Open Edit Sale Modal
   const openEditModal = (sale: Sale) => {
+    setFormStep(1);
     setEditingSale(sale);
     setFarmId(sale.farm_id);
     setCropCycleId(sale.crop_cycle_id);
@@ -275,38 +288,61 @@ export default function SalesScreen() {
     );
   }, [grades]);
 
-  // Save Sale
-  const handleSaveSale = async () => {
-    if (!farmId || !cropCycleId || (!buyerId && !buyerName.trim()) || !saleDate.trim()) {
-      Alert.alert('Validation Error', 'Farm, Crop Cycle, Buyer, and Sale Date are required.');
-      return;
+  // Step validations
+  const validateStep1 = (): boolean => {
+    if (!saleDate.trim()) {
+      Alert.alert(t('Validation Error'), t('Sale date is required.'));
+      return false;
     }
+    if (!farmId) {
+      Alert.alert(t('Validation Error'), t('Please select a farm.'));
+      return false;
+    }
+    if (!cropCycleId) {
+      Alert.alert(t('Validation Error'), t('Please select a crop cycle.'));
+      return false;
+    }
+    if (!buyerId && !buyerName.trim()) {
+      Alert.alert(t('Validation Error'), t('Please select or enter a buyer before proceeding.'));
+      return false;
+    }
+    return true;
+  };
 
+  const validateStep2 = (): boolean => {
     if (hasGrades) {
       if (grades.length === 0) {
-        Alert.alert('Validation Error', 'Please add at least one grade row.');
-        return;
+        Alert.alert(t('Validation Error'), t('Please add at least one grade with valid quantity and rate.'));
+        return false;
       }
       for (let i = 0; i < grades.length; i++) {
         const g = grades[i];
         if (!g.quantity || isNaN(parseFloat(g.quantity)) || parseFloat(g.quantity) <= 0) {
-          Alert.alert('Validation Error', `Grade row #${i + 1} has an invalid quantity.`);
-          return;
+          Alert.alert(t('Validation Error'), `${t('Grade row')} #${i + 1} ${t('has an invalid quantity.')}`);
+          return false;
         }
         if (!g.rate || isNaN(parseFloat(g.rate)) || parseFloat(g.rate) <= 0) {
-          Alert.alert('Validation Error', `Grade row #${i + 1} has an invalid rate.`);
-          return;
+          Alert.alert(t('Validation Error'), `${t('Grade row')} #${i + 1} ${t('has an invalid rate.')}`);
+          return false;
         }
       }
     } else {
       if (!totalQuantity || isNaN(parseFloat(totalQuantity)) || parseFloat(totalQuantity) <= 0) {
-        Alert.alert('Validation Error', 'Please enter a valid positive quantity.');
-        return;
+        Alert.alert(t('Validation Error'), t('Please enter a valid quantity and rate.'));
+        return false;
       }
       if (!rate || isNaN(parseFloat(rate)) || parseFloat(rate) <= 0) {
-        Alert.alert('Validation Error', 'Please enter a valid positive rate.');
-        return;
+        Alert.alert(t('Validation Error'), t('Please enter a valid quantity and rate.'));
+        return false;
       }
+    }
+    return true;
+  };
+
+  // Save Sale
+  const handleSaveSale = async () => {
+    if (!validateStep1() || !validateStep2()) {
+      return;
     }
 
     const selectedCycle = cropCycles.find(
@@ -447,7 +483,7 @@ export default function SalesScreen() {
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       {/* Header */}
-      <View style={[styles.header, { paddingTop: topInset + 8 }]}>
+      <View style={[styles.header, { paddingTop: Math.max(topInset, 12) + 6 }]}>
         <View style={styles.headerTopRow}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={20} color={colors.slate700} />
@@ -729,407 +765,691 @@ export default function SalesScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* Step Progress Indicator */}
+            <View style={styles.wizardStepsBar}>
+              <TouchableOpacity
+                style={styles.wizardStepItem}
+                onPress={() => setFormStep(1)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.wizardStepCircle, formStep === 1 && styles.wizardStepCircleActive, formStep > 1 && styles.wizardStepCircleDone]}>
+                  {formStep > 1 ? (
+                    <Ionicons name="checkmark" size={13} color={colors.white} />
+                  ) : (
+                    <Text style={[styles.wizardStepNumber, formStep === 1 && styles.wizardStepNumberActive]}>1</Text>
+                  )}
+                </View>
+                <Text style={[styles.wizardStepLabel, formStep === 1 && styles.wizardStepLabelActive]} numberOfLines={1}>
+                  {t('Basic Details')}
+                </Text>
+              </TouchableOpacity>
+
+              <View style={[styles.wizardStepLine, formStep > 1 && styles.wizardStepLineActive]} />
+
+              <TouchableOpacity
+                style={styles.wizardStepItem}
+                onPress={() => {
+                  if (validateStep1()) setFormStep(2);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.wizardStepCircle, formStep === 2 && styles.wizardStepCircleActive, formStep > 2 && styles.wizardStepCircleDone]}>
+                  {formStep > 2 ? (
+                    <Ionicons name="checkmark" size={13} color={colors.white} />
+                  ) : (
+                    <Text style={[styles.wizardStepNumber, formStep === 2 && styles.wizardStepNumberActive]}>2</Text>
+                  )}
+                </View>
+                <Text style={[styles.wizardStepLabel, formStep === 2 && styles.wizardStepLabelActive]} numberOfLines={1}>
+                  {t('Quantity & Charges')}
+                </Text>
+              </TouchableOpacity>
+
+              <View style={[styles.wizardStepLine, formStep > 2 && styles.wizardStepLineActive]} />
+
+              <TouchableOpacity
+                style={styles.wizardStepItem}
+                onPress={() => {
+                  if (validateStep1() && validateStep2()) setFormStep(3);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.wizardStepCircle, formStep === 3 && styles.wizardStepCircleActive]}>
+                  <Text style={[styles.wizardStepNumber, formStep === 3 && styles.wizardStepNumberActive]}>3</Text>
+                </View>
+                <Text style={[styles.wizardStepLabel, formStep === 3 && styles.wizardStepLabelActive]} numberOfLines={1}>
+                  {t('Summary')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             <ScrollView
               contentContainerStyle={styles.modalScroll}
               showsVerticalScrollIndicator={false}
             >
-              <ModernDatePicker
-                label="Sale Date"
-                required
-                value={saleDate}
-                onChange={setSaleDate}
-                containerStyle={{ marginBottom: spacing.md }}
-              />
+              {/* STEP 1: Basic Details */}
+              {formStep === 1 && (
+                <View style={styles.stepContentContainer}>
+                  <ModernDatePicker
+                    label={t('Sale Date')}
+                    required
+                    value={saleDate}
+                    onChange={setSaleDate}
+                    containerStyle={{ marginBottom: spacing.md }}
+                  />
 
-              <SearchableSelect
-                label="Select Farm"
-                required
-                placeholder="Select Farm"
-                searchPlaceholder="Search farms..."
-                items={farms.map((f) => ({
-                  value: (f.ulid || f.id || '').toString(),
-                  label: f.name,
-                  sublabel: `${f.area} ${f.area_unit}`,
-                  icon: 'business-outline',
-                }))}
-                value={farmId || null}
-                onSelect={(val) => {
-                  setFarmId(val);
-                  setCropCycleId('');
-                }}
-                emptyMessage="No farms found"
-              />
+                  <SearchableSelect
+                    label={t('Select Farm')}
+                    required
+                    placeholder={t('Select Farm')}
+                    searchPlaceholder={t('Search farms...')}
+                    items={farms.map((f) => ({
+                      value: (f.ulid || f.id || '').toString(),
+                      label: f.name,
+                      sublabel: `${f.area} ${f.area_unit}`,
+                      icon: 'business-outline',
+                    }))}
+                    value={farmId || null}
+                    onSelect={(val) => {
+                      setFarmId(val || '');
+                      if (!val) {
+                        setCropCycleId('');
+                      } else {
+                        const cycles = cropCycles.filter((c) => c.farm_id.toString() === val.toString());
+                        if (cycles.length === 1 && cycles[0]) {
+                          setCropCycleId((cycles[0].ulid || cycles[0].id || '').toString());
+                        } else {
+                          setCropCycleId('');
+                        }
+                      }
+                    }}
+                    emptyMessage={t('No farms found')}
+                  />
 
-              <SearchableSelect
-                label="Select Crop Cycle"
-                required
-                placeholder={farmId ? "Select Crop Cycle" : "Select a farm first"}
-                searchPlaceholder="Search active crop cycles..."
-                items={filteredModalCropCycles.map((cc) => {
-                  const cropName = cc.crop_name || cc.crop_type || 'Crop';
-                  return {
-                    value: (cc.ulid || cc.id || '').toString(),
-                    label: `${cropName} (${cc.season_name || 'Active'})`,
-                    icon: 'leaf-outline',
-                  };
-                })}
-                value={cropCycleId || null}
-                onSelect={(val) => setCropCycleId(val)}
-                disabled={!farmId}
-                emptyMessage={farmId ? "Selected farm has no active crop cycles" : "Please select a farm first"}
-              />
+                  <SearchableSelect
+                    label={t('Select Crop Cycle')}
+                    required
+                    placeholder={farmId ? t('Select Crop Cycle') : t('Select a farm first')}
+                    searchPlaceholder={t('Search active crop cycles...')}
+                    items={filteredModalCropCycles.map((cc) => {
+                      const cropName = cc.crop_name || cc.crop_type || t('Crop');
+                      return {
+                        value: (cc.ulid || cc.id || '').toString(),
+                        label: `${cropName} (${cc.season_name || t('Active')})`,
+                        icon: 'leaf-outline',
+                      };
+                    })}
+                    value={cropCycleId || null}
+                    onSelect={(val) => setCropCycleId(val || '')}
+                    disabled={!farmId}
+                    emptyMessage={farmId ? t('Selected farm has no active crop cycles') : t('Please select a farm first')}
+                  />
 
-              {/* Buyer / Trader Selector with Quick-Create */}
-              <SearchableSelect
-                label="Buyer / Trader"
-                required
-                allowClear
-                placeholder="Select a registered buyer"
-                searchPlaceholder="Search registered buyers..."
-                items={buyers.map((b) => ({
-                  value: (b.ulid || b.id).toString(),
-                  label: b.name,
-                  sublabel: [b.company_name, b.phone].filter(Boolean).join(' • ') || undefined,
-                  icon: 'person-outline',
-                }))}
-                value={buyerId?.toString() || null}
-                onSelect={(val) => {
-                  setBuyerId(val || '');
-                  const chosen = buyers.find((b) => (b.ulid || b.id).toString() === String(val));
-                  if (chosen) setBuyerName(chosen.name);
-                }}
-                headerRight={
-                  <TouchableOpacity
-                    style={styles.addBuyerTriggerBtn}
-                    onPress={() => setAddBuyerModalVisible(true)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="person-add-outline" size={13} color={colors.primary} />
-                    <Text style={styles.addBuyerTriggerText}>+ New Buyer</Text>
-                  </TouchableOpacity>
-                }
-                emptyMessage="No registered buyers found"
-              />
-
-              <TextInput
-                style={[styles.input, { marginTop: spacing.xs }]}
-                placeholder="Or custom trader name..."
-                placeholderTextColor={colors.slate400}
-                value={buyerName}
-                onChangeText={(val) => {
-                  setBuyerName(val);
-                  const match = buyers.find((b) => b.name.toLowerCase() === val.toLowerCase());
-                  if (match) {
-                    setBuyerId((match.ulid || match.id).toString());
-                  } else {
-                    setBuyerId('');
-                  }
-                }}
-              />
-
-              {/* Quality Grades Switch */}
-              <View style={styles.switchRowContainer}>
-                <View style={{ flex: 1, paddingRight: spacing.sm }}>
-                  <Text style={styles.switchTitle}>{t('Enable Quality Grades')}</Text>
-                  <Text style={styles.switchSubtitle}>
-                    {t('Split harvest into grades (A+, A, B, etc.) with specific rates')}
-                  </Text>
-                </View>
-                <Switch
-                  value={hasGrades}
-                  onValueChange={(val) => {
-                    setHasGrades(val);
-                    if (val && grades.length === 0) {
-                      setGrades([{ grade_name: 'a', quantity: '', rate: '' }]);
-                    }
-                  }}
-                  trackColor={{ false: colors.slate200, true: '#86efac' }}
-                  thumbColor={hasGrades ? colors.primary : colors.slate400}
-                />
-              </View>
-
-              {/* Quantity Unit */}
-              <View style={{ marginTop: spacing.sm }}>
-                <Text style={styles.inputLabel}>Quantity Unit *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="BAG"
-                  placeholderTextColor={colors.slate400}
-                  value={quantityUnit}
-                  onChangeText={setQuantityUnit}
-                />
-                <View style={styles.unitChipsRow}>
-                  {COMMON_UNITS.map((u) => (
-                    <TouchableOpacity
-                      key={u}
-                      style={[
-                        styles.unitChip,
-                        quantityUnit === u && styles.unitChipActive,
-                      ]}
-                      onPress={() => setQuantityUnit(u)}
-                    >
-                      <Text
-                        style={[
-                          styles.unitChipText,
-                          quantityUnit === u && styles.unitChipTextActive,
-                        ]}
+                  {/* Buyer / Trader Selector with Quick-Create */}
+                  <SearchableSelect
+                    label={t('Buyer / Trader')}
+                    required
+                    allowClear
+                    placeholder={t('Select a registered buyer')}
+                    searchPlaceholder={t('Search registered buyers...')}
+                    items={buyers.map((b) => ({
+                      value: (b.ulid || b.id).toString(),
+                      label: b.name,
+                      sublabel: [b.company_name, b.phone].filter(Boolean).join(' • ') || undefined,
+                      icon: 'person-outline',
+                    }))}
+                    value={buyerId?.toString() || null}
+                    onSelect={(val) => {
+                      setBuyerId(val || '');
+                      const chosen = buyers.find((b) => (b.ulid || b.id).toString() === String(val));
+                      if (chosen) setBuyerName(chosen.name);
+                    }}
+                    headerRight={
+                      <TouchableOpacity
+                        style={styles.addBuyerTriggerBtn}
+                        onPress={() => setAddBuyerModalVisible(true)}
+                        activeOpacity={0.7}
                       >
-                        {u}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              {!hasGrades ? (
-                <>
-                  <ModernInput
-                    label={`Total Quantity (${quantityUnit || 'units'})`}
-                    required
-                    suffix={quantityUnit || 'units'}
-                    placeholder="e.g. 50"
-                    keyboardType="decimal-pad"
-                    value={totalQuantity}
-                    onChangeText={setTotalQuantity}
-                    containerStyle={{ marginTop: spacing.sm }}
+                        <Ionicons name="person-add-outline" size={13} color={colors.primary} />
+                        <Text style={styles.addBuyerTriggerText}>+ {t('New Buyer')}</Text>
+                      </TouchableOpacity>
+                    }
+                    emptyMessage={t('No registered buyers found')}
                   />
 
-                  <ModernInput
-                    label={`Rate (per ${quantityUnit || 'unit'})`}
-                    required
-                    prefix="₹"
-                    suffix={`/${quantityUnit || 'unit'}`}
-                    placeholder="e.g. 450"
-                    keyboardType="decimal-pad"
-                    value={rate}
-                    onChangeText={setRate}
-                    containerStyle={{ marginTop: spacing.sm }}
+                  <TextInput
+                    style={[styles.input, { marginTop: spacing.xs }]}
+                    placeholder={t('Or custom trader name...')}
+                    placeholderTextColor={colors.slate400}
+                    value={buyerName}
+                    onChangeText={(val) => {
+                      setBuyerName(val);
+                      const match = buyers.find((b) => b.name.toLowerCase() === val.toLowerCase());
+                      if (match) {
+                        setBuyerId((match.ulid || match.id).toString());
+                      } else {
+                        setBuyerId('');
+                      }
+                    }}
                   />
-                </>
-              ) : (
-                <View style={styles.gradesCard}>
-                  <View style={styles.gradesCardHeader}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.gradesCardTitle}>{t('Grades Breakdown')}</Text>
-                      <Text style={styles.gradesCardSubtitle}>
-                        {t('Total')}: {gradesTotalQty.toFixed(1)} {quantityUnit} • ₹{gradesGross.toFixed(2)}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={handleAddGradeLine}
-                      style={styles.addGradeBtn}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="add" size={14} color={colors.white} />
-                      <Text style={styles.addGradeBtnText}>{t('Add Grade')}</Text>
-                    </TouchableOpacity>
+
+                  <View style={{ marginTop: spacing.md }}>
+                    <AttachmentPicker
+                      label={t('Weighment Slip / Trader Bill')}
+                      category="sale-bills"
+                      currentPath={billPhotoPath}
+                      currentUrl={billPhotoUrl}
+                      onAttachmentChange={(p, u) => {
+                        setBillPhotoPath(p);
+                        setBillPhotoUrl(u);
+                      }}
+                    />
                   </View>
-
-                  {grades.length === 0 ? (
-                    <Text style={styles.noGradesText}>
-                      {t('No grades added. Tap "+ Add Grade" to split your harvest by quality.')}
-                    </Text>
-                  ) : (
-                    grades.map((grade, idx) => (
-                      <View key={idx} style={styles.gradeItemBox}>
-                        <View style={styles.gradeItemTopRow}>
-                          <Text style={styles.gradeRowNumber}>#{idx + 1}</Text>
-                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1, marginHorizontal: 6 }}>
-                            <View style={styles.gradePillsContainer}>
-                              {GRADE_OPTIONS.map((opt) => (
-                                <TouchableOpacity
-                                  key={opt.value}
-                                  style={[
-                                    styles.gradePill,
-                                    grade.grade_name === opt.value && styles.gradePillActive,
-                                  ]}
-                                  onPress={() => handleUpdateGradeField(idx, 'grade_name', opt.value)}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.gradePillText,
-                                      grade.grade_name === opt.value && styles.gradePillTextActive,
-                                    ]}
-                                  >
-                                    {opt.label.replace('Grade ', '')}
-                                  </Text>
-                                </TouchableOpacity>
-                              ))}
-                            </View>
-                          </ScrollView>
-                          <TouchableOpacity
-                            onPress={() => handleRemoveGradeLine(idx)}
-                            style={styles.removeGradeBtn}
-                          >
-                            <Ionicons name="trash-outline" size={16} color={colors.danger} />
-                          </TouchableOpacity>
-                        </View>
-
-                        <View style={styles.gradeInputsRow}>
-                          <View style={{ flex: 1, marginRight: spacing.xs }}>
-                            <Text style={styles.gradeFieldLabel}>Qty ({quantityUnit})</Text>
-                            <TextInput
-                              style={[styles.input, styles.compactInput]}
-                              placeholder="0"
-                              placeholderTextColor={colors.slate400}
-                              keyboardType="decimal-pad"
-                              value={grade.quantity}
-                              onChangeText={(val) => handleUpdateGradeField(idx, 'quantity', val)}
-                            />
-                          </View>
-                          <View style={{ flex: 1, marginRight: spacing.xs }}>
-                            <Text style={styles.gradeFieldLabel}>Rate (₹)</Text>
-                            <TextInput
-                              style={[styles.input, styles.compactInput]}
-                              placeholder="0"
-                              placeholderTextColor={colors.slate400}
-                              keyboardType="decimal-pad"
-                              value={grade.rate}
-                              onChangeText={(val) => handleUpdateGradeField(idx, 'rate', val)}
-                            />
-                          </View>
-                          <View style={{ flex: 1.1, justifyContent: 'center', alignItems: 'flex-end', paddingTop: 14 }}>
-                            <Text style={styles.gradeFieldLabel}>Amount</Text>
-                            <Text style={styles.gradeAmountText}>
-                              ₹{((parseFloat(grade.quantity) || 0) * (parseFloat(grade.rate) || 0)).toFixed(0)}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                    ))
-                  )}
                 </View>
               )}
 
-              {/* Deductions & Charges Section */}
-              <View style={styles.deductionsCard}>
-                <View style={styles.deductionsHeader}>
-                  <View>
-                    <Text style={styles.deductionsTitle}>{t('Deductions & Mandi Charges')}</Text>
-                    <Text style={styles.deductionsSubtitle}>
-                      {t('Commission, loading, transport or packaging')}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={handleAddChargeLine}
-                    style={styles.addChargeBtn}
-                  >
-                    <Ionicons name="add" size={14} color={colors.white} />
-                    <Text style={styles.addChargeBtnText}>{t('Add')}</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {charges.length === 0 ? (
-                  <Text style={styles.noChargesText}>
-                    {t('No deductions added. Tap "Add" to include Mandi Fee, Freight, Labor, etc.')}
-                  </Text>
-                ) : (
-                  charges.map((charge, idx) => (
-                    <View key={idx} style={styles.chargeInputRow}>
-                      <TextInput
-                        style={[styles.input, styles.chargeNameInput]}
-                        placeholder={t('Fee name (e.g. Mandi)')}
-                        placeholderTextColor={colors.slate400}
-                        value={charge.charge_name}
-                        onChangeText={(val) => handleUpdateChargeField(idx, 'charge_name', val)}
-                      />
-                      <TextInput
-                        style={[styles.input, styles.chargeValInput]}
-                        placeholder={t('Amount')}
-                        placeholderTextColor={colors.slate400}
-                        keyboardType="decimal-pad"
-                        value={charge.value}
-                        onChangeText={(val) => handleUpdateChargeField(idx, 'value', val)}
-                      />
-                      <TouchableOpacity
-                        style={[
-                          styles.chargeTypeToggle,
-                          charge.type === 'percentage'
-                            ? styles.chargeTypeTogglePercent
-                            : styles.chargeTypeToggleFlat,
-                        ]}
-                        onPress={() =>
-                          handleUpdateChargeField(
-                            idx,
-                            'type',
-                            charge.type === 'flat' ? 'percentage' : 'flat'
-                          )
+              {/* STEP 2: Quantity, Grades & Charges */}
+              {formStep === 2 && (
+                <View style={styles.stepContentContainer}>
+                  {/* Quality Grades Switch */}
+                  <View style={styles.switchRowContainer}>
+                    <View style={{ flex: 1, paddingRight: spacing.sm }}>
+                      <Text style={styles.switchTitle}>{t('Enable Quality Grades')}</Text>
+                      <Text style={styles.switchSubtitle}>
+                        {t('Split harvest into grades (A+, A, B, etc.) with specific rates')}
+                      </Text>
+                    </View>
+                    <Switch
+                      value={hasGrades}
+                      onValueChange={(val) => {
+                        setHasGrades(val);
+                        if (val && grades.length === 0) {
+                          setGrades([{ grade_name: 'a', quantity: '', rate: '' }]);
                         }
-                      >
-                        <Text style={styles.chargeTypeToggleText}>
-                          {charge.type === 'percentage' ? '%' : '₹'}
+                      }}
+                      trackColor={{ false: colors.slate200, true: '#86efac' }}
+                      thumbColor={hasGrades ? colors.primary : colors.slate400}
+                    />
+                  </View>
+
+                  {/* Quantity Unit */}
+                  <View style={{ marginTop: spacing.sm }}>
+                    <Text style={styles.inputLabel}>{t('Quantity Unit')} *</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="BAG"
+                      placeholderTextColor={colors.slate400}
+                      value={quantityUnit}
+                      onChangeText={setQuantityUnit}
+                    />
+                    <View style={styles.unitChipsRow}>
+                      {COMMON_UNITS.map((u) => (
+                        <TouchableOpacity
+                          key={u}
+                          style={[
+                            styles.unitChip,
+                            quantityUnit === u && styles.unitChipActive,
+                          ]}
+                          onPress={() => setQuantityUnit(u)}
+                        >
+                          <Text
+                            style={[
+                              styles.unitChipText,
+                              quantityUnit === u && styles.unitChipTextActive,
+                            ]}
+                          >
+                            {u}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  {!hasGrades ? (
+                    <>
+                      <ModernInput
+                        label={`${t('Total Quantity')} (${quantityUnit || 'units'})`}
+                        required
+                        suffix={quantityUnit || 'units'}
+                        placeholder="e.g. 50"
+                        keyboardType="decimal-pad"
+                        value={totalQuantity}
+                        onChangeText={setTotalQuantity}
+                        containerStyle={{ marginTop: spacing.sm }}
+                      />
+
+                      <ModernInput
+                        label={`${t('Rate')} (per ${quantityUnit || 'unit'})`}
+                        required
+                        prefix="₹"
+                        suffix={`/${quantityUnit || 'unit'}`}
+                        placeholder="e.g. 450"
+                        keyboardType="decimal-pad"
+                        value={rate}
+                        onChangeText={setRate}
+                        containerStyle={{ marginTop: spacing.sm }}
+                      />
+                    </>
+                  ) : (
+                    <View style={styles.gradesCard}>
+                      <View style={styles.gradesCardHeader}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.gradesCardTitle}>{t('Grades Breakdown')}</Text>
+                          <Text style={styles.gradesCardSubtitle}>
+                            {t('Total')}: {gradesTotalQty.toFixed(1)} {quantityUnit} • ₹{gradesGross.toFixed(2)}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={handleAddGradeLine}
+                          style={styles.addGradeBtn}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="add" size={14} color={colors.white} />
+                          <Text style={styles.addGradeBtnText}>{t('Add Grade')}</Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {grades.length === 0 ? (
+                        <Text style={styles.noGradesText}>
+                          {t('No grades added. Tap "+ Add Grade" to split your harvest by quality.')}
                         </Text>
-                      </TouchableOpacity>
+                      ) : (
+                        grades.map((grade, idx) => (
+                          <View key={idx} style={styles.gradeItemBox}>
+                            <View style={styles.gradeItemTopRow}>
+                              <Text style={styles.gradeRowNumber}>#{idx + 1}</Text>
+                              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1, marginHorizontal: 6 }}>
+                                <View style={styles.gradePillsContainer}>
+                                  {GRADE_OPTIONS.map((opt) => (
+                                    <TouchableOpacity
+                                      key={opt.value}
+                                      style={[
+                                        styles.gradePill,
+                                        grade.grade_name === opt.value && styles.gradePillActive,
+                                      ]}
+                                      onPress={() => handleUpdateGradeField(idx, 'grade_name', opt.value)}
+                                    >
+                                      <Text
+                                        style={[
+                                          styles.gradePillText,
+                                          grade.grade_name === opt.value && styles.gradePillTextActive,
+                                        ]}
+                                      >
+                                        {opt.label.replace('Grade ', '')}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  ))}
+                                </View>
+                              </ScrollView>
+                              <TouchableOpacity
+                                onPress={() => handleRemoveGradeLine(idx)}
+                                style={styles.removeGradeBtn}
+                              >
+                                <Ionicons name="trash-outline" size={16} color={colors.danger} />
+                              </TouchableOpacity>
+                            </View>
+
+                            <View style={styles.gradeInputsRow}>
+                              <View style={{ flex: 1, marginRight: spacing.xs }}>
+                                <Text style={styles.gradeFieldLabel}>{t('QUANTITY')} ({quantityUnit})</Text>
+                                <TextInput
+                                  style={[styles.input, styles.compactInput]}
+                                  placeholder="0"
+                                  placeholderTextColor={colors.slate400}
+                                  keyboardType="decimal-pad"
+                                  value={grade.quantity}
+                                  onChangeText={(val) => handleUpdateGradeField(idx, 'quantity', val)}
+                                />
+                              </View>
+                              <View style={{ flex: 1, marginRight: spacing.xs }}>
+                                <Text style={styles.gradeFieldLabel}>{t('Rate')} (₹)</Text>
+                                <TextInput
+                                  style={[styles.input, styles.compactInput]}
+                                  placeholder="0"
+                                  placeholderTextColor={colors.slate400}
+                                  keyboardType="decimal-pad"
+                                  value={grade.rate}
+                                  onChangeText={(val) => handleUpdateGradeField(idx, 'rate', val)}
+                                />
+                              </View>
+                              <View style={{ flex: 1.1, justifyContent: 'center', alignItems: 'flex-end', paddingTop: 14 }}>
+                                <Text style={styles.gradeFieldLabel}>{t('Amount')}</Text>
+                                <Text style={styles.gradeAmountText}>
+                                  ₹{((parseFloat(grade.quantity) || 0) * (parseFloat(grade.rate) || 0)).toFixed(0)}
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+                        ))
+                      )}
+                    </View>
+                  )}
+
+                  {/* Deductions & Charges Section */}
+                  <View style={styles.deductionsCard}>
+                    <View style={styles.deductionsHeader}>
+                      <View>
+                        <Text style={styles.deductionsTitle}>{t('Deductions & Mandi Charges')}</Text>
+                        <Text style={styles.deductionsSubtitle}>
+                          {t('Commission, loading, transport or packaging')}
+                        </Text>
+                      </View>
                       <TouchableOpacity
-                        onPress={() => handleRemoveChargeLine(idx)}
-                        style={styles.removeChargeBtn}
+                        onPress={handleAddChargeLine}
+                        style={styles.addChargeBtn}
                       >
-                        <Ionicons name="trash-outline" size={17} color={colors.danger} />
+                        <Ionicons name="add" size={14} color={colors.white} />
+                        <Text style={styles.addChargeBtnText}>{t('Add')}</Text>
                       </TouchableOpacity>
                     </View>
-                  ))
-                )}
 
-                {/* Live Realization Calculation Banner */}
-                <View style={styles.calcBanner}>
-                  <View style={styles.calcCol}>
-                    <Text style={styles.calcLabel}>{t('Gross Value')}</Text>
-                    <Text style={styles.calcVal}>₹{calcGross.toFixed(2)}</Text>
-                  </View>
-                  <View style={styles.calcCol}>
-                    <Text style={styles.calcLabel}>{t('Deductions')}</Text>
-                    <Text style={[styles.calcVal, { color: colors.danger }]}>
-                      -₹{calcCharges.toFixed(2)}
-                    </Text>
-                  </View>
-                  <View style={styles.calcCol}>
-                    <Text style={styles.calcLabel}>{t('Net Payout')}</Text>
-                    <Text style={[styles.calcVal, { color: colors.primary, fontWeight: '800' }]}>
-                      ₹{calcFinal.toFixed(2)}
-                    </Text>
+                    {charges.length === 0 ? (
+                      <Text style={styles.noChargesText}>
+                        {t('No deductions added. Tap "Add" to include Mandi Fee, Freight, Labor, etc.')}
+                      </Text>
+                    ) : (
+                      charges.map((charge, idx) => (
+                        <View key={idx} style={styles.chargeInputRow}>
+                          <TextInput
+                            style={[styles.input, styles.chargeNameInput]}
+                            placeholder={t('Fee name (e.g. Mandi)')}
+                            placeholderTextColor={colors.slate400}
+                            value={charge.charge_name}
+                            onChangeText={(val) => handleUpdateChargeField(idx, 'charge_name', val)}
+                          />
+                          <TextInput
+                            style={[styles.input, styles.chargeValInput]}
+                            placeholder={t('Amount')}
+                            placeholderTextColor={colors.slate400}
+                            keyboardType="decimal-pad"
+                            value={charge.value}
+                            onChangeText={(val) => handleUpdateChargeField(idx, 'value', val)}
+                          />
+                          <TouchableOpacity
+                            style={[
+                              styles.chargeTypeToggle,
+                              charge.type === 'percentage'
+                                ? styles.chargeTypeTogglePercent
+                                : styles.chargeTypeToggleFlat,
+                            ]}
+                            onPress={() =>
+                              handleUpdateChargeField(
+                                idx,
+                                'type',
+                                charge.type === 'flat' ? 'percentage' : 'flat'
+                              )
+                            }
+                          >
+                            <Text style={styles.chargeTypeToggleText}>
+                              {charge.type === 'percentage' ? '%' : '₹'}
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => handleRemoveChargeLine(idx)}
+                            style={styles.removeChargeBtn}
+                          >
+                            <Ionicons name="trash-outline" size={17} color={colors.danger} />
+                          </TouchableOpacity>
+                        </View>
+                      ))
+                    )}
+
+                    {/* Live Realization Calculation Banner */}
+                    <View style={styles.calcBanner}>
+                      <View style={styles.calcCol}>
+                        <Text style={styles.calcLabel}>{t('Gross Value')}</Text>
+                        <Text style={styles.calcVal}>₹{calcGross.toFixed(2)}</Text>
+                      </View>
+                      <View style={styles.calcCol}>
+                        <Text style={styles.calcLabel}>{t('Deductions')}</Text>
+                        <Text style={[styles.calcVal, { color: colors.danger }]}>
+                          -₹{calcCharges.toFixed(2)}
+                        </Text>
+                      </View>
+                      <View style={styles.calcCol}>
+                        <Text style={styles.calcLabel}>{t('Net Payout')}</Text>
+                        <Text style={[styles.calcVal, { color: colors.primary, fontWeight: '800' }]}>
+                          ₹{calcFinal.toFixed(2)}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
                 </View>
-              </View>
+              )}
 
-              <ModernInput
-                label={t('Sale Notes')}
-                placeholder={t('Weighment bridge details, vehicle number, trader receipt notes...')}
-                multiline
-                numberOfLines={3}
-                value={notes}
-                onChangeText={setNotes}
-                containerStyle={{ marginTop: spacing.md }}
-              />
+              {/* STEP 3: Summary & Confirmation */}
+              {formStep === 3 && (
+                <View style={styles.stepContentContainer}>
+                  {/* Summary Header Notice */}
+                  <View style={styles.summaryNoticeBox}>
+                    <Ionicons name="information-circle-outline" size={18} color={colors.primaryDark} />
+                    <Text style={styles.summaryNoticeText}>
+                      {t('Review Sale Details')}
+                    </Text>
+                  </View>
 
-              <View style={{ marginTop: spacing.md }}>
-                <AttachmentPicker
-                  label="Weighment Slip / Trader Bill"
-                  category="sale-bills"
-                  currentPath={billPhotoPath}
-                  currentUrl={billPhotoUrl}
-                  onAttachmentChange={(p, u) => {
-                    setBillPhotoPath(p);
-                    setBillPhotoUrl(u);
-                  }}
-                />
-              </View>
+                  {/* Basic Info Card */}
+                  <View style={styles.summaryCard}>
+                    <View style={styles.summaryCardHeader}>
+                      <Ionicons name="document-text-outline" size={16} color={colors.slate700} />
+                      <Text style={styles.summaryCardTitle}>{t('Basic Information')}</Text>
+                    </View>
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryLabel}>{t('Date')}</Text>
+                      <Text style={styles.summaryValue}>{saleDate}</Text>
+                    </View>
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryLabel}>{t('Buyer')}</Text>
+                      <Text style={[styles.summaryValue, { fontWeight: '700', color: colors.slate900 }]}>
+                        {buyerName || buyers.find((b) => (b.ulid || b.id)?.toString() === buyerId?.toString())?.name || '-'}
+                      </Text>
+                    </View>
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryLabel}>{t('Farm')}</Text>
+                      <Text style={styles.summaryValue}>
+                        {farms.find((f) => (f.ulid || f.id)?.toString() === farmId?.toString())?.name || '-'}
+                      </Text>
+                    </View>
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryLabel}>{t('Crop Cycle')}</Text>
+                      <Text style={styles.summaryValue}>
+                        {cropCycles.find((c) => (c.ulid || c.id)?.toString() === cropCycleId?.toString())?.season_name || '-'}
+                      </Text>
+                    </View>
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryLabel}>{t('Crop')}</Text>
+                      <Text style={styles.summaryValue}>
+                        {cropCycles.find((c) => (c.ulid || c.id)?.toString() === cropCycleId?.toString())?.crop_name || '-'}
+                      </Text>
+                    </View>
+                    {billPhotoUrl ? (
+                      <TouchableOpacity
+                        style={styles.summarySlipRow}
+                        onPress={() => setPreviewModalUrl(billPhotoUrl)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="receipt-outline" size={16} color={colors.primary} />
+                        <Text style={styles.summarySlipText}>{t('View Weighment Slip')}</Text>
+                        <Ionicons name="open-outline" size={14} color={colors.primary} />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
 
+                  {/* Produce & Quantity Card */}
+                  <View style={styles.summaryCard}>
+                    <View style={styles.summaryCardHeader}>
+                      <Ionicons name="basket-outline" size={16} color={colors.slate700} />
+                      <Text style={styles.summaryCardTitle}>{t('Produce & Quantity')}</Text>
+                    </View>
+                    {hasGrades ? (
+                      <View style={styles.summaryGradesTable}>
+                        {grades.map((g, idx) => {
+                          const sub = (parseFloat(g.quantity) || 0) * (parseFloat(g.rate) || 0);
+                          return (
+                            <View key={idx} style={styles.summaryGradeRow}>
+                              <View style={styles.summaryGradeBadge}>
+                                <Text style={styles.summaryGradeBadgeText}>{g.grade_name.toUpperCase()}</Text>
+                              </View>
+                              <Text style={styles.summaryGradeQty}>
+                                {g.quantity} {quantityUnit} × ₹{g.rate}
+                              </Text>
+                              <Text style={styles.summaryGradeSub}>₹{sub.toFixed(2)}</Text>
+                            </View>
+                          );
+                        })}
+                        <View style={styles.summaryTableDivider} />
+                        <View style={styles.summaryRow}>
+                          <Text style={[styles.summaryLabel, { fontWeight: '700' }]}>{t('Total Quantity')}</Text>
+                          <Text style={[styles.summaryValue, { fontWeight: '700' }]}>
+                            {gradesTotalQty.toFixed(1)} {quantityUnit}
+                          </Text>
+                        </View>
+                        <View style={styles.summaryRow}>
+                          <Text style={[styles.summaryLabel, { fontWeight: '700' }]}>{t('Gross Value')}</Text>
+                          <Text style={[styles.summaryValue, { fontWeight: '700', color: colors.slate900 }]}>
+                            ₹{gradesGross.toFixed(2)}
+                          </Text>
+                        </View>
+                      </View>
+                    ) : (
+                      <>
+                        <View style={styles.summaryRow}>
+                          <Text style={styles.summaryLabel}>{t('QUANTITY')}</Text>
+                          <Text style={styles.summaryValue}>
+                            {totalQuantity} {quantityUnit}
+                          </Text>
+                        </View>
+                        <View style={styles.summaryRow}>
+                          <Text style={styles.summaryLabel}>{t('Rate')}</Text>
+                          <Text style={styles.summaryValue}>
+                            ₹{rate} / {quantityUnit}
+                          </Text>
+                        </View>
+                        <View style={styles.summaryTableDivider} />
+                        <View style={styles.summaryRow}>
+                          <Text style={[styles.summaryLabel, { fontWeight: '700' }]}>{t('Gross Value')}</Text>
+                          <Text style={[styles.summaryValue, { fontWeight: '700', color: colors.slate900 }]}>
+                            ₹{calcGross.toFixed(2)}
+                          </Text>
+                        </View>
+                      </>
+                    )}
+                  </View>
+
+                  {/* Deductions Breakdown Card */}
+                  <View style={styles.summaryCard}>
+                    <View style={styles.summaryCardHeader}>
+                      <Ionicons name="pricetag-outline" size={16} color={colors.slate700} />
+                      <Text style={styles.summaryCardTitle}>{t('Deductions & Mandi Charges')}</Text>
+                    </View>
+                    {charges.length === 0 ? (
+                      <Text style={styles.noDeductionsNotice}>{t('No deductions or mandi charges recorded.')}</Text>
+                    ) : (
+                      charges.map((c, idx) => {
+                        const val = parseFloat(c.value) || 0;
+                        const amt = c.type === 'percentage' ? (calcGross * val) / 100 : val;
+                        return (
+                          <View key={idx} style={styles.summaryRow}>
+                            <Text style={styles.summaryLabel}>
+                              {c.charge_name || t('Charge')} {c.type === 'percentage' ? `(${c.value}%)` : ''}
+                            </Text>
+                            <Text style={[styles.summaryValue, { color: colors.danger, fontWeight: '700' }]}>
+                              -₹{amt.toFixed(2)}
+                            </Text>
+                          </View>
+                        );
+                      })
+                    )}
+                    <View style={styles.summaryTableDivider} />
+                    <View style={styles.summaryRow}>
+                      <Text style={[styles.summaryLabel, { fontWeight: '700' }]}>{t('Total Deductions')}</Text>
+                      <Text style={[styles.summaryValue, { fontWeight: '700', color: colors.danger }]}>
+                        -₹{calcCharges.toFixed(2)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Net Realized Amount Card */}
+                  <View style={styles.netRealizedCard}>
+                    <View style={styles.netRealizedRow}>
+                      <View>
+                        <Text style={styles.netRealizedLabel}>{t('NET REALIZED')}</Text>
+                        <Text style={styles.netRealizedSub}>{t('Gross Sales minus Mandi Deductions')}</Text>
+                      </View>
+                      <Text style={styles.netRealizedValue}>₹{calcFinal.toFixed(2)}</Text>
+                    </View>
+                  </View>
+
+                  {/* Notes */}
+                  <ModernInput
+                    label={t('Sale Notes')}
+                    placeholder={t('Weighment bridge details, vehicle number, trader receipt notes...')}
+                    multiline
+                    numberOfLines={3}
+                    value={notes}
+                    onChangeText={setNotes}
+                    containerStyle={{ marginTop: spacing.xs }}
+                  />
+                </View>
+              )}
+
+              {/* Step Navigation Footer */}
               <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.cancelBtn]}
-                  onPress={() => setSaleModalVisible(false)}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.saveBtn]}
-                  onPress={handleSaveSale}
-                >
-                  <Ionicons name="checkmark-circle-outline" size={18} color={colors.white} />
-                  <Text style={styles.saveBtnText}>
-                    {editingSale ? 'Update Sale' : 'Save Sale'}
-                  </Text>
-                </TouchableOpacity>
+                {formStep === 1 ? (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.modalBtn, styles.cancelBtn]}
+                      onPress={() => setSaleModalVisible(false)}
+                    >
+                      <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalBtn, styles.saveBtn]}
+                      onPress={() => {
+                        if (validateStep1()) setFormStep(2);
+                      }}
+                    >
+                      <Text style={styles.saveBtnText}>{t('Next: Quantity & Rates')}</Text>
+                      <Ionicons name="arrow-forward" size={16} color={colors.white} />
+                    </TouchableOpacity>
+                  </>
+                ) : formStep === 2 ? (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.modalBtn, styles.cancelBtn]}
+                      onPress={() => setFormStep(1)}
+                    >
+                      <Ionicons name="arrow-back" size={16} color={colors.slate700} />
+                      <Text style={styles.cancelBtnText}>{t('Back')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalBtn, styles.saveBtn]}
+                      onPress={() => {
+                        if (validateStep2()) setFormStep(3);
+                      }}
+                    >
+                      <Text style={styles.saveBtnText}>{t('Next: Review Summary')}</Text>
+                      <Ionicons name="arrow-forward" size={16} color={colors.white} />
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.modalBtn, styles.cancelBtn]}
+                      onPress={() => setFormStep(2)}
+                    >
+                      <Ionicons name="arrow-back" size={16} color={colors.slate700} />
+                      <Text style={styles.cancelBtnText}>{t('Back')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalBtn, styles.saveBtn, { backgroundColor: colors.primaryDark }]}
+                      onPress={handleSaveSale}
+                    >
+                      <Ionicons name="checkmark-circle-outline" size={18} color={colors.white} />
+                      <Text style={styles.saveBtnText}>{t('Confirm & Save Sale')}</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
             </ScrollView>
           </View>
@@ -1384,13 +1704,17 @@ const styles = StyleSheet.create({
   },
   headerTitleCol: {
     flex: 1,
+    paddingTop: 2,
+    overflow: 'visible',
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: '800',
     color: '#0f172a',
     letterSpacing: -0.02,
-    lineHeight: 26,
+    lineHeight: 30,
+    paddingTop: 3,
+    overflow: 'visible',
   },
   headerSubtitle: {
     fontSize: 12,
@@ -1456,7 +1780,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 115,
+    paddingBottom: 130,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -1519,8 +1843,9 @@ const styles = StyleSheet.create({
   },
   badgesWrapper: {
     flexDirection: 'row',
-    gap: spacing.xs,
-    marginTop: 2,
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
   },
   detailsGrid: {
     flexDirection: 'row',
@@ -2152,5 +2477,208 @@ const styles = StyleSheet.create({
     color: colors.primary,
     height: 40,
     lineHeight: 40,
+  },
+  wizardStepsBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: spacing.md,
+  },
+  wizardStepItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  wizardStepCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wizardStepCircleActive: {
+    backgroundColor: colors.primary,
+  },
+  wizardStepCircleDone: {
+    backgroundColor: colors.primary,
+  },
+  wizardStepNumber: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#475569',
+  },
+  wizardStepNumberActive: {
+    color: colors.white,
+  },
+  wizardStepLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  wizardStepLabelActive: {
+    color: colors.primaryDark,
+    fontWeight: '800',
+  },
+  wizardStepLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: '#cbd5e1',
+    marginHorizontal: 6,
+  },
+  wizardStepLineActive: {
+    backgroundColor: colors.primary,
+  },
+  stepContentContainer: {
+    gap: 0,
+  },
+  summaryNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: 'rgba(22, 101, 52, 0.2)',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  summaryNoticeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primaryDark,
+  },
+  summaryCard: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    gap: 8,
+  },
+  summaryCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    paddingBottom: 8,
+    marginBottom: 4,
+  },
+  summaryCardTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1e293b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 3,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  summaryValue: {
+    fontSize: 13,
+    color: '#1e293b',
+    fontWeight: '600',
+  },
+  summarySlipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primarySurface,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginTop: 6,
+    alignSelf: 'flex-start',
+  },
+  summarySlipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primaryDark,
+  },
+  summaryGradesTable: {
+    gap: 4,
+  },
+  summaryGradeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  summaryGradeBadge: {
+    backgroundColor: '#e0e7ff',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  summaryGradeBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#4338ca',
+  },
+  summaryGradeQty: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+    flex: 1,
+    marginLeft: 8,
+  },
+  summaryGradeSub: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  summaryTableDivider: {
+    height: 1,
+    backgroundColor: '#e2e8f0',
+    marginVertical: 6,
+  },
+  noDeductionsNotice: {
+    fontSize: 12,
+    color: '#94a3b8',
+    fontStyle: 'italic',
+    paddingVertical: 4,
+  },
+  netRealizedCard: {
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1.5,
+    borderColor: '#86efac',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+  },
+  netRealizedRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  netRealizedLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.primaryDark,
+    letterSpacing: 0.5,
+  },
+  netRealizedSub: {
+    fontSize: 10,
+    color: '#15803d',
+    marginTop: 2,
+  },
+  netRealizedValue: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: colors.primaryDark,
   },
 });

@@ -2249,5 +2249,16 @@
   "Select State": "Select State",
   "Search state...": "Search state...",
   "Search by commodity, market, or variety...": "Search by commodity, market, or variety...",
-  "Try adjusting your filters to find what you're looking for.": "Try adjusting your filters to find what you're looking for."
+  "Try adjusting your filters to find what you're looking for.": "Try adjusting your filters to find what you're looking for.",
+  "Quantity & Charges": "Quantity & Charges",
+  "Next: Quantity & Rates": "Next: Quantity & Rates",
+  "Next: Review Summary": "Next: Review Summary",
+  "Confirm & Save Sale": "Confirm & Save Sale",
+  "Review Sale Details": "Review Sale Details",
+  "Basic Information": "Basic Information",
+  "Produce & Quantity": "Produce & Quantity",
+  "Please select a farm and crop cycle before proceeding.": "Please select a farm and crop cycle before proceeding.",
+  "Please select or enter a buyer before proceeding.": "Please select or enter a buyer before proceeding.",
+  "Please enter a valid quantity and rate.": "Please enter a valid quantity and rate.",
+  "Please add at least one grade with valid quantity and rate.": "Please add at least one grade with valid quantity and rate."
 }

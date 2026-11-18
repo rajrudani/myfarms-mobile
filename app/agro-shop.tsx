@@ -964,7 +964,7 @@ export default function AgroShopScreen() {
           // ================= VIEW 1: SHOPS LIST PAGE (Matching PWA) =================
           <>
             {/* Header */}
-            <View style={[styles.header, { paddingTop: topInset + 8 }]}>
+            <View style={[styles.header, { paddingTop: Math.max(topInset, 12) + 6 }]}>
               <View style={styles.headerTopRow}>
                 <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
                   <Ionicons name="arrow-back" size={20} color={colors.slate700} />
@@ -1124,7 +1124,7 @@ export default function AgroShopScreen() {
           // ================= VIEW 2: SHOP DETAILS / LEDGER (Matching PWA) =================
           <>
             {/* Shop Sticky Topbar matching PWA */}
-            <View style={[styles.shopViewTopbar, { paddingTop: topInset + 8 }]}>
+            <View style={[styles.shopViewTopbar, { paddingTop: Math.max(topInset, 12) + 6 }]}>
               <TouchableOpacity
                 style={styles.shopViewBackBtn}
                 onPress={() => {
@@ -1917,13 +1917,17 @@ const styles = StyleSheet.create({
   },
   headerTitleCol: {
     flex: 1,
+    paddingTop: 2,
+    overflow: 'visible',
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: '800',
     color: '#0f172a',
     letterSpacing: -0.02,
-    lineHeight: 26,
+    lineHeight: 30,
+    paddingTop: 3,
+    overflow: 'visible',
   },
   headerSubtitle: {
     fontSize: 12,
@@ -1943,7 +1947,7 @@ const styles = StyleSheet.create({
   shopListContainer: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    paddingBottom: 115,
+    paddingBottom: 130,
     gap: 12,
   },
   shopCard: {
@@ -2042,12 +2046,17 @@ const styles = StyleSheet.create({
   shopViewTitleCol: {
     flex: 1,
     alignItems: 'center',
+    paddingTop: 2,
+    overflow: 'visible',
   },
   shopViewTitle: {
     fontSize: 17,
     fontWeight: '800',
     color: '#0f172a',
     textAlign: 'center',
+    lineHeight: 24,
+    paddingTop: 2,
+    overflow: 'visible',
   },
   shopViewSubTitle: {
     fontSize: 11,
@@ -2166,7 +2175,7 @@ const styles = StyleSheet.create({
   },
   tabListContent: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 115,
+    paddingBottom: 130,
   },
   tabSummaryGrid: {
     flexDirection: 'row',
@@ -2432,7 +2441,7 @@ const styles = StyleSheet.create({
   },
   infoTabContainer: {
     padding: spacing.lg,
-    paddingBottom: 115,
+    paddingBottom: 130,
   },
   shopProfileCard: {
     gap: spacing.md,

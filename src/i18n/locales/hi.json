@@ -2249,5 +2249,16 @@
   "Select State": "राज्य चुनें",
   "Search state...": "राज्य खोजें...",
   "Search by commodity, market, or variety...": "फसल, मंडी या किस्म द्वारा खोजें...",
-  "Try adjusting your filters to find what you're looking for.": "आप जो खोज रहे हैं उसे खोजने के लिए अपने फ़िल्टर समायोजित करने का प्रयास करें।"
+  "Try adjusting your filters to find what you're looking for.": "आप जो खोज रहे हैं उसे खोजने के लिए अपने फ़िल्टर समायोजित करने का प्रयास करें।",
+  "Quantity & Charges": "मात्रा और शुल्क",
+  "Next: Quantity & Rates": "आगे: मात्रा और दर",
+  "Next: Review Summary": "आगे: समीक्षा सारांश",
+  "Confirm & Save Sale": "पुष्टि करें और बिक्री सहेजें",
+  "Review Sale Details": "बिक्री विवरण की समीक्षा करें",
+  "Basic Information": "मूल जानकारी",
+  "Produce & Quantity": "उपज और मात्रा",
+  "Please select a farm and crop cycle before proceeding.": "आगे बढ़ने से पहले कृपया एक खेत और फसल चक्र का चयन करें।",
+  "Please select or enter a buyer before proceeding.": "आगे बढ़ने से पहले कृपया खरीदार का चयन करें या दर्ज करें।",
+  "Please enter a valid quantity and rate.": "कृपया मान्य मात्रा और दर दर्ज करें।",
+  "Please add at least one grade with valid quantity and rate.": "कृपया मान्य मात्रा और दर के साथ कम से कम एक ग्रेड जोड़ें।"
 }
