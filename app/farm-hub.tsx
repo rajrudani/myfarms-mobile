@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -29,7 +29,8 @@ import { Farm, CropCycle, FarmExpense, Crop, FarmActivityMaster, FarmActivity, A
 import { useAuth } from '../src/hooks/useAuth';
 import { getBaseUrl, extractErrorMessage } from '../src/api/client';
 import { farmActivitiesApi } from '../src/api/farmActivities';
-import { SearchableSelect, ModalSheet, ModernDatePicker } from '../src/components/ui';
+import { SearchableSelect, ModalSheet, ModernDatePicker, QuickChipGroup, ChipOption, ModernInput } from '../src/components/ui';
+import { colors, radius, spacing, shadows } from '../src/theme/tokens';
 import { useTranslation } from '../src/i18n/I18nContext';
 
 const sanitizeNumericInput = (text: string, allowDecimal = true) => {
@@ -58,6 +59,28 @@ const getNormalizedOptions = (options: any): { key: string; label: string }[] =>
   }
   return [];
 };
+
+const EXPENSE_CATEGORIES = [
+  'Seeds / Saplings',
+  'Fertilizers',
+  'Pesticides / Fungicides',
+  'Labor / Wages',
+  'Irrigation / Water',
+  'Machinery / Tractor Rental',
+  'Fuel / Electricity',
+  'Packaging / Crates',
+  'Transport / Freight',
+  'Consulting / Inspection',
+  'Other Operational',
+];
+
+const EXPENSE_PAYMENT_METHODS: ChipOption<string>[] = [
+  { label: 'Cash', value: 'cash' },
+  { label: 'UPI', value: 'upi' },
+  { label: 'Bank Transfer', value: 'bank_transfer' },
+  { label: 'Cheque', value: 'cheque' },
+  { label: 'Other', value: 'other' },
+];
 
 const findFallbackMaster = (selectedName: string) => {
   if (!selectedName) return undefined;
@@ -458,24 +481,31 @@ export default function FarmHubScreen() {
   const [startedOnError, setStartedOnError] = useState('');
   const [seasonNameError, setSeasonNameError] = useState('');
 
+  // Memoized payment methods for Expense form
+  const expensePaymentMethodOptions: ChipOption<string>[] = useMemo(() => [
+    { label: t('Cash'), value: 'cash' },
+    { label: t('UPI'), value: 'upi' },
+    { label: t('Bank Transfer'), value: 'bank_transfer' },
+    { label: t('Cheque'), value: 'cheque' },
+    { label: t('Other'), value: 'other' },
+  ], [t]);
+
   // Add Expense Modal State
   const [expenseModalVisible, setExpenseModalVisible] = useState(false);
-  const [expenseCategory, setExpenseCategory] = useState('');
+  const [expenseCategory, setExpenseCategory] = useState(EXPENSE_CATEGORIES[0]);
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split('T')[0]);
+  const [expenseIsPaid, setExpenseIsPaid] = useState(true);
+  const [expensePaymentMethod, setExpensePaymentMethod] = useState('cash');
+  const [expenseNotes, setExpenseNotes] = useState('');
+  const [selectedCycleId, setSelectedCycleId] = useState<string>('');
+  const [savingExpense, setSavingExpense] = useState(false);
   const [expenseErrors, setExpenseErrors] = useState<Record<string, string>>({});
 
   // Calendar states
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [calendarTarget, setCalendarTarget] = useState<string>('start');
   const [calendarTitle, setCalendarTitle] = useState('Select Date');
-  const [paymentMethod, setPaymentMethod] = useState('cash');
-  const [paymentStatus, setPaymentStatus] = useState('completed');
-  const [expenseNotes, setExpenseNotes] = useState('');
-  const [selectedCycleId, setSelectedCycleId] = useState<string>('');
-  const [savingExpense, setSavingExpense] = useState(false);
-  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
-  const [showCycleDropdown, setShowCycleDropdown] = useState(false);
 
   // Add Activity Modal State
   const [activityModalVisible, setActivityModalVisible] = useState(false);
@@ -485,22 +515,11 @@ export default function FarmHubScreen() {
   const [activityNotes, setActivityNotes] = useState('');
   const [selectedActivityCycleId, setSelectedActivityCycleId] = useState<string>('');
   const [savingActivity, setSavingActivity] = useState(false);
-  const [showActivityMasterDropdown, setShowActivityMasterDropdown] = useState(false);
-  const [activityCycleModalVisible, setActivityCycleModalVisible] = useState(false);
-  const [activityCycleSearchQuery, setActivityCycleSearchQuery] = useState('');
-  const [activityMasterError, setActivityMasterError] = useState('');
-  const [activityMasterModalVisible, setActivityMasterModalVisible] = useState(false);
-  const [activityMasterSearchQuery, setActivityMasterSearchQuery] = useState('');
-
   // Dynamic fields states
   const [inputProductsList, setInputProductsList] = useState<AgroInputProduct[]>([]);
   const [activityFieldsValues, setActivityFieldsValues] = useState<Record<string, any>>({});
   const [activityErrors, setActivityErrors] = useState<Record<string, string>>({});
-  const [showFieldDropdowns, setShowFieldDropdowns] = useState<Record<string, boolean>>({});
   const [customProductNames, setCustomProductNames] = useState<Record<string, string>>({});
-  const [expenseOpenedFromCard, setExpenseOpenedFromCard] = useState(false);
-  const [expenseCategoryModalVisible, setExpenseCategoryModalVisible] = useState(false);
-  const [expenseCategorySearchQuery, setExpenseCategorySearchQuery] = useState('');
   const [activitiesSearchQuery, setActivitiesSearchQuery] = useState('');
   const [expensesSearchQuery, setExpensesSearchQuery] = useState('');
 
@@ -829,17 +848,56 @@ export default function FarmHubScreen() {
     }
   };
 
+  const handleSelectActivityMaster = (masterId: string | number) => {
+    setSelectedActivityMasterId(masterId.toString());
+    const m = (activityMastersList.length > 0 ? activityMastersList : fallbackActivityMasters).find(
+      (act) => act.id.toString() === masterId.toString()
+    );
+    const initialVals: Record<string, any> = {};
+    let fields = m?.fields || [];
+    if (fields.length === 0 && m) {
+      const fallback = findFallbackMaster(m.name);
+      if (fallback) {
+        fields = fallback.fields || [];
+      }
+    }
+    fields.forEach((f: any) => {
+      if (f.default !== undefined) {
+        initialVals[f.key] = f.default;
+      } else if (f.type === 'boolean') {
+        initialVals[f.key] = false;
+      }
+    });
+    setActivityFieldsValues(initialVals);
+    setActivityErrors({});
+  };
+
   const handleOpenAddActivityModal = (cycleId?: string) => {
     setSelectedActivityCycleId(cycleId || '');
     setActivityDate(new Date().toISOString().split('T')[0]);
     setActivityNotes('');
-    setSelectedActivityMasterId('');
-    setActivityMasterError('');
-    setActivityFieldsValues({});
-    setCustomProductNames({});
     setActivityErrors({});
     loadActivityMastersAndProducts();
+    const effectiveMasters = activityMastersList.length > 0 ? activityMastersList : fallbackActivityMasters;
+    if (effectiveMasters.length > 0) {
+      handleSelectActivityMaster(effectiveMasters[0].id);
+    } else {
+      setSelectedActivityMasterId('');
+      setActivityFieldsValues({});
+    }
     setActivityModalVisible(true);
+  };
+
+  const handleOpenAddExpenseModal = (cycleId?: string) => {
+    setSelectedCycleId(cycleId || '');
+    setExpenseCategory(EXPENSE_CATEGORIES[0]);
+    setExpenseAmount('');
+    setExpenseDate(new Date().toISOString().split('T')[0]);
+    setExpenseIsPaid(true);
+    setExpensePaymentMethod('cash');
+    setExpenseNotes('');
+    setExpenseErrors({});
+    setExpenseModalVisible(true);
   };
 
   const fetchCrops = async () => {
@@ -1021,29 +1079,27 @@ export default function FarmHubScreen() {
   };
 
   const handleCreateExpense = async () => {
-    let hasError = false;
-    const errors: Record<string, string> = {};
-
-    if (!expenseCategory) {
-      errors.category = t('Category is required.');
-      hasError = true;
-    }
+    const farmId = farm?.id || farmIdentifier;
     const amt = parseFloat(expenseAmount);
-    if (!expenseAmount.trim() || isNaN(amt) || amt <= 0) {
-      errors.amount = t('Valid positive amount is required.');
-      hasError = true;
+    if (!farmId || !expenseAmount.trim() || isNaN(amt) || amt <= 0) {
+      Alert.alert(t('Validation Error'), t('Please enter a valid expense amount.'));
+      return;
     }
-    if (!expenseDate) {
-      errors.date = t('Expense date is required.');
-      hasError = true;
-    }
-
-    setExpenseErrors(errors);
-    if (hasError) return;
 
     setSavingExpense(true);
     try {
       const categoryToMasterIdMap: Record<string, number> = {
+        'Seeds / Saplings': 1,
+        'Fertilizers': 7,
+        'Pesticides / Fungicides': 7,
+        'Labor / Wages': 3,
+        'Irrigation / Water': 4,
+        'Machinery / Tractor Rental': 6,
+        'Fuel / Electricity': 2,
+        'Packaging / Crates': 6,
+        'Transport / Freight': 5,
+        'Consulting / Inspection': 6,
+        'Other Operational': 6,
         'Seed': 1,
         'Fuel': 2,
         'Labor': 3,
@@ -1058,49 +1114,47 @@ export default function FarmHubScreen() {
       const masterId = categoryToMasterIdMap[expenseCategory] || 6;
 
       const newExpense: FarmExpense = {
-        farm_id: farm?.id || farmIdentifier,
-        crop_cycle_id: selectedCycleId ? selectedCycleId : null,
+        farm_id: farmId,
+        crop_cycle_id: selectedCycleId ? selectedCycleId : undefined,
         expense_master_id: masterId,
-        date: expenseDate,
+        date: expenseDate || new Date().toISOString().split('T')[0],
         expense_category: expenseCategory,
         amount: amt,
-        payment_method: paymentStatus === 'completed' ? paymentMethod : 'cash',
-        payment_status: paymentStatus,
+        payment_method: expenseIsPaid ? (expensePaymentMethod || 'cash') : undefined,
+        payment_status: expenseIsPaid ? 'PAID' : 'UNPAID',
         notes: expenseNotes || undefined,
       };
 
       await expensesApi.create(newExpense);
-      Alert.alert(t('Success'), t('Expense logged successfully.'));
+      Alert.alert(t('Success'), t('Expense logged successfully!'));
       setExpenseAmount('');
       setExpenseNotes('');
       setSelectedCycleId('');
-      setExpenseCategory('');
+      setExpenseCategory(EXPENSE_CATEGORIES[0]);
+      setExpenseIsPaid(true);
+      setExpensePaymentMethod('cash');
       setExpenseErrors({});
       setExpenseModalVisible(false);
       fetchExpensesTab(1, expensesSearchQuery, expenseStatusFilter);
     } catch (error: any) {
       console.error('Error creating expense:', error);
-      Alert.alert(t('Error'), extractErrorMessage(error));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to log expense.')));
     } finally {
       setSavingExpense(false);
     }
   };
 
   const handleCreateActivity = async () => {
-    let hasError = false;
-    const errors: Record<string, string> = {};
-
-    if (!selectedActivityMasterId) {
-      setActivityMasterError(t('Please select an activity type.'));
-      hasError = true;
-    }
-    if (!activityDate) {
-      Alert.alert(t('Validation Error'), t('Activity date is required.'));
+    const farmId = farm?.id || farmIdentifier;
+    if (!farmId || !selectedActivityMasterId) {
+      Alert.alert(t('Validation Error'), t('Please select an activity master.'));
       return;
     }
 
-    // Validate dynamic fields
-    const selectedMaster = activityMastersList.find(m => m.id.toString() === selectedActivityMasterId.toString());
+    const effectiveMasters = activityMastersList.length > 0 ? activityMastersList : fallbackActivityMasters;
+    const selectedMaster = effectiveMasters.find(
+      (m) => m.id.toString() === selectedActivityMasterId.toString()
+    );
     let fields = selectedMaster?.fields || [];
     if (fields.length === 0 && selectedMaster) {
       const fallback = findFallbackMaster(selectedMaster.name);
@@ -1108,35 +1162,40 @@ export default function FarmHubScreen() {
         fields = fallback.fields || [];
       }
     }
-    fields.forEach(f => {
+
+    // Validate dynamic fields
+    const errors: Record<string, string> = {};
+    let hasError = false;
+    fields.forEach((f: any) => {
       const val = activityFieldsValues[f.key];
       if (f.required && (val === undefined || val === null || val === '')) {
-        errors[f.key] = t('%{field} is required.', { field: f.label });
+        errors[f.key] = t('%{label} is required.', { label: t(f.label) });
         hasError = true;
       } else if ((f.type === 'number' || f.type === 'decimal') && val !== undefined && val !== null && val !== '') {
         const num = parseFloat(val);
         if (isNaN(num) || num < 0) {
-          errors[f.key] = t('%{field} must be a valid number.', { field: f.label });
+          errors[f.key] = t('%{label} must be a valid number.', { label: t(f.label) });
           hasError = true;
         }
       }
       if (val === 'new' && (!customProductNames[f.key] || !customProductNames[f.key].trim())) {
-        errors[f.key] = t('Please enter custom %{field} name.', { field: f.label.toLowerCase() });
+        errors[f.key] = t('Please enter custom %{label} name.', { label: t(f.label).toLowerCase() });
         hasError = true;
       }
     });
 
-    setActivityErrors(errors);
-    if (hasError) return;
+    if (hasError) {
+      setActivityErrors(errors);
+      return;
+    }
 
     setSavingActivity(true);
     try {
-      const activeObj = activityMastersList.find(m => m.id.toString() === selectedActivityMasterId.toString());
       let finalMasterId = selectedActivityMasterId;
 
       if (selectedActivityMasterId.toString().startsWith('f')) {
         const createdMaster = await mastersApi.createActivity({
-          name: activeObj?.name || 'General',
+          name: selectedMaster?.name || 'General',
           is_active: true,
         });
         finalMasterId = createdMaster.id.toString();
@@ -1144,16 +1203,7 @@ export default function FarmHubScreen() {
 
       // Handle dynamic custom product creation if "+ Add Custom Product..." is selected
       const updatedFieldsValues = { ...activityFieldsValues };
-      const selectedMasterObj = activityMastersList.find(m => m.id.toString() === selectedActivityMasterId.toString());
-      let fieldsList = selectedMasterObj?.fields || [];
-      if (fieldsList.length === 0 && selectedMasterObj) {
-        const fallback = findFallbackMaster(selectedMasterObj.name);
-        if (fallback) {
-          fieldsList = fallback.fields || [];
-        }
-      }
-
-      for (const f of fieldsList) {
+      for (const f of fields) {
         if (f.type === 'morph' && updatedFieldsValues[f.key] === 'new') {
           const customName = customProductNames[f.key];
           if (customName && customName.trim()) {
@@ -1161,26 +1211,25 @@ export default function FarmHubScreen() {
               name: customName.trim(),
               is_active: true,
             });
-            // Update the locally cached list too
-            setInputProductsList(prev => [...prev, newProduct]);
+            setInputProductsList((prev) => [...prev, newProduct]);
             updatedFieldsValues[f.key] = newProduct.id;
           }
         }
       }
 
       const activityPayload: FarmActivity = {
-        farm_id: farm?.id || farmIdentifier,
-        crop_cycle_id: selectedActivityCycleId ? parseInt(selectedActivityCycleId) : null,
+        farm_id: farmId,
+        crop_cycle_id: selectedActivityCycleId ? parseInt(selectedActivityCycleId) : undefined,
         farm_activity_master_id: parseInt(finalMasterId),
-        date: activityDate,
-        status: new Date(activityDate) > new Date() ? 'scheduled' : 'completed',
+        date: activityDate || new Date().toISOString().split('T')[0],
+        activity_type: selectedMaster?.name || 'General',
+        status: activityDate && new Date(activityDate) > new Date() ? 'scheduled' : 'completed',
         notes: activityNotes || undefined,
-        activity_type: activeObj?.name || 'Unknown',
-        details_json: updatedFieldsValues,
+        details_json: Object.keys(updatedFieldsValues).length > 0 ? updatedFieldsValues : undefined,
       };
 
       await farmActivitiesApi.create(activityPayload);
-      Alert.alert(t('Success'), t('Activity scheduled successfully.'));
+      Alert.alert(t('Success'), t('Activity added successfully!'));
       setActivityModalVisible(false);
       setSelectedActivityMasterId('');
       setActivityNotes('');
@@ -1190,7 +1239,7 @@ export default function FarmHubScreen() {
       fetchActivitiesTab(1, activitiesSearchQuery, activityStatusFilter);
     } catch (error: any) {
       console.error('Error creating activity:', error);
-      Alert.alert(t('Error'), extractErrorMessage(error));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to create activity.')));
     } finally {
       setSavingActivity(false);
     }
@@ -1739,11 +1788,7 @@ export default function FarmHubScreen() {
 
                       <TouchableOpacity 
                         style={styles.cardActionBtn} 
-                        onPress={() => {
-                          setSelectedCycleId(item.id!.toString());
-                          setExpenseOpenedFromCard(true);
-                          setExpenseModalVisible(true);
-                        }}
+                        onPress={() => handleOpenAddExpenseModal(item.id!.toString())}
                       >
                         <Text style={styles.rupeeIcon}>₹</Text>
                         <Text style={styles.cardActionBtnText}>{t('Expense')}</Text>
@@ -2064,12 +2109,7 @@ export default function FarmHubScreen() {
               <TouchableOpacity
                 style={[styles.addInlineBtn, !farm.is_active && { opacity: 0.5 }]}
                 disabled={!farm.is_active}
-                onPress={() => {
-                  setSelectedCycleId('');
-                  setExpenseOpenedFromCard(false);
-                  setExpenseErrors({});
-                  setExpenseModalVisible(true);
-                }}
+                onPress={() => handleOpenAddExpenseModal('')}
               >
                 <Text style={styles.addInlineBtnText}>+ {t('Log Expense')}</Text>
               </TouchableOpacity>
@@ -2331,10 +2371,7 @@ export default function FarmHubScreen() {
           } else if (activeTab === 'activities') {
             handleOpenAddActivityModal('');
           } else if (activeTab === 'expenses') {
-            setSelectedCycleId('');
-            setExpenseOpenedFromCard(false);
-            setExpenseErrors({});
-            setExpenseModalVisible(true);
+            handleOpenAddExpenseModal('');
           }
         }}
         activeOpacity={0.85}
@@ -2549,777 +2586,372 @@ export default function FarmHubScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Schedule Activity Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
+      {/* Schedule / Add Activity ModalSheet */}
+      <ModalSheet
         visible={activityModalVisible}
-        onRequestClose={() => setActivityModalVisible(false)}
+        onClose={() => setActivityModalVisible(false)}
+        title={t('Log Field Activity')}
+        maxHeight="90%"
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <CalendarOverlay
-              visible={calendarVisible && (calendarTarget === 'activity' || calendarTarget.startsWith('field:'))}
-              value={
-                calendarTarget.startsWith('field:') 
-                  ? (activityFieldsValues[calendarTarget.replace('field:', '')] || '')
-                  : activityDate
-              }
-              onClose={() => setCalendarVisible(false)}
-              onSelect={handleSelectCalendarDate}
-              title={calendarTitle}
-            />
-            {activityMasterModalVisible && (
-              <View style={styles.sheetOverlayContent}>
-                <View style={styles.bottomSheetHeader}>
-                  <Text style={styles.bottomSheetTitle}>Select Activity Type</Text>
-                  <TouchableOpacity onPress={() => setActivityMasterModalVisible(false)} style={styles.closeBtnCircle}>
-                    <Ionicons name="close" size={20} color="#475569" />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Search Bar */}
-                <View style={styles.sheetSearchContainer}>
-                  <Ionicons name="search" size={18} color="#64748b" style={styles.sheetSearchIcon} />
-                  <TextInput
-                    style={styles.sheetSearchInput}
-                    placeholder="Search activities..."
-                    placeholderTextColor="#94a3b8"
-                    value={activityMasterSearchQuery}
-                    onChangeText={setActivityMasterSearchQuery}
-                  />
-                  {activityMasterSearchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setActivityMasterSearchQuery('')}>
-                      <Ionicons name="close-circle" size={18} color="#94a3b8" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* Activities list */}
-                <ScrollView 
-                  style={styles.sheetList} 
-                  showsVerticalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <Text style={styles.inputLabel}>{t('Select Activity Type *')}</Text>
+          <View style={styles.chipSelectorWrap}>
+            {(activityMastersList.length > 0 ? activityMastersList : fallbackActivityMasters).map((master) => {
+              const isSel = selectedActivityMasterId?.toString() === master.id?.toString();
+              return (
+                <TouchableOpacity
+                  key={master.id}
+                  style={[styles.masterChip, isSel && styles.masterChipSelected]}
+                  onPress={() => handleSelectActivityMaster(master.id)}
                 >
-                  {activityMastersList
-                    .filter(m => m.name.toLowerCase().includes(activityMasterSearchQuery.toLowerCase()))
-                    .map((m) => {
-                      const isSelected = selectedActivityMasterId.toString() === m.id.toString();
-                      return (
-                        <TouchableOpacity
-                          key={m.id}
-                          style={[styles.sheetItem, isSelected && styles.sheetItemActive]}
-                          onPress={() => {
-                            setSelectedActivityMasterId(m.id.toString());
-                            setActivityMasterModalVisible(false);
-                            if (activityMasterError) setActivityMasterError('');
-                            
-                            // Populate default dynamic fields for the selected activity
-                            const initialVals: Record<string, any> = {};
-                            let fields = m.fields || [];
-                            if (fields.length === 0) {
-                              const fallback = findFallbackMaster(m.name);
-                              if (fallback) {
-                                fields = fallback.fields || [];
-                              }
-                            }
-                            fields.forEach((f: any) => {
-                              initialVals[f.key] = f.type === 'boolean' ? false : '';
-                            });
-                            setActivityFieldsValues(initialVals);
-                            setActivityErrors({});
-                            setShowFieldDropdowns({});
-                          }}
-                          activeOpacity={0.6}
-                        >
-                          <Text style={[styles.sheetItemText, isSelected && styles.sheetItemTextActive]}>
-                            {m.name}
-                          </Text>
-                          {isSelected && (
-                            <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
-                          )}
-                        </TouchableOpacity>
-                      );
-                    })}
-                </ScrollView>
-              </View>
-            )}
-
-            {activityCycleModalVisible && (
-              <View style={styles.sheetOverlayContent}>
-                <View style={styles.bottomSheetHeader}>
-                  <Text style={styles.bottomSheetTitle}>Select Crop Cycle</Text>
-                  <TouchableOpacity onPress={() => setActivityCycleModalVisible(false)} style={styles.closeBtnCircle}>
-                    <Ionicons name="close" size={20} color="#475569" />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Search Bar */}
-                <View style={styles.sheetSearchContainer}>
-                  <Ionicons name="search" size={18} color="#64748b" style={styles.sheetSearchIcon} />
-                  <TextInput
-                    style={styles.sheetSearchInput}
-                    placeholder="Search crop cycles..."
-                    placeholderTextColor="#94a3b8"
-                    value={activityCycleSearchQuery}
-                    onChangeText={setActivityCycleSearchQuery}
-                  />
-                  {activityCycleSearchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setActivityCycleSearchQuery('')}>
-                      <Ionicons name="close-circle" size={18} color="#94a3b8" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* Cycles list */}
-                <ScrollView 
-                  style={styles.sheetList} 
-                  showsVerticalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
-                >
-                  <TouchableOpacity
-                    style={[styles.sheetItem, !selectedActivityCycleId && styles.sheetItemActive]}
-                    onPress={() => {
-                      setSelectedActivityCycleId('');
-                      setActivityCycleModalVisible(false);
-                    }}
-                    activeOpacity={0.6}
+                  <Text
+                    style={[styles.masterChipText, isSel && styles.masterChipTextSelected]}
                   >
-                    <Text style={[styles.sheetItemText, !selectedActivityCycleId && styles.sheetItemTextActive, { color: '#94a3b8' }]}>
-                      None (General Farm Activity)
-                    </Text>
-                    {!selectedActivityCycleId && (
-                      <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
-                    )}
-                  </TouchableOpacity>
+                    {t(master.name)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-                  {activeCycles
-                    .filter(c => {
-                      const text = (c.season_name || '').toLowerCase();
-                      return text.includes(activityCycleSearchQuery.toLowerCase());
-                    })
-                    .map((c) => {
-                      const isSelected = selectedActivityCycleId?.toString() === c.id?.toString();
-                      return (
-                        <TouchableOpacity
-                          key={c.ulid || c.id}
-                          style={[styles.sheetItem, isSelected && styles.sheetItemActive]}
-                          onPress={() => {
-                            setSelectedActivityCycleId(c.id!.toString());
-                            setActivityCycleModalVisible(false);
-                          }}
-                          activeOpacity={0.6}
-                        >
-                          <Text style={[styles.sheetItemText, isSelected && styles.sheetItemTextActive]}>
-                            {c.season_name}
-                          </Text>
-                          {isSelected && (
-                            <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
-                          )}
-                        </TouchableOpacity>
-                      );
-                    })}
-                </ScrollView>
-              </View>
-            )}
+          {/* Dynamic Master Fields Section */}
+          {selectedActivityMasterId && (() => {
+            const effectiveMasters = activityMastersList.length > 0 ? activityMastersList : fallbackActivityMasters;
+            const selectedMaster = effectiveMasters.find(
+              (m) => m.id.toString() === selectedActivityMasterId.toString()
+            );
+            if (!selectedMaster) return null;
+            let fields = selectedMaster.fields || [];
+            if (fields.length === 0) {
+              const fallback = findFallbackMaster(selectedMaster.name);
+              if (fallback) {
+                fields = fallback.fields || [];
+              }
+            }
+            if (fields.length === 0) return null;
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.modalHeaderRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.modalTitle}>Schedule Activity</Text>
-                  <Text style={{ fontSize: 13, color: '#64748b', marginTop: 2, fontWeight: '600' }}>
-                    {(() => {
-                      const cy = cycles.find(c => (c.ulid === selectedActivityCycleId || c.id?.toString() === selectedActivityCycleId));
-                      return cy ? (cy.season_name || 'Active Cycle') : 'General Activity';
-                    })()}
+            return (
+              <View style={styles.dynamicFieldsCard}>
+                <View style={styles.dynamicFieldsHeader}>
+                  <Ionicons name="options-outline" size={16} color={colors.slate700} style={{ marginRight: 6 }} />
+                  <Text style={styles.dynamicFieldsTitle}>
+                    {t('%{name} Details', { name: t(selectedMaster.name) })}
                   </Text>
                 </View>
-                <TouchableOpacity onPress={() => setActivityModalVisible(false)}>
-                  <Ionicons name="close" size={20} color="#64748b" />
-                </TouchableOpacity>
-              </View>
 
-              {/* Cycle Dropdown Selector */}
-              <Text style={styles.inputLabel}>Crop Cycle (Optional)</Text>
-              <TouchableOpacity 
-                style={styles.selectorRow} 
-                onPress={() => {
-                  setActivityCycleSearchQuery('');
-                  setActivityCycleModalVisible(true);
-                }}
-              >
-                <Text style={[styles.selectorText, selectedActivityCycleId ? styles.selectorTextSelected : null]}>
-                  {selectedActivityCycleId ? 
-                    (() => {
-                      const cy = cycles.find(c => (c.ulid === selectedActivityCycleId || c.id?.toString() === selectedActivityCycleId));
-                      return cy ? cy.season_name : 'Select Cycle';
-                    })() : 'None (General Farm Activity)'}
-                </Text>
-                <Ionicons name="chevron-down" size={18} color="#64748b" />
-              </TouchableOpacity>
+                {fields.map((f: any) => {
+                  const val = activityFieldsValues[f.key];
+                  const error = activityErrors[f.key];
 
-              <Text style={[styles.inputLabel, { marginTop: 14 }]}>Activity Type <Text style={{ color: '#ef4444' }}>*</Text></Text>
-              <TouchableOpacity 
-                style={[styles.selectorRow, activityMasterError ? styles.inputErrorBorder : null]} 
-                onPress={() => {
-                  setActivityMasterSearchQuery('');
-                  setActivityMasterModalVisible(true);
-                }}
-              >
-                <Text style={[styles.selectorText, selectedActivityMasterId ? styles.selectorTextSelected : null]}>
-                  {selectedActivityMasterId ? activityMastersList.find(m => m.id.toString() === selectedActivityMasterId.toString())?.name : 'Select Activity Type'}
-                </Text>
-                <Ionicons name="chevron-down" size={18} color="#64748b" />
-              </TouchableOpacity>
-              {activityMasterError ? <Text style={styles.inputErrorText}>{activityMasterError}</Text> : null}
-
-              {/* Dynamic Fields Section rendered directly inline */}
-              {selectedActivityMasterId && (() => {
-                const selectedMaster = activityMastersList.find(m => m.id.toString() === selectedActivityMasterId.toString());
-                if (!selectedMaster) return null;
-                let fields = selectedMaster.fields || [];
-                if (fields.length === 0) {
-                  const fallback = findFallbackMaster(selectedMaster.name);
-                  if (fallback) {
-                    fields = fallback.fields || [];
-                  }
-                }
-                if (fields.length === 0) return null;
-
-                return (
-                  <View style={{ marginTop: 20, backgroundColor: '#f1f5f9', padding: 14, borderRadius: 16 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                      <Ionicons name="options-outline" size={18} color="#0f172a" style={{ marginRight: 6 }} />
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#0f172a' }}>
-                        Activity Details ({selectedMaster.name})
-                      </Text>
-                    </View>
-                    {fields.map((f: any) => {
-                      const val = activityFieldsValues[f.key];
-                      const error = activityErrors[f.key];
-
-                      // 1. Text field / String type
-                      if (f.type === 'string') {
-                        return (
-                          <View key={f.key} style={{ marginBottom: 12 }}>
-                            <Text style={styles.inputLabel}>
-                              {f.label} {f.required && <Text style={{ color: '#ef4444' }}>*</Text>}
-                            </Text>
-                            <TextInput
-                              style={[styles.input, { backgroundColor: '#fff' }, error ? styles.inputErrorBorder : null]}
-                              value={val || ''}
-                              onChangeText={(txt) => {
-                                setActivityFieldsValues(prev => ({ ...prev, [f.key]: txt }));
-                                if (activityErrors[f.key]) {
-                                  setActivityErrors(prev => ({ ...prev, [f.key]: '' }));
-                                }
-                              }}
-                              placeholder={`Enter ${f.label.toLowerCase()}`}
-                              placeholderTextColor="#94a3b8"
-                            />
-                            {error ? <Text style={styles.inputErrorText}>{error}</Text> : null}
-                          </View>
-                        );
-                      }
-
-                      // 2. Numeric / Number / Decimal type
-                      if (f.type === 'number' || f.type === 'decimal') {
-                        return (
-                          <View key={f.key} style={{ marginBottom: 12 }}>
-                            <Text style={styles.inputLabel}>
-                              {f.label} {f.required && <Text style={{ color: '#ef4444' }}>*</Text>}
-                            </Text>
-                            <View style={[styles.areaInputContainer, { backgroundColor: '#fff' }, error ? styles.inputErrorBorder : null]}>
-                              <TextInput
-                                style={styles.areaInputField}
-                                value={val !== undefined && val !== null ? val.toString() : ''}
-                                onChangeText={(txt) => {
-                                  const clean = sanitizeNumericInput(txt, f.type === 'decimal');
-                                  setActivityFieldsValues(prev => ({ ...prev, [f.key]: clean }));
-                                  if (activityErrors[f.key]) {
-                                    setActivityErrors(prev => ({ ...prev, [f.key]: '' }));
-                                  }
-                                }}
-                                placeholder="e.g. 10"
-                                placeholderTextColor="#94a3b8"
-                                keyboardType="decimal-pad"
-                              />
-                              {f.unit ? (
-                                <>
-                                  <View style={styles.areaUnitDivider} />
-                                  <View style={styles.areaUnitTextContainer}>
-                                    <Text style={styles.areaUnitText}>{f.unit}</Text>
-                                  </View>
-                                </>
-                              ) : null}
-                            </View>
-                            {error ? <Text style={styles.inputErrorText}>{error}</Text> : null}
-                          </View>
-                        );
-                      }
-
-                      // 3. Boolean/Checkbox type
-                      if (f.type === 'boolean') {
-                        return (
-                          <View key={f.key} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, backgroundColor: '#fff', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' }}>
-                            <Text style={{ fontSize: 14, fontWeight: '600', color: '#334155' }}>{f.label}</Text>
-                            <Switch
-                              value={!!val}
-                              onValueChange={(boolVal) => {
-                                setActivityFieldsValues(prev => ({ ...prev, [f.key]: boolVal }));
-                              }}
-                              trackColor={{ false: '#cbd5e1', true: '#bbf7d0' }}
-                              thumbColor={val ? '#16a34a' : '#94a3b8'}
-                            />
-                          </View>
-                        );
-                      }
-
-                      // 4. Enum/Select type -> Show Segmented Pills!
-                      if (f.type === 'enum') {
-                        const normalizedOpts = getNormalizedOptions(f.options);
-
-                        return (
-                          <View key={f.key} style={{ marginBottom: 12 }}>
-                            <Text style={styles.inputLabel}>
-                              {f.label} {f.required && <Text style={{ color: '#ef4444' }}>*</Text>}
-                            </Text>
-                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 }}>
-                              {normalizedOpts.map((opt) => {
-                                const isSelected = val === opt.key;
-                                return (
-                                  <TouchableOpacity
-                                    key={opt.key}
-                                    style={{
-                                      backgroundColor: isSelected ? '#16a34a' : '#fff',
-                                      paddingVertical: 8,
-                                      paddingHorizontal: 12,
-                                      borderRadius: 20,
-                                      borderWidth: 1,
-                                      borderColor: isSelected ? '#16a34a' : '#cbd5e1',
-                                      marginRight: 8,
-                                      marginBottom: 8,
-                                    }}
-                                    onPress={() => {
-                                      setActivityFieldsValues(prev => ({ ...prev, [f.key]: opt.key }));
-                                      if (activityErrors[f.key]) {
-                                        setActivityErrors(prev => ({ ...prev, [f.key]: '' }));
-                                      }
-                                    }}
-                                    activeOpacity={0.7}
-                                  >
-                                    <Text style={{ fontSize: 13, fontWeight: '600', color: isSelected ? '#fff' : '#64748b' }}>
-                                      {opt.label}
-                                    </Text>
-                                  </TouchableOpacity>
-                                );
-                              })}
-                            </View>
-                            {error ? <Text style={styles.inputErrorText}>{error}</Text> : null}
-                          </View>
-                        );
-                      }
-
-                      // 5. Morph/Select type (Agro Input Products) -> Show Dropdown selector!
-                      if (f.type === 'morph') {
-                        const showDropdown = !!showFieldDropdowns[f.key];
-                        const isCustom = val === 'new';
-
-                        const dropdownItems = [
-                          ...inputProductsList.map((p) => ({
-                            value: p.id.toString(),
-                            label: p.name,
-                            icon: 'flask-outline' as const,
-                          })),
-                          { value: 'new', label: '+ Add Custom Product...', icon: 'add-circle-outline' as const },
-                        ];
-
-                        return (
-                          <View key={f.key} style={{ marginBottom: 12 }}>
-                            <SearchableSelect
-                              label={f.label}
-                              required={f.required}
-                              placeholder={`Select ${f.label}`}
-                              searchPlaceholder={`Search ${f.label}...`}
-                              items={dropdownItems}
-                              value={val?.toString() || null}
-                              onSelect={(selectedId) => {
-                                setActivityFieldsValues((prev) => ({ ...prev, [f.key]: selectedId }));
-                                if (activityErrors[f.key]) {
-                                  setActivityErrors((prev) => ({ ...prev, [f.key]: '' }));
-                                }
-                              }}
-                              error={error}
-                            />
-
-                            {isCustom && (
-                              <TextInput
-                                style={[styles.input, { backgroundColor: '#fff', marginTop: 8 }]}
-                                value={customProductNames[f.key] || ''}
-                                onChangeText={(txt) => {
-                                  setCustomProductNames(prev => ({ ...prev, [f.key]: txt }));
-                                  if (activityErrors[f.key]) {
-                                    setActivityErrors(prev => ({ ...prev, [f.key]: '' }));
-                                  }
-                                }}
-                                placeholder={`Enter custom ${f.label.toLowerCase()} name`}
-                                placeholderTextColor="#94a3b8"
-                              />
-                            )}
-                          </View>
-                        );
-                      }
-
-                      // 6. Date field type
-                      if (f.type === 'date') {
-                        return (
-                          <View key={f.key} style={{ marginBottom: 12 }}>
-                            <Text style={styles.inputLabel}>
-                              {f.label} {f.required && <Text style={{ color: '#ef4444' }}>*</Text>}
-                            </Text>
-                            <TouchableOpacity 
-                              style={[styles.selectorRow, { backgroundColor: '#fff' }, error ? styles.inputErrorBorder : null]} 
-                              onPress={() => {
-                                setCalendarTitle(`Select ${f.label}`);
-                                setCalendarTarget(`field:${f.key}`);
-                                setCalendarVisible(true);
-                              }}
-                              activeOpacity={0.7}
-                            >
-                              <Text style={[styles.selectorText, val ? styles.selectorTextSelected : null]}>
-                                {val ? formatDisplayDate(val) : 'Select Date'}
-                              </Text>
-                              <Ionicons name="calendar-outline" size={18} color="#64748b" />
-                            </TouchableOpacity>
-                            {error ? <Text style={styles.inputErrorText}>{error}</Text> : null}
-                          </View>
-                        );
-                      }
-
-                      return null;
-                    })}
-                  </View>
-                );
-              })()}
-
-              <Text style={styles.inputLabel}>Scheduled Date <Text style={{ color: '#ef4444' }}>*</Text></Text>
-              <TouchableOpacity 
-                style={styles.selectorRow} 
-                onPress={() => {
-                  setCalendarTarget('activity');
-                  setCalendarTitle('Select Scheduled Date');
-                  setCalendarVisible(true);
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.selectorText, activityDate ? styles.selectorTextSelected : null]}>
-                  {activityDate ? formatDisplayDate(activityDate) : 'Select Date'}
-                </Text>
-                <Ionicons name="calendar-outline" size={18} color="#64748b" />
-              </TouchableOpacity>
-
-              <Text style={styles.inputLabel}>Remarks / Notes</Text>
-              <TextInput
-                style={[styles.input, styles.multilineInput]}
-                placeholder="Details of operation..."
-                placeholderTextColor="#94a3b8"
-                value={activityNotes}
-                onChangeText={setActivityNotes}
-                multiline
-                numberOfLines={3}
-              />
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setActivityModalVisible(false)}>
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.modalBtn, styles.saveBtn]} onPress={handleCreateActivity} disabled={savingActivity}>
-                  {savingActivity ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Schedule</Text>}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-
-
-
-
-      {/* Log Expense Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={expenseModalVisible}
-        onRequestClose={() => setExpenseModalVisible(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <CalendarOverlay
-              visible={calendarVisible && calendarTarget === 'expense'}
-              value={expenseDate}
-              onClose={() => setCalendarVisible(false)}
-              onSelect={handleSelectCalendarDate}
-              title={calendarTitle}
-            />
-            {expenseCategoryModalVisible && (
-              <View style={styles.sheetOverlayContent}>
-                <View style={styles.bottomSheetHeader}>
-                  <Text style={styles.bottomSheetTitle}>Select Category</Text>
-                  <TouchableOpacity onPress={() => setExpenseCategoryModalVisible(false)} style={styles.closeBtnCircle}>
-                    <Ionicons name="close" size={20} color="#475569" />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Search Bar */}
-                <View style={styles.sheetSearchContainer}>
-                  <Ionicons name="search" size={18} color="#64748b" style={styles.sheetSearchIcon} />
-                  <TextInput
-                    style={styles.sheetSearchInput}
-                    placeholder="Search categories..."
-                    placeholderTextColor="#94a3b8"
-                    value={expenseCategorySearchQuery}
-                    onChangeText={setExpenseCategorySearchQuery}
-                  />
-                  {expenseCategorySearchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setExpenseCategorySearchQuery('')}>
-                      <Ionicons name="close-circle" size={18} color="#94a3b8" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* Categories list */}
-                <ScrollView 
-                  style={styles.sheetList} 
-                  showsVerticalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
-                >
-                  {categories
-                    .filter(c => c.toLowerCase().includes(expenseCategorySearchQuery.toLowerCase()))
-                    .map((c) => {
-                      const isSelected = expenseCategory === c;
-                      return (
-                        <TouchableOpacity
-                          key={c}
-                          style={[styles.sheetItem, isSelected && styles.sheetItemActive]}
-                          onPress={() => {
-                            setExpenseCategory(c);
-                            setExpenseCategoryModalVisible(false);
-                            if (expenseErrors.category) {
-                              setExpenseErrors(prev => ({ ...prev, category: '' }));
+                  if (f.type === 'string') {
+                    return (
+                      <View key={f.key} style={{ marginBottom: 12 }}>
+                        <Text style={styles.inputLabel}>
+                          {t(f.label)} {f.required && <Text style={{ color: colors.danger }}>*</Text>}
+                        </Text>
+                        <TextInput
+                          style={[styles.input, { backgroundColor: colors.white }, error ? styles.inputErrorBorder : null]}
+                          value={val || ''}
+                          onChangeText={(txt) => {
+                            setActivityFieldsValues((prev) => ({ ...prev, [f.key]: txt }));
+                            if (activityErrors[f.key]) {
+                              setActivityErrors((prev) => ({ ...prev, [f.key]: '' }));
                             }
                           }}
-                          activeOpacity={0.6}
-                        >
-                          <Text style={[styles.sheetItemText, isSelected && styles.sheetItemTextActive]}>
-                            {c}
-                          </Text>
-                          {isSelected && (
-                            <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
-                          )}
-                        </TouchableOpacity>
-                      );
-                    })}
-                </ScrollView>
-              </View>
-            )}
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.modalHeaderRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.modalTitle}>Log Expense</Text>
-                  {selectedCycleId ? (
-                    <Text style={{ fontSize: 13, color: '#64748b', marginTop: 2, fontWeight: '600' }}>
-                      {(() => {
-                        const cy = cycles.find(c => (c.ulid === selectedCycleId || c.id?.toString() === selectedCycleId));
-                        return cy ? (cy.season_name || 'Active Cycle') : '';
-                      })()}
-                    </Text>
-                  ) : (
-                    <Text style={{ fontSize: 13, color: '#64748b', marginTop: 2, fontWeight: '600' }}>
-                      General Farm Expense
-                    </Text>
-                  )}
-                </View>
-                <TouchableOpacity onPress={() => setExpenseModalVisible(false)}>
-                  <Ionicons name="close" size={20} color="#64748b" />
-                </TouchableOpacity>
-              </View>
+                          placeholder={t('Enter %{label}', { label: t(f.label).toLowerCase() })}
+                          placeholderTextColor={colors.slate400}
+                        />
+                        {error ? <Text style={styles.inputErrorText}>{error}</Text> : null}
+                      </View>
+                    );
+                  }
 
-              {/* Crop Cycle selector (Dependent on farm) - Hide if preselected from card */}
-              {!expenseOpenedFromCard && (
-                <SearchableSelect
-                  label="Associate Crop Cycle (Optional)"
-                  allowClear
-                  clearLabel="None (General Farm Expense)"
-                  placeholder="None (General Farm Expense)"
-                  searchPlaceholder="Search active cycles..."
-                  items={activeCycles.map((c) => ({
-                    value: c.id!.toString(),
-                    label: `${c.crop_name || c.crop_type} (${c.season_name})`,
-                    icon: 'leaf-outline',
-                  }))}
-                  value={selectedCycleId || null}
-                  onSelect={(val) => setSelectedCycleId((val as string) || '')}
-                  containerStyle={{ marginBottom: 12 }}
-                  emptyMessage="No active crop cycles found."
-                />
-              )}
+                  if (f.type === 'number' || f.type === 'decimal') {
+                    return (
+                      <View key={f.key} style={{ marginBottom: 12 }}>
+                        <Text style={styles.inputLabel}>
+                          {t(f.label)} {f.required && <Text style={{ color: colors.danger }}>*</Text>}
+                        </Text>
+                        <TextInput
+                          style={[styles.input, { backgroundColor: colors.white }, error ? styles.inputErrorBorder : null]}
+                          value={val !== undefined && val !== null ? val.toString() : ''}
+                          onChangeText={(txt) => {
+                            setActivityFieldsValues((prev) => ({ ...prev, [f.key]: txt }));
+                            if (activityErrors[f.key]) {
+                              setActivityErrors((prev) => ({ ...prev, [f.key]: '' }));
+                            }
+                          }}
+                          placeholder={t('e.g. 10')}
+                          placeholderTextColor={colors.slate400}
+                          keyboardType="numeric"
+                        />
+                        {error ? <Text style={styles.inputErrorText}>{error}</Text> : null}
+                      </View>
+                    );
+                  }
 
-              {/* Category Selector Trigger */}
-              <Text style={styles.inputLabel}>Expense Category <Text style={{ color: '#ef4444' }}>*</Text></Text>
-              <TouchableOpacity 
-                style={[styles.selectorRow, expenseErrors.category ? styles.inputErrorBorder : null]} 
-                onPress={() => {
-                  setExpenseCategorySearchQuery('');
-                  setExpenseCategoryModalVisible(true);
-                }}
-              >
-                <Text style={[styles.selectorText, expenseCategory ? styles.selectorTextSelected : null]}>
-                  {expenseCategory || 'Select Category'}
-                </Text>
-                <Ionicons name="chevron-down" size={18} color="#64748b" />
-              </TouchableOpacity>
-              {expenseErrors.category ? <Text style={styles.inputErrorText}>{expenseErrors.category}</Text> : null}
+                  if (f.type === 'boolean') {
+                    return (
+                      <View key={f.key} style={styles.dynamicBoolRow}>
+                        <Text style={styles.dynamicBoolLabel}>{t(f.label)}</Text>
+                        <Switch
+                          value={!!val}
+                          onValueChange={(boolVal) => {
+                            setActivityFieldsValues((prev) => ({ ...prev, [f.key]: boolVal }));
+                          }}
+                          trackColor={{ false: colors.slate200, true: '#86efac' }}
+                          thumbColor={val ? colors.primary : colors.slate400}
+                        />
+                      </View>
+                    );
+                  }
 
-              {/* Row for Amount and Expense Date */}
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-                {/* Amount Column */}
-                <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text style={[styles.inputLabel, { marginTop: 0 }]}>Amount (₹) <Text style={{ color: '#ef4444' }}>*</Text></Text>
-                  <View style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    height: 48,
-                    borderWidth: 1,
-                    borderColor: expenseErrors.amount ? '#ef4444' : '#e2e8f0',
-                    borderRadius: 8,
-                    backgroundColor: '#fff',
-                    paddingHorizontal: 12,
-                  }}>
-                    <Text style={{ fontSize: 16, fontWeight: '600', color: '#64748b', marginRight: 6 }}>₹</Text>
-                    <TextInput
-                      style={{ flex: 1, height: '100%', fontSize: 15, color: '#0f172a', padding: 0 }}
-                      placeholder="1500"
-                      placeholderTextColor="#94a3b8"
-                      keyboardType="decimal-pad"
-                      value={expenseAmount}
-                      onChangeText={(txt) => {
-                        const clean = sanitizeNumericInput(txt, true);
-                        setExpenseAmount(clean);
-                        if (clean.trim() && expenseErrors.amount) {
-                          setExpenseErrors(prev => ({ ...prev, amount: '' }));
-                        }
-                      }}
-                    />
-                  </View>
-                  {expenseErrors.amount ? <Text style={styles.inputErrorText}>{expenseErrors.amount}</Text> : null}
-                </View>
+                  if (f.type === 'enum') {
+                    const normalizedOpts = getNormalizedOptions(f.options);
+                    return (
+                      <View key={f.key} style={{ marginBottom: 12 }}>
+                        <Text style={styles.inputLabel}>
+                          {t(f.label)} {f.required && <Text style={{ color: colors.danger }}>*</Text>}
+                        </Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 }}>
+                          {normalizedOpts.map((opt) => {
+                            const isSelected = val === opt.key;
+                            return (
+                              <TouchableOpacity
+                                key={opt.key}
+                                style={[styles.enumChip, isSelected && styles.enumChipSelected]}
+                                onPress={() => {
+                                  setActivityFieldsValues((prev) => ({ ...prev, [f.key]: opt.key }));
+                                  if (activityErrors[f.key]) {
+                                    setActivityErrors((prev) => ({ ...prev, [f.key]: '' }));
+                                  }
+                                }}
+                                activeOpacity={0.7}
+                              >
+                                <Text style={[styles.enumChipText, isSelected && styles.enumChipTextSelected]}>
+                                  {t(opt.label)}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                        {error ? <Text style={styles.inputErrorText}>{error}</Text> : null}
+                      </View>
+                    );
+                  }
 
-                {/* Expense Date Column */}
-                <View style={{ flex: 1, marginLeft: 8 }}>
-                  <Text style={[styles.inputLabel, { marginTop: 0 }]}>Expense Date <Text style={{ color: '#ef4444' }}>*</Text></Text>
-                  <TouchableOpacity 
-                    style={[styles.selectorRow, expenseErrors.date ? styles.inputErrorBorder : null]} 
-                    onPress={() => {
-                      setCalendarTarget('expense');
-                      setCalendarTitle('Select Expense Date');
-                      setCalendarVisible(true);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.selectorText, expenseDate ? styles.selectorTextSelected : null]}>
-                      {expenseDate ? formatDisplayDate(expenseDate) : 'Select Date'}
-                    </Text>
-                    <Ionicons name="calendar-outline" size={18} color="#64748b" />
-                  </TouchableOpacity>
-                  {expenseErrors.date ? <Text style={styles.inputErrorText}>{expenseErrors.date}</Text> : null}
-                </View>
-              </View>
+                  if (f.type === 'morph') {
+                    const isCustom = val === 'new';
 
-              <Text style={[styles.inputLabel, { marginTop: 22 }]}>Payment Details</Text>
-              {/* Combined Payment Status & Method Card */}
-              <View style={{ backgroundColor: '#f8fafc', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 16, marginTop: 4 }}>
-                {/* 1. Toggle Button row */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#334155' }}>Mark as Paid</Text>
-                  <Switch
-                    value={paymentStatus === 'completed'}
-                    onValueChange={(isPaid) => {
-                      setPaymentStatus(isPaid ? 'completed' : 'pending');
-                    }}
-                    trackColor={{ false: '#cbd5e1', true: '#bbf7d0' }}
-                    thumbColor={paymentStatus === 'completed' ? '#16a34a' : '#94a3b8'}
-                  />
-                </View>
+                    const dropdownItems = [
+                      ...inputProductsList.map((p) => ({
+                        value: p.id.toString(),
+                        label: p.name,
+                        icon: 'flask-outline' as const,
+                      })),
+                      { value: 'new', label: t('+ Add Custom Product...'), icon: 'add-circle-outline' as const },
+                    ];
 
-                {/* 2. Payment Method selector (if toggle is on) */}
-                {paymentStatus === 'completed' && (
-                  <View style={{ marginTop: 14, borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingTop: 14 }}>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 }}>
-                      {[
-                        { key: 'cash', label: 'Cash' },
-                        { key: 'upi', label: 'UPI' },
-                        { key: 'bank_transfer', label: 'Bank Transfer' },
-                        { key: 'cheque', label: 'Cheque' },
-                        { key: 'other', label: 'Other' }
-                      ].map((method) => {
-                        const isSelected = paymentMethod === method.key;
-                        return (
-                          <TouchableOpacity
-                            key={method.key}
-                            style={{
-                              backgroundColor: isSelected ? '#16a34a' : '#fff',
-                              paddingVertical: 8,
-                              paddingHorizontal: 12,
-                              borderRadius: 20,
-                              borderWidth: 1,
-                              borderColor: isSelected ? '#16a34a' : '#cbd5e1',
-                              marginRight: 8,
-                              marginBottom: 8,
+                    return (
+                      <View key={f.key} style={{ marginBottom: 12 }}>
+                        <SearchableSelect
+                          label={t(f.label)}
+                          required={f.required}
+                          placeholder={t('Select %{label}', { label: t(f.label) })}
+                          searchPlaceholder={t('Search %{label}...', { label: t(f.label) })}
+                          items={dropdownItems}
+                          value={val?.toString() || null}
+                          onSelect={(selectedId) => {
+                            setActivityFieldsValues((prev) => ({ ...prev, [f.key]: selectedId }));
+                            if (activityErrors[f.key]) {
+                              setActivityErrors((prev) => ({ ...prev, [f.key]: '' }));
+                            }
+                          }}
+                          error={error}
+                        />
+
+                        {isCustom && (
+                          <TextInput
+                            style={[styles.input, { marginTop: 6, backgroundColor: colors.white }]}
+                            placeholder={t('Enter custom %{label} name', { label: t(f.label).toLowerCase() })}
+                            placeholderTextColor={colors.slate400}
+                            value={customProductNames[f.key] || ''}
+                            onChangeText={(txt) => {
+                              setCustomProductNames((prev) => ({ ...prev, [f.key]: txt }));
+                              if (activityErrors[f.key]) {
+                                setActivityErrors((prev) => ({ ...prev, [f.key]: '' }));
+                              }
                             }}
-                            onPress={() => setPaymentMethod(method.key)}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={{ fontSize: 13, fontWeight: '600', color: isSelected ? '#fff' : '#64748b' }}>
-                              {method.label}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </View>
-                )}
-              </View>
+                          />
+                        )}
+                      </View>
+                    );
+                  }
 
-              <Text style={styles.inputLabel}>Notes</Text>
-              <TextInput
-                style={[styles.input, styles.multilineInput]}
-                placeholder="Vendor, materials details..."
-                placeholderTextColor="#94a3b8"
-                value={expenseNotes}
-                onChangeText={setExpenseNotes}
-                multiline
-                numberOfLines={3}
-              />
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setExpenseModalVisible(false)}>
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.modalBtn, styles.saveBtn]} onPress={handleCreateExpense} disabled={savingExpense}>
-                  {savingExpense ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Log Expense</Text>}
-                </TouchableOpacity>
+                  return null;
+                })}
               </View>
-            </ScrollView>
+            );
+          })()}
+
+          <ModernDatePicker
+            label={t('Date')}
+            value={activityDate}
+            onChange={setActivityDate}
+            containerStyle={{ marginBottom: spacing.md }}
+          />
+
+          <ModernInput
+            label={t('Notes / Remarks')}
+            value={activityNotes}
+            onChangeText={setActivityNotes}
+            placeholder={t('Workers count, chemicals used, etc.')}
+            multiline
+            numberOfLines={3}
+            containerStyle={{ marginBottom: spacing.md }}
+          />
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.cancelBtn]}
+              onPress={() => setActivityModalVisible(false)}
+              disabled={savingActivity}
+            >
+              <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.saveBtn]}
+              onPress={handleCreateActivity}
+              disabled={savingActivity}
+            >
+              {savingActivity ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <Text style={styles.saveBtnText}>{t('Save Activity')}</Text>
+              )}
+            </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        </ScrollView>
+      </ModalSheet>
+
+      {/* Log Farm Expense / Payment ModalSheet */}
+      <ModalSheet
+        visible={expenseModalVisible}
+        onClose={() => setExpenseModalVisible(false)}
+        title={t('Log Farm Expense')}
+        maxHeight="88%"
+      >
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <Text style={styles.inputLabel}>{t('Expense Category *')}</Text>
+          <View style={styles.chipSelectorWrap}>
+            {EXPENSE_CATEGORIES.map((cat) => {
+              const isSel = expenseCategory === cat;
+              return (
+                <TouchableOpacity
+                  key={cat}
+                  style={[styles.masterChip, isSel && styles.masterChipSelected]}
+                  onPress={() => setExpenseCategory(cat)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[styles.masterChipText, isSel && styles.masterChipTextSelected]}
+                  >
+                    {t(cat)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <ModernInput
+            label={t('Amount')}
+            required
+            value={expenseAmount}
+            onChangeText={setExpenseAmount}
+            keyboardType="decimal-pad"
+            placeholder="0.00"
+            placeholderTextColor={colors.slate400}
+            prefix={<Text style={{ color: '#059669', fontWeight: '700', marginRight: 4 }}>₹</Text>}
+            containerStyle={{ marginBottom: spacing.md }}
+          />
+
+          <ModernDatePicker
+            label={t('Expense Date')}
+            value={expenseDate}
+            onChange={setExpenseDate}
+            containerStyle={{ marginBottom: spacing.sm }}
+          />
+
+          {/* Paid Toggle Switch */}
+          <View style={[styles.switchRow, { marginTop: spacing.xs }]}>
+            <View style={{ flex: 1, paddingRight: spacing.sm }}>
+              <Text style={styles.switchTitle}>{t('Paid')}</Text>
+              <Text style={styles.switchSubtitle}>
+                {expenseIsPaid ? t('Expense has been settled') : t('Expense is pending / unpaid')}
+              </Text>
+            </View>
+            <Switch
+              value={expenseIsPaid}
+              onValueChange={(val) => {
+                setExpenseIsPaid(val);
+                if (!val) setExpensePaymentMethod('');
+                else if (!expensePaymentMethod) setExpensePaymentMethod('cash');
+              }}
+              trackColor={{ false: colors.slate200, true: '#86efac' }}
+              thumbColor={expenseIsPaid ? colors.primary : colors.slate400}
+            />
+          </View>
+
+          {/* Payment Method (conditional) */}
+          {expenseIsPaid && (
+            <View style={{ marginTop: spacing.sm }}>
+              <Text style={styles.inputLabel}>{t('Payment Method')}</Text>
+              <QuickChipGroup
+                options={expensePaymentMethodOptions}
+                selectedValue={expensePaymentMethod}
+                onSelect={(val) => setExpensePaymentMethod(val.toString())}
+                size="sm"
+              />
+            </View>
+          )}
+
+          <ModernInput
+            label={t('Notes')}
+            value={expenseNotes}
+            onChangeText={setExpenseNotes}
+            placeholder={t('Vendor name, bill number, remarks...')}
+            placeholderTextColor={colors.slate400}
+            multiline
+            numberOfLines={3}
+            containerStyle={{ marginTop: spacing.md, marginBottom: spacing.md }}
+          />
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.cancelBtn]}
+              onPress={() => setExpenseModalVisible(false)}
+              disabled={savingExpense}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.saveBtn]}
+              onPress={handleCreateExpense}
+              disabled={savingExpense}
+              activeOpacity={0.7}
+            >
+              {savingExpense ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <Text style={styles.saveBtnText}>{t('Save Expense')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </ModalSheet>
 
       {/* Crop Cycle Detail & Edit Modal */}
       <Modal
@@ -5391,5 +5023,108 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
     zIndex: 99,
+  },
+  chipSelectorWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: spacing.md,
+  },
+  masterChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  masterChipSelected: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#86efac',
+  },
+  masterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  masterChipTextSelected: {
+    color: '#166534',
+    fontWeight: '700',
+  },
+  dynamicFieldsCard: {
+    marginBottom: spacing.md,
+    backgroundColor: '#f1f5f9',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  dynamicFieldsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  dynamicFieldsTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  dynamicBoolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    backgroundColor: '#ffffff',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  dynamicBoolLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  enumChip: {
+    backgroundColor: '#ffffff',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    marginRight: 6,
+    marginBottom: 6,
+  },
+  enumChipSelected: {
+    backgroundColor: '#16a34a',
+    borderColor: '#16a34a',
+  },
+  enumChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  enumChipTextSelected: {
+    color: '#ffffff',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    padding: 12,
+  },
+  switchTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  switchSubtitle: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 2,
   },
 });
