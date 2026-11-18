@@ -16,9 +16,9 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { agroShopsApi } from '../src/api/agroShops';
 import { AgroShop, AgroShopPurchase, AgroShopPayment, AgroInputProduct } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
@@ -26,7 +26,7 @@ import { useAuth } from '../src/hooks/useAuth';
 import { permissions } from '../src/utils/permissions';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
-import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput, EmptyState, ConfirmModal } from '../src/components/ui';
+import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput, EmptyState, ConfirmModal, ModalSheet } from '../src/components/ui';
 import { useToast } from '../src/context/ToastContext';
 import { useTranslation } from '../src/i18n/I18nContext';
 import { useResponsive } from '../src/utils/responsive';
@@ -58,6 +58,9 @@ export default function AgroShopScreen() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const { containerMaxWidth, isTablet, isSmallPhone } = useResponsive();
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0);
+  const { shop_id, shop_ulid } = useLocalSearchParams<{ shop_id?: string; shop_ulid?: string }>();
 
   // Confirm delete states
   const [purchaseToDelete, setPurchaseToDelete] = useState<AgroShopPurchase | null>(null);
@@ -76,6 +79,11 @@ export default function AgroShopScreen() {
   const [payments, setPayments] = useState<AgroShopPayment[]>([]);
   const [inputProducts, setInputProducts] = useState<AgroInputProduct[]>([]);
 
+  // Shop list filters & search
+  const [shopSearchQuery, setShopSearchQuery] = useState('');
+  const [shopStatusFilter, setShopStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
+  const [shopFilterModalVisible, setShopFilterModalVisible] = useState(false);
+
   const [activeTab, setActiveTab] = useState<ActiveTab>('purchases');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -84,6 +92,7 @@ export default function AgroShopScreen() {
   // Modal Triggers
   const [actionChoiceVisible, setActionChoiceVisible] = useState(false);
   const [shopModalVisible, setShopModalVisible] = useState(false);
+  const [editingShop, setEditingShop] = useState<AgroShop | null>(null);
   const [purchaseModalVisible, setPurchaseModalVisible] = useState(false);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
 
@@ -124,8 +133,15 @@ export default function AgroShopScreen() {
     try {
       const data = await agroShopsApi.getShops();
       setShops(data);
-      if (data.length > 0 && !selectedShopId) {
-        setSelectedShopId(data[0].id);
+      if (shop_id || shop_ulid) {
+        const found = data.find(
+          (s) =>
+            (shop_id && s.id.toString() === shop_id.toString()) ||
+            (shop_ulid && s.ulid === shop_ulid)
+        );
+        if (found) {
+          setSelectedShopId(found.id);
+        }
       }
 
       const products = await agroShopsApi.getInputProducts();
@@ -185,23 +201,56 @@ export default function AgroShopScreen() {
     }
   };
 
-  // Save Shop
+  // Open Add Shop
+  const handleOpenAddShop = () => {
+    setEditingShop(null);
+    setShopName('');
+    setContactName('');
+    setPhone('');
+    setAddress('');
+    setShopNotes('');
+    setShopIsActive(true);
+    setShopModalVisible(true);
+  };
+
+  // Open Edit Shop
+  const handleOpenEditShop = (shop: AgroShop) => {
+    setEditingShop(shop);
+    setShopName(shop.name || '');
+    setContactName(shop.contact_name || '');
+    setPhone(shop.phone || '');
+    setAddress(shop.address || '');
+    setShopNotes(shop.notes || '');
+    setShopIsActive(shop.is_active ?? true);
+    setShopModalVisible(true);
+  };
+
+  // Save Shop (Create or Update)
   const handleSaveShop = async () => {
     if (!shopName.trim()) {
       Alert.alert('Validation Error', 'Shop name is required.');
       return;
     }
     try {
-      const newShop = await agroShopsApi.createShop({
-        name: shopName,
-        contact_name: contactName,
-        phone,
-        address,
-        notes: shopNotes,
+      const payload = {
+        name: shopName.trim(),
+        contact_name: contactName.trim(),
+        phone: phone.trim(),
+        address: address.trim(),
+        notes: shopNotes.trim(),
         is_active: shopIsActive,
-      });
-      showToast('Agro Shop added successfully.', 'success');
+      };
+
+      if (editingShop) {
+        await agroShopsApi.updateShop(editingShop.id, payload);
+        showToast('Agro Shop updated successfully.', 'success');
+      } else {
+        const newShop = await agroShopsApi.createShop(payload);
+        showToast('Agro Shop added successfully.', 'success');
+        setSelectedShopId(newShop.id);
+      }
       setShopModalVisible(false);
+      setEditingShop(null);
       setShopName('');
       setContactName('');
       setPhone('');
@@ -209,11 +258,13 @@ export default function AgroShopScreen() {
       setShopNotes('');
       setShopIsActive(true);
 
-      setSelectedShopId(newShop.id);
       loadShops();
+      if (selectedShopId) {
+        fetchLedgerData(false);
+      }
     } catch (error) {
       console.error('Error saving shop:', error);
-      showToast(extractErrorMessage(error, 'Failed to create shop.'), 'error');
+      showToast(extractErrorMessage(error, 'Failed to save shop.'), 'error');
     }
   };
 
@@ -447,6 +498,24 @@ export default function AgroShopScreen() {
       return matchNotes || matchMethod || matchDate;
     });
   }, [payments, searchQuery]);
+
+  // Filtered Shops for Shop List View
+  const filteredShops = useMemo(() => {
+    return shops.filter((shop) => {
+      const q = shopSearchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !q ||
+        shop.name.toLowerCase().includes(q) ||
+        (shop.contact_name && shop.contact_name.toLowerCase().includes(q)) ||
+        (shop.phone && shop.phone.toLowerCase().includes(q)) ||
+        (shop.address && shop.address.toLowerCase().includes(q));
+
+      if (!matchesSearch) return false;
+      if (shopStatusFilter === 'all') return true;
+      const isActive = !!shop.is_active;
+      return shopStatusFilter === 'active' ? isActive : !isActive;
+    });
+  }, [shops, shopSearchQuery, shopStatusFilter]);
 
   // Render tabs
   const renderTabContent = () => {
@@ -884,146 +953,322 @@ export default function AgroShopScreen() {
     );
   };
 
+  const selectedShop = getSelectedShop();
+
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       <View style={[styles.mainWrapper, { maxWidth: containerMaxWidth }]}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
-              <Ionicons name="arrow-back" size={20} color={colors.slate700} />
-            </TouchableOpacity>
-            <View style={styles.headerTitleCol}>
-              <Text style={styles.headerTitle}>{t('Agro Shops & Purchases')}</Text>
-              <Text style={styles.headerSubtitle}>{t('Track agricultural supplies, itemized bills, and payments')}</Text>
+        {!selectedShop ? (
+          // ================= VIEW 1: SHOPS LIST PAGE (Matching PWA) =================
+          <>
+            {/* Header */}
+            <View style={[styles.header, { paddingTop: topInset + 8 }]}>
+              <View style={styles.headerTopRow}>
+                <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
+                  <Ionicons name="arrow-back" size={20} color={colors.slate700} />
+                </TouchableOpacity>
+                <View style={styles.headerTitleCol}>
+                  <Text style={styles.headerTitle}>{t('Agro Shops')}</Text>
+                  <Text style={styles.headerSubtitle}>{t('Manage agro shops and purchases with ease.')}</Text>
+                </View>
+              </View>
             </View>
-          </View>
-        </View>
 
-        {/* Shop Selector Row */}
-        <View style={styles.shopSelectorWrapper}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.shopSelectorContent}
-          >
-            {shops.map((shop) => {
-              const isSelected = selectedShopId === shop.id;
-              const hasDue = shop.summary && shop.summary.balance > 0;
-              return (
-                <TouchableOpacity
-                  key={shop.id}
-                  style={[styles.shopPill, isSelected && styles.shopPillActive]}
-                  onPress={() => setSelectedShopId(shop.id)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons
-                    name="storefront"
-                    size={14}
-                    color={isSelected ? colors.white : colors.slate600}
+            {/* Search & Status Filter Bar */}
+            <View style={styles.searchSection}>
+              <SearchFilterBar
+                query={shopSearchQuery}
+                onChangeQuery={setShopSearchQuery}
+                placeholder={t('Search shops...')}
+                hasFilter
+                isFilterActive={shopStatusFilter !== 'all'}
+                activeFilterCount={shopStatusFilter !== 'all' ? 1 : 0}
+                onToggleFilter={() => setShopFilterModalVisible(true)}
+              />
+            </View>
+
+            {/* Shop List */}
+            {loading && shops.length === 0 ? (
+              <View style={styles.centered}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={styles.loadingText}>{t('Loading agro shops...')}</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={filteredShops}
+                keyExtractor={(item) => String(item.id)}
+                contentContainerStyle={styles.shopListContainer}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={() => {
+                      setRefreshing(true);
+                      loadShops().finally(() => setRefreshing(false));
+                    }}
+                    colors={[colors.primary]}
+                    tintColor={colors.primary}
                   />
-                  <Text style={[styles.shopPillText, isSelected && styles.shopPillTextActive]}>
-                    {shop.name}
-                  </Text>
-                  {hasDue && permissions.canViewFinancials(user) ? (
-                    <View
+                }
+                ListEmptyComponent={
+                  <EmptyState
+                    icon="storefront-outline"
+                    title={shops.length === 0 ? t('No Agro Shops Added') : t('No Matching Shops')}
+                    message={
+                      shops.length === 0
+                        ? t('Create your first agro input supplier/shop to manage credit ledger and itemized purchases.')
+                        : t('No agro shops matched your search or status filter.')
+                    }
+                    actionLabel={
+                      permissions.canManageCommercials(user) && shops.length === 0
+                        ? t('+ Add New Agro Shop')
+                        : undefined
+                    }
+                    onAction={handleOpenAddShop}
+                    secondaryActionLabel={
+                      shopSearchQuery || shopStatusFilter !== 'all'
+                        ? t('Clear Filters')
+                        : undefined
+                    }
+                    onSecondaryAction={() => {
+                      setShopSearchQuery('');
+                      setShopStatusFilter('all');
+                    }}
+                  />
+                }
+                renderItem={({ item: shop }) => {
+                  return (
+                    <BentoCard
+                      variant="elevated"
                       style={[
-                        styles.duePill,
-                        isSelected ? styles.duePillSelected : styles.duePillUnselected,
+                        styles.shopCard,
+                        shop.is_active ? styles.shopCardActive : styles.shopCardInactive,
                       ]}
+                      onPress={() => setSelectedShopId(shop.id)}
                     >
-                      <Text
-                        style={[
-                          styles.duePillText,
-                          isSelected ? styles.duePillTextSelected : styles.duePillTextUnselected,
-                        ]}
-                      >
-                        {formatCurrency(shop.summary?.balance ?? 0)}
-                      </Text>
-                    </View>
-                  ) : null}
-                </TouchableOpacity>
-              );
-            })}
-            {shops.length === 0 && (
-              <Text style={styles.noShopsInfoText}>{t('Please add a shop to begin ledger tracking.')}</Text>
+                      <View style={styles.shopCardTopRow}>
+                        <View style={{ flex: 1, paddingRight: spacing.sm }}>
+                          <Text style={styles.shopCardTitle}>{shop.name}</Text>
+                        </View>
+                        <StatusBadge
+                          label={shop.is_active ? t('Active') : t('Inactive')}
+                          variant={shop.is_active ? 'success' : 'neutral'}
+                          dot={shop.is_active}
+                        />
+                      </View>
+
+                      <View style={styles.shopCardMeta}>
+                        <View style={styles.shopMetaRow}>
+                          <Ionicons name="person-outline" size={13} color={colors.slate400} />
+                          <Text style={styles.shopMetaKey}>{t('Owner')}</Text>
+                          <Text style={styles.shopMetaValue}>{shop.contact_name || '-'}</Text>
+                        </View>
+                        <View style={styles.shopMetaRow}>
+                          <Ionicons name="call-outline" size={13} color={colors.slate400} />
+                          <Text style={styles.shopMetaKey}>{t('Phone')}</Text>
+                          <Text style={styles.shopMetaValue}>{shop.phone || '-'}</Text>
+                        </View>
+                        <View style={styles.shopMetaRow}>
+                          <Ionicons name="location-outline" size={13} color={colors.slate400} />
+                          <Text style={styles.shopMetaKey}>{t('Address')}</Text>
+                          <Text style={styles.shopMetaValue} numberOfLines={1}>
+                            {shop.address || '-'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {shop.summary && permissions.canViewFinancials(user) && (
+                        <View style={styles.shopCardFinanceRow}>
+                          <View style={styles.shopFinanceItem}>
+                            <Text style={styles.shopFinanceKey}>{t('Purchases')}</Text>
+                            <Text style={styles.shopFinanceVal}>
+                              {formatCurrency(shop.summary.total_purchase)}
+                            </Text>
+                          </View>
+                          <View style={styles.shopFinanceItem}>
+                            <Text style={styles.shopFinanceKey}>{t('Balance Due')}</Text>
+                            <Text
+                              style={[
+                                styles.shopFinanceVal,
+                                shop.summary.balance > 0 && { color: colors.dangerText },
+                              ]}
+                            >
+                              {formatCurrency(shop.summary.balance)}
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+
+                      <View style={styles.shopCardLinkRow}>
+                        <Ionicons name="chevron-forward" size={18} color={colors.slate400} />
+                      </View>
+                    </BentoCard>
+                  );
+                }}
+              />
             )}
-          </ScrollView>
-        </View>
-      {/* Segmented Control tab row */}
-      {selectedShopId && (
-        <View style={styles.tabContainer}>
-          <View style={styles.tabRow}>
-            {(
-              [
-                { key: 'purchases', label: t('Purchases'), icon: 'cart-outline', count: purchases.length as number | undefined },
-                ...(permissions.canViewFinancials(user) ? [{ key: 'payments', label: t('Payments'), icon: 'card-outline', count: payments.length as number | undefined }] : []),
-                { key: 'info', label: t('Shop Info'), icon: 'information-circle-outline', count: undefined as number | undefined },
-              ]
-            ).map((tab) => {
-              const active = activeTab === tab.key;
-              return (
-                <TouchableOpacity
-                  key={tab.key}
-                  style={[styles.tabBtn, active && styles.tabBtnActive]}
-                  onPress={() => setActiveTab(tab.key as ActiveTab)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons
-                    name={tab.icon as any}
-                    size={14}
-                    color={active ? colors.white : colors.slate600}
-                  />
-                  <Text style={[styles.tabBtnText, active && styles.tabBtnTextActive]}>
-                    {tab.label}
+
+            {/* FAB for Shop List: Add Agro Shop */}
+            {permissions.canManageCommercials(user) && (
+              <TouchableOpacity
+                style={styles.fab}
+                onPress={handleOpenAddShop}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="add" size={28} color={colors.white} />
+              </TouchableOpacity>
+            )}
+          </>
+        ) : (
+          // ================= VIEW 2: SHOP DETAILS / LEDGER (Matching PWA) =================
+          <>
+            {/* Shop Sticky Topbar matching PWA */}
+            <View style={[styles.shopViewTopbar, { paddingTop: topInset + 8 }]}>
+              <TouchableOpacity
+                style={styles.shopViewBackBtn}
+                onPress={() => {
+                  setSelectedShopId(null);
+                  setSearchQuery('');
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="arrow-back" size={20} color={colors.slate700} />
+              </TouchableOpacity>
+
+              <View style={styles.shopViewTitleCol}>
+                <Text style={styles.shopViewTitle} numberOfLines={1}>
+                  {selectedShop.name}
+                </Text>
+                {selectedShop.contact_name ? (
+                  <Text style={styles.shopViewSubTitle} numberOfLines={1}>
+                    {selectedShop.contact_name}
                   </Text>
-                  {tab.count !== undefined && (
-                    <View
-                      style={[
-                        styles.tabCountBadge,
-                        active ? styles.tabCountBadgeActive : styles.tabCountBadgeInactive,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.tabCountText,
-                          active ? styles.tabCountTextActive : styles.tabCountTextInactive,
-                        ]}
-                      >
-                        {tab.count}
-                      </Text>
-                    </View>
-                  )}
+                ) : null}
+              </View>
+
+              {permissions.canManageCommercials(user) && (
+                <TouchableOpacity
+                  style={styles.shopViewEditBtn}
+                  onPress={() => handleOpenEditShop(selectedShop)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="pencil" size={18} color={colors.primary} />
                 </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-      )}
+              )}
+            </View>
 
-      {/* Main List Area */}
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading shop data...</Text>
-        </View>
-      ) : (
-        <View style={{ flex: 1 }}>{renderTabContent()}</View>
-      )}
+            {/* Segmented Control tab row */}
+            <View style={styles.tabContainer}>
+              <View style={styles.tabRow}>
+                {(
+                  [
+                    { key: 'purchases', label: t('Purchases'), icon: 'cart-outline', count: purchases.length as number | undefined },
+                    ...(permissions.canViewFinancials(user) ? [{ key: 'payments', label: t('Payments'), icon: 'card-outline', count: payments.length as number | undefined }] : []),
+                    { key: 'info', label: t('Shop Info'), icon: 'information-circle-outline', count: undefined as number | undefined },
+                  ]
+                ).map((tab) => {
+                  const active = activeTab === tab.key;
+                  return (
+                    <TouchableOpacity
+                      key={tab.key}
+                      style={[styles.tabBtn, active && styles.tabBtnActive]}
+                      onPress={() => setActiveTab(tab.key as ActiveTab)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name={tab.icon as any}
+                        size={14}
+                        color={active ? colors.white : colors.slate600}
+                      />
+                      <Text style={[styles.tabBtnText, active && styles.tabBtnTextActive]}>
+                        {tab.label}
+                      </Text>
+                      {tab.count !== undefined && (
+                        <View
+                          style={[
+                            styles.tabCountBadge,
+                            active ? styles.tabCountBadgeActive : styles.tabCountBadgeInactive,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.tabCountText,
+                              active ? styles.tabCountTextActive : styles.tabCountTextInactive,
+                            ]}
+                          >
+                            {tab.count}
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
 
-      {/* Futuristic FAB */}
-      {permissions.canManageCommercials(user) && (
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => setActionChoiceVisible(true)}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="add" size={28} color={colors.white} />
-        </TouchableOpacity>
-      )}
+            {/* Main List Area */}
+            {loading ? (
+              <View style={styles.centered}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={styles.loadingText}>{t('Loading shop data...')}</Text>
+              </View>
+            ) : (
+              <View style={{ flex: 1 }}>{renderTabContent()}</View>
+            )}
+
+            {/* Futuristic FAB */}
+            {permissions.canManageCommercials(user) && (
+              <TouchableOpacity
+                style={styles.fab}
+                onPress={() => setActionChoiceVisible(true)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="add" size={28} color={colors.white} />
+              </TouchableOpacity>
+            )}
+          </>
+        )}
       </View>
+
+      {/* Shop Status Filter Bottom Sheet */}
+      <ModalSheet
+        visible={shopFilterModalVisible}
+        onClose={() => setShopFilterModalVisible(false)}
+        title={t('Filter by Status')}
+        kicker={t('Shop Status')}
+      >
+        <View style={styles.filterModalContent}>
+          {[
+            { label: t('All Shops'), value: 'all', sub: t('Show active and inactive suppliers') },
+            { label: t('Active Only'), value: 'active', sub: t('Show operational suppliers available for billing') },
+            { label: t('Inactive Only'), value: 'inactive', sub: t('Show archived or deactivated suppliers') },
+          ].map((item) => {
+            const isSelected = shopStatusFilter === item.value;
+            return (
+              <TouchableOpacity
+                key={item.value}
+                style={[styles.filterOptionItem, isSelected && styles.filterOptionItemActive]}
+                onPress={() => {
+                  setShopStatusFilter(item.value as any);
+                  setShopFilterModalVisible(false);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.filterOptionTextCol}>
+                  <Text style={[styles.filterOptionTitle, isSelected && styles.filterOptionTitleActive]}>
+                    {item.label}
+                  </Text>
+                  <Text style={styles.filterOptionSub}>{item.sub}</Text>
+                </View>
+                {isSelected && (
+                  <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </ModalSheet>
 
       {/* Action choices dialog */}
       <Modal
@@ -1101,15 +1346,15 @@ export default function AgroShopScreen() {
               style={[styles.choiceItem, { borderBottomWidth: 0 }]}
               onPress={() => {
                 setActionChoiceVisible(false);
-                setShopModalVisible(true);
+                handleOpenAddShop();
               }}
             >
               <View style={[styles.choiceIconCircle, { backgroundColor: colors.infoSurface }]}>
                 <Ionicons name="storefront-outline" size={20} color={colors.infoText} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.choiceText}>Add New Shop</Text>
-                <Text style={styles.choiceSubtext}>Register a new input supplier / merchant</Text>
+                <Text style={styles.choiceText}>{t('Add New Shop')}</Text>
+                <Text style={styles.choiceSubtext}>{t('Register a new input supplier / merchant')}</Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
             </TouchableOpacity>
@@ -1117,23 +1362,33 @@ export default function AgroShopScreen() {
         </TouchableOpacity>
       </Modal>
 
-      {/* Add Shop Modal */}
+      {/* Add / Edit Shop Modal */}
       <Modal
         animationType="slide"
         transparent={true}
         visible={shopModalVisible}
-        onRequestClose={() => setShopModalVisible(false)}
+        onRequestClose={() => {
+          setShopModalVisible(false);
+          setEditingShop(null);
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalKicker}>SUPPLIER REGISTRATION</Text>
-                <Text style={styles.modalTitle}>Add New Agro Shop</Text>
+                <Text style={styles.modalKicker}>
+                  {editingShop ? t('SUPPLIER DETAILS') : t('SUPPLIER REGISTRATION')}
+                </Text>
+                <Text style={styles.modalTitle}>
+                  {editingShop ? t('Edit Agro Shop') : t('Add New Agro Shop')}
+                </Text>
               </View>
               <TouchableOpacity
                 style={styles.modalCloseBtn}
-                onPress={() => setShopModalVisible(false)}
+                onPress={() => {
+                  setShopModalVisible(false);
+                  setEditingShop(null);
+                }}
               >
                 <Ionicons name="close" size={20} color={colors.slate600} />
               </TouchableOpacity>
@@ -1144,25 +1399,25 @@ export default function AgroShopScreen() {
               showsVerticalScrollIndicator={false}
             >
               <ModernInput
-                label="Shop Name"
+                label={t('Shop Name')}
                 required
-                placeholder="e.g. Kisan Agro Agency"
+                placeholder={t('e.g. Kisan Agro Agency')}
                 value={shopName}
                 onChangeText={setShopName}
                 containerStyle={{ marginTop: spacing.sm }}
               />
 
               <ModernInput
-                label="Contact Person"
-                placeholder="e.g. Ramesh Patel"
+                label={t('Contact Person')}
+                placeholder={t('e.g. Ramesh Patel')}
                 value={contactName}
                 onChangeText={setContactName}
                 containerStyle={{ marginTop: spacing.sm }}
               />
 
               <ModernInput
-                label="Phone Number"
-                placeholder="e.g. +91 98765 43210"
+                label={t('Phone Number')}
+                placeholder={t('e.g. +91 98765 43210')}
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
@@ -1170,8 +1425,8 @@ export default function AgroShopScreen() {
               />
 
               <ModernInput
-                label="Address"
-                placeholder="Market Yard, Station Road..."
+                label={t('Address')}
+                placeholder={t('Market Yard, Station Road...')}
                 multiline
                 numberOfLines={2}
                 value={address}
@@ -1180,8 +1435,8 @@ export default function AgroShopScreen() {
               />
 
               <ModernInput
-                label="Notes"
-                placeholder="GSTIN, bank details, credit terms..."
+                label={t('Notes')}
+                placeholder={t('GSTIN, bank details, credit terms...')}
                 multiline
                 numberOfLines={2}
                 value={shopNotes}
@@ -1191,8 +1446,10 @@ export default function AgroShopScreen() {
 
               <View style={styles.profileStatusToggleRow}>
                 <View>
-                  <Text style={styles.statusToggleLabel}>Active Supplier</Text>
-                  <Text style={styles.statusToggleSubLabel}>Enable this shop for purchases and payments</Text>
+                  <Text style={styles.statusToggleLabel}>{t('Active Supplier')}</Text>
+                  <Text style={styles.statusToggleSubLabel}>
+                    {t('Enable this shop for purchases and payments')}
+                  </Text>
                 </View>
                 <Switch
                   value={shopIsActive}
@@ -1205,16 +1462,21 @@ export default function AgroShopScreen() {
               <View style={styles.modalActions}>
                 <TouchableOpacity
                   style={[styles.modalBtn, styles.cancelBtn]}
-                  onPress={() => setShopModalVisible(false)}
+                  onPress={() => {
+                    setShopModalVisible(false);
+                    setEditingShop(null);
+                  }}
                 >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.modalBtn, styles.saveBtn]}
                   onPress={handleSaveShop}
                 >
                   <Ionicons name="checkmark-circle-outline" size={18} color={colors.white} />
-                  <Text style={styles.saveBtnText}>Save Shop</Text>
+                  <Text style={styles.saveBtnText}>
+                    {editingShop ? t('Update Shop') : t('Save Shop')}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -1669,68 +1931,176 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginTop: 2,
   },
-  shopSelectorWrapper: {
-    paddingVertical: spacing.sm,
+  searchSection: {
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.slate200,
-  },
-  shopSelectorContent: {
     paddingHorizontal: spacing.lg,
-    alignItems: 'center',
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
     gap: spacing.sm,
   },
-  shopPill: {
+  shopListContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: 115,
+    gap: 12,
+  },
+  shopCard: {
+    padding: spacing.md,
+    borderRadius: 20,
+    borderLeftWidth: 4,
+    gap: spacing.sm,
+  },
+  shopCardActive: {
+    borderLeftColor: colors.primary,
+  },
+  shopCardInactive: {
+    borderLeftColor: colors.danger,
+  },
+  shopCardTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: 7,
-    borderRadius: radius.pill,
-    backgroundColor: colors.slate100,
-    borderWidth: 1,
-    borderColor: colors.slate200,
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  shopCardTitle: {
+    ...typography.title2,
+    color: colors.slate900,
+  },
+  shopCardMeta: {
+    gap: 4,
+  },
+  shopMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
   },
-  shopPillActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-    ...shadows.subtle,
-  },
-  shopPillText: {
+  shopMetaKey: {
     ...typography.caption,
-    color: colors.slate700,
+    fontSize: 11,
     fontWeight: '700',
+    color: colors.slate400,
+    width: 60,
   },
-  shopPillTextActive: {
-    color: colors.white,
-  },
-  duePill: {
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: radius.xs,
-  },
-  duePillSelected: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
-  },
-  duePillUnselected: {
-    backgroundColor: colors.dangerSurface,
-    borderWidth: 1,
-    borderColor: colors.dangerBorder,
-  },
-  duePillText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  duePillTextSelected: {
-    color: colors.white,
-  },
-  duePillTextUnselected: {
-    color: colors.dangerText,
-  },
-  noShopsInfoText: {
+  shopMetaValue: {
     ...typography.bodySmall,
+    color: colors.slate700,
+    flex: 1,
+  },
+  shopCardFinanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.slate100,
+  },
+  shopFinanceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  shopFinanceKey: {
+    ...typography.caption,
+    fontSize: 11,
     color: colors.slate500,
-    fontStyle: 'italic',
+  },
+  shopFinanceVal: {
+    ...typography.caption,
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.slate800,
+  },
+  shopCardLinkRow: {
+    position: 'absolute',
+    right: 14,
+    top: '50%',
+    marginTop: -9,
+  },
+  shopViewTopbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+    backgroundColor: '#f8fafc',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.slate200,
+    gap: spacing.md,
+  },
+  shopViewBackBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: '#e2e8f0',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shopViewTitleCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  shopViewTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0f172a',
+    textAlign: 'center',
+  },
+  shopViewSubTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.slate500,
+    marginTop: 1,
+    textAlign: 'center',
+  },
+  shopViewEditBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: 'rgba(22, 101, 52, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterModalContent: {
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+  },
+  filterOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.slate50,
+    borderWidth: 1,
+    borderColor: colors.slate200,
+  },
+  filterOptionItemActive: {
+    backgroundColor: '#ecfdf5',
+    borderColor: colors.primary,
+  },
+  filterOptionTextCol: {
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
+  filterOptionTitle: {
+    ...typography.body,
+    fontWeight: '700',
+    color: colors.slate800,
+  },
+  filterOptionTitleActive: {
+    color: colors.primaryDark,
+  },
+  filterOptionSub: {
+    ...typography.caption,
+    color: colors.slate500,
+    marginTop: 2,
   },
   summaryGrid: {
     flexDirection: 'row',

@@ -16,7 +16,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { consultantVisitsApi } from '../src/api/consultantVisits';
@@ -26,7 +26,7 @@ import { cropCyclesApi } from '../src/api/cropCycles';
 import { ConsultantVisit, Farm, StaffMember, CropCycle } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
-import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput, EmptyState, ConfirmModal } from '../src/components/ui';
+import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput, EmptyState, ConfirmModal, ModalSheet } from '../src/components/ui';
 import { useToast } from '../src/context/ToastContext';
 import { useTranslation } from '../src/i18n/I18nContext';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
@@ -34,6 +34,8 @@ import { colors, spacing, radius, typography, shadows } from '../src/theme/token
 export default function ConsultantVisitsScreen() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0);
   const [visits, setVisits] = useState<ConsultantVisit[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
   const [consultants, setConsultants] = useState<StaffMember[]>([]);
@@ -51,7 +53,7 @@ export default function ConsultantVisitsScreen() {
   const [selectedFarmFilter, setSelectedFarmFilter] = useState<'all' | string>('all');
   const [selectedConsultantFilter, setSelectedConsultantFilter] = useState<'all' | string>('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
-  const [showFilters, setShowFilters] = useState(false);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
 
   // Modal States
   const [modalVisible, setModalVisible] = useState(false);
@@ -386,11 +388,11 @@ export default function ConsultantVisitsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: topInset + 8 }]}>
         <View style={styles.headerTopRow}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={20} color={colors.slate700} />
@@ -409,13 +411,17 @@ export default function ConsultantVisitsScreen() {
           onChangeQuery={setSearchQuery}
           placeholder={t('Search visits...')}
           hasFilter
-          isFilterActive={showFilters}
+          isFilterActive={
+            selectedFarmFilter !== 'all' ||
+            selectedConsultantFilter !== 'all' ||
+            selectedStatusFilter !== 'all'
+          }
           activeFilterCount={
             (selectedFarmFilter !== 'all' ? 1 : 0) +
             (selectedConsultantFilter !== 'all' ? 1 : 0) +
             (selectedStatusFilter !== 'all' ? 1 : 0)
           }
-          onToggleFilter={() => setShowFilters(!showFilters)}
+          onToggleFilter={() => setFilterModalVisible(true)}
         />
       </View>
 
@@ -433,42 +439,6 @@ export default function ConsultantVisitsScreen() {
           contentContainerStyle={styles.listContainer}
           ListHeaderComponent={
             <View style={styles.listHeaderComponent}>
-              {showFilters && (
-                <View style={styles.filterTray}>
-                  <View style={styles.filterTrayRow}>
-                    <Text style={styles.filterTrayLabel}>{t('Farm')}:</Text>
-                    <QuickChipGroup
-                      options={farmFilterOptions}
-                      selectedValue={selectedFarmFilter}
-                      onSelect={(val) => setSelectedFarmFilter(val as any)}
-                      scrollable
-                      size="sm"
-                    />
-                  </View>
-
-                  <View style={styles.filterTrayRow}>
-                    <Text style={styles.filterTrayLabel}>{t('Agronomist')}:</Text>
-                    <QuickChipGroup
-                      options={consultantFilterOptions}
-                      selectedValue={selectedConsultantFilter}
-                      onSelect={(val) => setSelectedConsultantFilter(val as any)}
-                      scrollable
-                      size="sm"
-                    />
-                  </View>
-
-                  <View style={styles.filterTrayRow}>
-                    <Text style={styles.filterTrayLabel}>{t('Status')}:</Text>
-                    <QuickChipGroup
-                      options={statusFilterOptions}
-                      selectedValue={selectedStatusFilter}
-                      onSelect={(val) => setSelectedStatusFilter(val as any)}
-                      size="sm"
-                    />
-                  </View>
-                </View>
-              )}
-
               <View style={styles.summaryGrid}>
                 <View style={styles.summaryTile}>
                   <MetricTile
@@ -728,6 +698,98 @@ export default function ConsultantVisitsScreen() {
         onConfirm={handleConfirmDeleteVisit}
         onCancel={() => setVisitToDelete(null)}
       />
+
+      {/* Filter Bottom Sheet */}
+      <ModalSheet
+        visible={filterModalVisible}
+        onClose={() => setFilterModalVisible(false)}
+        title={t('Filter Visits')}
+        kicker={t('Search Filters')}
+        footer={
+          <View style={styles.filterFooterRow}>
+            <TouchableOpacity
+              style={styles.filterResetBtn}
+              onPress={() => {
+                setSelectedFarmFilter('all');
+                setSelectedConsultantFilter('all');
+                setSelectedStatusFilter('all');
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.filterResetText}>{t('Reset All')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.filterApplyBtn}
+              onPress={() => setFilterModalVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.filterApplyText}>{t('Apply Filters')}</Text>
+            </TouchableOpacity>
+          </View>
+        }
+      >
+        <View style={styles.filterSheetContent}>
+          {/* Section 1: Farm */}
+          <Text style={styles.filterSectionTitle}>{t('Farm')}</Text>
+          <View style={styles.filterChipsRow}>
+            {farmFilterOptions.map((opt) => {
+              const isSelected = selectedFarmFilter === opt.value;
+              return (
+                <TouchableOpacity
+                  key={String(opt.value)}
+                  style={[styles.filterChip, isSelected && styles.filterChipActive]}
+                  onPress={() => setSelectedFarmFilter(opt.value as any)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.filterChipText, isSelected && styles.filterChipTextActive]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Section 2: Agronomist / Consultant */}
+          <Text style={styles.filterSectionTitle}>{t('Agronomist')}</Text>
+          <View style={styles.filterChipsRow}>
+            {consultantFilterOptions.map((opt) => {
+              const isSelected = selectedConsultantFilter === opt.value;
+              return (
+                <TouchableOpacity
+                  key={String(opt.value)}
+                  style={[styles.filterChip, isSelected && styles.filterChipActive]}
+                  onPress={() => setSelectedConsultantFilter(opt.value as any)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.filterChipText, isSelected && styles.filterChipTextActive]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Section 3: Status */}
+          <Text style={styles.filterSectionTitle}>{t('Status')}</Text>
+          <View style={styles.filterChipsRow}>
+            {statusFilterOptions.map((opt) => {
+              const isSelected = selectedStatusFilter === opt.value;
+              return (
+                <TouchableOpacity
+                  key={String(opt.value)}
+                  style={[styles.filterChip, isSelected && styles.filterChipActive]}
+                  onPress={() => setSelectedStatusFilter(opt.value as any)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.filterChipText, isSelected && styles.filterChipTextActive]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </ModalSheet>
     </SafeAreaView>
   );
 }
@@ -795,26 +857,80 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     gap: spacing.sm,
   },
-  filterTray: {
-    backgroundColor: colors.white,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.slate200,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
-    gap: spacing.sm,
-  },
-  filterTrayRow: {
-    gap: 4,
-  },
-  filterTrayLabel: {
-    ...typography.caption,
-    fontSize: 10,
-    color: colors.slate500,
-  },
   listHeaderComponent: {
     paddingBottom: spacing.xs,
+  },
+  filterSheetContent: {
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  filterSectionTitle: {
+    ...typography.caption,
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.slate700,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.xs,
+  },
+  filterChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+    backgroundColor: colors.slate100,
+    borderWidth: 1,
+    borderColor: colors.slate200,
+  },
+  filterChipActive: {
+    backgroundColor: '#ecfdf5',
+    borderColor: colors.primary,
+  },
+  filterChipText: {
+    ...typography.bodySmall,
+    fontWeight: '600',
+    color: colors.slate700,
+  },
+  filterChipTextActive: {
+    color: colors.primaryDark,
+    fontWeight: '700',
+  },
+  filterFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingTop: spacing.sm,
+  },
+  filterResetBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.slate100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterResetText: {
+    ...typography.body,
+    fontWeight: '700',
+    color: colors.slate700,
+  },
+  filterApplyBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterApplyText: {
+    ...typography.body,
+    fontWeight: '700',
+    color: colors.white,
   },
   summaryGrid: {
     flexDirection: 'row',

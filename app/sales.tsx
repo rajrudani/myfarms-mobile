@@ -16,7 +16,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { salesApi } from '../src/api/sales';
@@ -28,7 +28,7 @@ import { extractErrorMessage } from '../src/api/client';
 import { useAuth } from '../src/hooks/useAuth';
 import { permissions } from '../src/utils/permissions';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
-import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput, EmptyState, ConfirmModal } from '../src/components/ui';
+import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput, EmptyState, ConfirmModal, ModalSheet } from '../src/components/ui';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
 import { useTranslation } from '../src/i18n/I18nContext';
 import { useToast } from '../src/context/ToastContext';
@@ -39,6 +39,8 @@ export default function SalesScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0);
 
   // Confirm delete modal state
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
@@ -64,6 +66,7 @@ export default function SalesScreen() {
   // Filters
   const [search, setSearch] = useState('');
   const [selectedFarmFilter, setSelectedFarmFilter] = useState<string | number>('all');
+  const [farmFilterModalVisible, setFarmFilterModalVisible] = useState(false);
 
   // Modal Triggers
   const [saleModalVisible, setSaleModalVisible] = useState(false);
@@ -439,24 +442,12 @@ export default function SalesScreen() {
     return { gross, deductions, net };
   }, [accessibleSales]);
 
-  // Farm filter options for QuickChipGroup
-  const farmFilterOptions = useMemo(() => {
-    const opts = [{ label: t('All Farms'), value: 'all' as string | number }];
-    accessibleFarms.forEach((f) => {
-      opts.push({
-        label: f.name,
-        value: f.id ?? '',
-      });
-    });
-    return opts;
-  }, [accessibleFarms, t]);
-
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: topInset + 8 }]}>
         <View style={styles.headerTopRow}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={20} color={colors.slate700} />
@@ -468,12 +459,16 @@ export default function SalesScreen() {
         </View>
       </View>
 
-      {/* Search Bar */}
+      {/* Search & Farm Filter Bar */}
       <View style={styles.filterSection}>
         <SearchFilterBar
           query={search}
           onChangeQuery={setSearch}
           placeholder={t('Search sales...')}
+          hasFilter
+          isFilterActive={selectedFarmFilter !== 'all'}
+          activeFilterCount={selectedFarmFilter !== 'all' ? 1 : 0}
+          onToggleFilter={() => setFarmFilterModalVisible(true)}
         />
       </View>
 
@@ -490,16 +485,6 @@ export default function SalesScreen() {
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
             <View style={styles.listHeaderComponent}>
-              <View style={styles.farmPillWrapper}>
-                <QuickChipGroup
-                  options={farmFilterOptions}
-                  selectedValue={selectedFarmFilter}
-                  onSelect={(val) => setSelectedFarmFilter(val)}
-                  scrollable
-                  size="sm"
-                />
-              </View>
-
               {permissions.canViewFinancials(user) && (
                 <View style={styles.summaryGrid}>
                   <View style={styles.summaryTile}>
@@ -1279,6 +1264,82 @@ export default function SalesScreen() {
         variant="danger"
         icon="trash-outline"
       />
+
+      {/* Farm Filter Bottom Sheet Modal */}
+      <ModalSheet
+        visible={farmFilterModalVisible}
+        onClose={() => setFarmFilterModalVisible(false)}
+        title={t('Filter by Farm')}
+        kicker={t('Farm Selection')}
+      >
+        <View style={styles.filterModalContent}>
+          <TouchableOpacity
+            style={[
+              styles.filterOptionItem,
+              selectedFarmFilter === 'all' && styles.filterOptionItemActive,
+            ]}
+            onPress={() => {
+              setSelectedFarmFilter('all');
+              setFarmFilterModalVisible(false);
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={styles.filterOptionTextCol}>
+              <Text
+                style={[
+                  styles.filterOptionTitle,
+                  selectedFarmFilter === 'all' && styles.filterOptionTitleActive,
+                ]}
+              >
+                {t('All Farms')}
+              </Text>
+              <Text style={styles.filterOptionSub}>
+                {t('Show sales across all farms')}
+              </Text>
+            </View>
+            {selectedFarmFilter === 'all' && (
+              <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+            )}
+          </TouchableOpacity>
+
+          {accessibleFarms.map((farm) => {
+            const isSelected = selectedFarmFilter === farm.id;
+            return (
+              <TouchableOpacity
+                key={farm.id}
+                style={[
+                  styles.filterOptionItem,
+                  isSelected && styles.filterOptionItemActive,
+                ]}
+                onPress={() => {
+                  if (farm.id !== undefined) {
+                    setSelectedFarmFilter(farm.id);
+                  }
+                  setFarmFilterModalVisible(false);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.filterOptionTextCol}>
+                  <Text
+                    style={[
+                      styles.filterOptionTitle,
+                      isSelected && styles.filterOptionTitleActive,
+                    ]}
+                  >
+                    {farm.name}
+                  </Text>
+                  {farm.location ? (
+                    <Text style={styles.filterOptionSub}>{farm.location}</Text>
+                  ) : null}
+                </View>
+                {isSelected && (
+                  <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </ModalSheet>
     </SafeAreaView>
   );
 }
@@ -1349,8 +1410,41 @@ const styles = StyleSheet.create({
   listHeaderComponent: {
     paddingBottom: spacing.xs,
   },
-  farmPillWrapper: {
-    paddingVertical: spacing.xs,
+  filterModalContent: {
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+  },
+  filterOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.slate50,
+    borderWidth: 1,
+    borderColor: colors.slate200,
+  },
+  filterOptionItemActive: {
+    backgroundColor: '#ecfdf5',
+    borderColor: colors.primary,
+  },
+  filterOptionTextCol: {
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
+  filterOptionTitle: {
+    ...typography.body,
+    fontWeight: '700',
+    color: colors.slate800,
+  },
+  filterOptionTitleActive: {
+    color: colors.primaryDark,
+  },
+  filterOptionSub: {
+    ...typography.caption,
+    color: colors.slate500,
+    marginTop: 2,
   },
   summaryGrid: {
     flexDirection: 'row',
