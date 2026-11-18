@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
-  TextInput,
   Platform,
   KeyboardAvoidingView,
   StatusBar,
@@ -20,12 +19,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { staffPaymentsApi, CreatePaymentData } from '../src/api/staffPayments';
 import { staffApi } from '../src/api/staff';
 import { StaffPayment, StaffMember } from '../src/types';
-import { extractErrorMessage, getAbsoluteImageUrl } from '../src/api/client';
+import { extractErrorMessage } from '../src/api/client';
+import { formatCurrency } from '../src/utils/formatters';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
 import { useTranslation } from '../src/i18n/I18nContext';
 import {
-  BentoCard,
-  StatusBadge,
   QuickChipGroup,
   ChipOption,
   SearchableSelect,
@@ -38,7 +36,7 @@ const PAYMENT_METHOD_OPTIONS: ChipOption<'cash' | 'google_pay' | 'phonepe' | 'ot
   { label: 'Google Pay', value: 'google_pay' },
   { label: 'PhonePe', value: 'phonepe' },
   { label: 'Other UPI', value: 'other_upi' },
-  { label: 'Bank', value: 'bank_transfer' },
+  { label: 'Bank Transfer', value: 'bank_transfer' },
 ];
 
 export default function StaffPaymentViewScreen() {
@@ -77,7 +75,7 @@ export default function StaffPaymentViewScreen() {
       setOwners(filteredOwners);
     } catch (error) {
       console.error('Error fetching payment details:', error);
-      Alert.alert('Error', extractErrorMessage(error));
+      Alert.alert(t('Error'), extractErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -106,7 +104,7 @@ export default function StaffPaymentViewScreen() {
 
       const result = await staffPaymentsApi.update(payment.ulid || payment.id, payload);
       setPayment(result);
-      Alert.alert(t('Success'), t('Payment details updated successfully.'));
+      Alert.alert(t('Success'), t('Payment updated.'));
       setEditModalVisible(false);
       fetchPaymentDetails();
     } catch (error: any) {
@@ -120,8 +118,8 @@ export default function StaffPaymentViewScreen() {
   const handleDeletePayment = () => {
     if (!payment) return;
     Alert.alert(
-      t('Delete Payment Record'),
-      t('Are you sure you want to delete this payment record? This action cannot be undone.'),
+      t('Delete Payment'),
+      t('This payment will be removed from the current cycle.'),
       [
         { text: t('Cancel'), style: 'cancel' },
         {
@@ -131,7 +129,7 @@ export default function StaffPaymentViewScreen() {
             try {
               setLoading(true);
               await staffPaymentsApi.delete(payment.ulid || payment.id);
-              Alert.alert(t('Success'), t('Payment record deleted successfully.'));
+              Alert.alert(t('Success'), t('Payment deleted.'));
               router.back();
             } catch (error) {
               console.error('Error deleting payment:', error);
@@ -144,201 +142,300 @@ export default function StaffPaymentViewScreen() {
     );
   };
 
+  const formatDateDisplay = (dateString?: string | null) => {
+    if (!dateString) return 'N/A';
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return dateString;
+    return d.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
+  const getMethodConfig = (method?: string) => {
+    switch (method) {
+      case 'google_pay':
+        return {
+          label: 'Google Pay',
+          icon: 'phone-portrait-outline' as const,
+          bg: '#ecfeff',
+          text: '#0f766e',
+        };
+      case 'phonepe':
+        return {
+          label: 'PhonePe',
+          icon: 'phone-portrait-outline' as const,
+          bg: '#ecfdf3',
+          text: '#15803d',
+        };
+      case 'other_upi':
+        return {
+          label: 'Other UPI',
+          icon: 'qr-code-outline' as const,
+          bg: '#fff7ed',
+          text: '#c2410c',
+        };
+      case 'bank_transfer':
+        return {
+          label: 'Bank Transfer',
+          icon: 'business-outline' as const,
+          bg: '#fef2f2',
+          text: '#b91c1c',
+        };
+      case 'cash':
+      default:
+        return {
+          label: 'Cash',
+          icon: 'cash-outline' as const,
+          bg: '#edf6ee',
+          text: '#166534',
+        };
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Loading payment voucher...</Text>
+        <ActivityIndicator size="large" color="#166534" />
+        <Text style={styles.loadingText}>{t('Loading payment details...')}</Text>
       </View>
     );
   }
 
   if (!payment) {
     return (
-      <View style={styles.errorContainer}>
-        <Ionicons name="alert-circle-outline" size={48} color={colors.danger} />
-        <Text style={styles.errorText}>Payment details not found.</Text>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backBtnText}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color={colors.danger} />
+          <Text style={styles.errorText}>{t('Payment not found.')}</Text>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <Text style={styles.backBtnText}>{t('Go Back')}</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
-  const staffInitials = payment.staff?.name
-    ? payment.staff.name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .substring(0, 2)
-        .toUpperCase()
-    : 'U';
+  const staffInitial = payment.staff?.name
+    ? payment.staff.name.trim().charAt(0).toUpperCase()
+    : 'S';
 
-  const selectedGivenByName = payGivenBy
-    ? owners.find((o) => o.id === payGivenBy)?.name || 'Select Owner/Manager'
-    : 'Select Owner/Manager';
-
-  const cleanMethodLabel = payment.payment_method
-    ? payment.payment_method.replace('_', ' ').toUpperCase()
-    : 'CASH';
+  const methodConfig = getMethodConfig(payment.payment_method);
+  const formattedDate = formatDateDisplay(payment.date);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
+      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
 
-      {/* Sticky Header */}
+      {/* PWA-style Sticky Header */}
       <View style={styles.navbar}>
         <TouchableOpacity
           style={styles.navBackBtn}
           onPress={() => router.back()}
           activeOpacity={0.7}
+          accessibilityLabel={t('Back')}
         >
-          <Ionicons name="chevron-back" size={22} color={colors.slate800} />
+          <Ionicons name="arrow-back" size={18} color="#475569" />
         </TouchableOpacity>
-        <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={styles.navbarTitle}>{t('Payment Voucher')}</Text>
-          <Text style={styles.navbarSubtitle}>{t('Ref')} #{payment.ulid || payment.id}</Text>
-        </View>
 
-        {!payment.is_settled && (
+        <Text style={styles.navbarTitle}>{t('Payment Details')}</Text>
+
+        {!payment.is_settled ? (
           <TouchableOpacity
             style={styles.navEditBtn}
             onPress={() => setEditModalVisible(true)}
             activeOpacity={0.7}
+            accessibilityLabel={t('Edit Payment')}
           >
-            <Ionicons name="create-outline" size={20} color={colors.primary} />
+            <Ionicons name="create-outline" size={18} color="#166534" />
           </TouchableOpacity>
+        ) : (
+          <View style={styles.navPlaceholder} />
         )}
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Amount Voucher Hero Card */}
-        <BentoCard variant="elevated" style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>{t('Disbursed Amount').toUpperCase()}</Text>
-          <Text style={styles.summaryAmountText}>
-            ₹{Number(payment.amount).toLocaleString('en-IN')}
-          </Text>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Card 1: PWA Summary Card */}
+        <View style={styles.card}>
+          <View style={styles.summaryPadding}>
+            <View style={styles.summaryRow}>
+              <View>
+                <Text style={styles.summaryLabel}>{t('Total Paid').toUpperCase()}</Text>
+                <Text style={styles.summaryAmount}>
+                  {formatCurrency(payment.amount)}
+                </Text>
+              </View>
 
-          <View style={styles.badgeRow}>
-            {payment.is_settled && (
-              <StatusBadge label={t('Settled')} variant="success" dot />
-            )}
-            <StatusBadge label={cleanMethodLabel} variant="info" dot={false} />
-            <View style={styles.dateBadge}>
-              <Ionicons name="calendar-outline" size={13} color={colors.slate500} />
-              <Text style={styles.dateBadgeText}>
-                {payment.date ? payment.date.split('T')[0] : 'N/A'}
-              </Text>
+              {payment.is_settled && (
+                <View style={styles.cycleBadge}>
+                  <Text style={styles.cycleBadgeText}>{t('Settled').toUpperCase()}</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.tagsRow}>
+              <View style={[styles.tag, { backgroundColor: methodConfig.bg }]}>
+                <Ionicons name={methodConfig.icon} size={15} color={methodConfig.text} />
+                <Text style={[styles.tagText, { color: methodConfig.text }]}>
+                  {t(methodConfig.label)}
+                </Text>
+              </View>
+
+              <View style={[styles.tag, { backgroundColor: '#f3f4f6' }]}>
+                <Ionicons name="calendar-outline" size={15} color="#374151" />
+                <Text style={[styles.tagText, { color: '#374151' }]}>
+                  {formattedDate}
+                </Text>
+              </View>
             </View>
           </View>
-        </BentoCard>
+        </View>
 
-        {/* Staff Profile Card */}
-        <TouchableOpacity
-          onPress={() =>
-            router.push(`/staff-view?id=${payment.staff?.ulid || payment.staff?.id}`)
-          }
-          activeOpacity={0.8}
-        >
-          <BentoCard variant="elevated" style={styles.staffCard}>
+        {/* Card 2: PWA Staff Profile Card */}
+        <View style={styles.card}>
+          <TouchableOpacity
+            onPress={() => {
+              if (payment.staff?.ulid || payment.staff?.id) {
+                router.push(`/staff-view?id=${payment.staff.ulid || payment.staff.id}`);
+              }
+            }}
+            activeOpacity={0.8}
+            style={styles.staffContainer}
+          >
             <View style={styles.staffAvatar}>
-              {payment.staff?.profile_photo_url || payment.staff?.profile_photo_path ? (
+              {payment.staff?.profile_photo_url ? (
                 <Image
-                  source={{
-                    uri:
-                      payment.staff.profile_photo_url ||
-                      getAbsoluteImageUrl(payment.staff.profile_photo_path),
-                  }}
+                  source={{ uri: payment.staff.profile_photo_url }}
                   style={styles.staffAvatarImg}
                 />
               ) : (
-                <Text style={styles.staffAvatarText}>{staffInitials}</Text>
+                <Text style={styles.staffAvatarText}>{staffInitial}</Text>
               )}
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.staffName}>{payment.staff?.name || 'Unknown Staff'}</Text>
-              <Text style={styles.staffRoleText}>{payment.staff?.role_label || 'Staff Member'}</Text>
+
+            <View style={styles.staffDetails}>
+              <View style={styles.staffNameRow}>
+                <Text style={styles.staffName} numberOfLines={1}>
+                  {payment.staff?.name || 'Unknown Staff'}
+                </Text>
+                {payment.staff?.role_label ? (
+                  <Text style={styles.staffRole}> ({payment.staff.role_label})</Text>
+                ) : null}
+              </View>
+
               {payment.staff?.email ? (
-                <Text style={styles.staffEmailText}>{payment.staff.email}</Text>
+                <Text style={styles.staffEmail} numberOfLines={1}>
+                  {payment.staff.email}
+                </Text>
               ) : null}
+
               {payment.staff?.farm_name ? (
-                <View style={styles.farmRow}>
-                  <Ionicons name="map-outline" size={12} color={colors.slate500} />
-                  <Text style={styles.farmText}>{payment.staff.farm_name}</Text>
+                <View style={styles.staffFarmRow}>
+                  <Ionicons name="location-outline" size={13} color="#6b7280" />
+                  <Text style={styles.staffFarmText} numberOfLines={1}>
+                    {payment.staff.farm_name}
+                  </Text>
                 </View>
               ) : null}
+
+              <Text style={styles.staffNote}>
+                {t('Payment made to staff member')}
+              </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.slate400} />
-          </BentoCard>
-        </TouchableOpacity>
 
-        {/* Transaction Details Card */}
-        <BentoCard variant="elevated" style={styles.detailsCard}>
-          <Text style={styles.cardTitle}>{t('Voucher Information')}</Text>
+            <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
+          </TouchableOpacity>
+        </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>{t('Transaction ID')}</Text>
-            <Text style={styles.detailValue} numberOfLines={1}>
-              {payment.ulid || payment.id}
+        {/* Card 3: PWA Transaction Details Card */}
+        <View style={styles.card}>
+          <View style={styles.sectionHead}>
+            <Ionicons name="information-circle-outline" size={18} color="#166534" />
+            <Text style={styles.sectionHeadTitle}>
+              {t('Transaction Details').toUpperCase()}
             </Text>
           </View>
 
-          <View style={styles.detailDivider} />
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>{t('Disbursement Mode')}</Text>
-            <Text style={styles.detailValue}>{cleanMethodLabel}</Text>
-          </View>
-
-          <View style={styles.detailDivider} />
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>{t('Payment Date')}</Text>
-            <Text style={styles.detailValue}>
-              {payment.date ? payment.date.split('T')[0] : 'N/A'}
-            </Text>
-          </View>
-
-          <View style={styles.detailDivider} />
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>{t('Authorized Given By')}</Text>
-            <Text style={styles.detailValue}>{payment.given_by?.name || 'Group Owner'}</Text>
-          </View>
-
-          {payment.notes ? (
-            <View style={styles.notesContainer}>
-              <Text style={styles.notesLabel}>{t('Remarks & Notes')}</Text>
-              <Text style={styles.notesText}>{payment.notes}</Text>
+          <View style={styles.sectionBody}>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailKey}>{t('Amount')}</Text>
+              <Text style={[styles.detailValue, styles.detailValueAmount]}>
+                {formatCurrency(payment.amount)}
+              </Text>
             </View>
-          ) : null}
-        </BentoCard>
 
-        {/* Action Buttons (only if not settled) */}
+            <View style={styles.rowDivider} />
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailKey}>{t('Payment Date')}</Text>
+              <Text style={styles.detailValue}>{formattedDate}</Text>
+            </View>
+
+            <View style={styles.rowDivider} />
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailKey}>{t('Payment Method')}</Text>
+              <Text style={styles.detailValue}>{t(methodConfig.label)}</Text>
+            </View>
+
+            <View style={styles.rowDivider} />
+
+            <View style={styles.detailRow}>
+              <Text style={styles.detailKey}>{t('Given By')}</Text>
+              <Text style={styles.detailValue}>
+                {payment.given_by?.name || '-'}
+              </Text>
+            </View>
+
+            {payment.notes ? (
+              <View style={styles.notesContainer}>
+                <Text style={styles.notesLabel}>{t('Notes').toUpperCase()}</Text>
+                <Text style={styles.notesBody}>{payment.notes}</Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+
+        {/* PWA Action Buttons (when payment is unsettled) */}
         {!payment.is_settled && (
           <View style={styles.actionsContainer}>
             <TouchableOpacity
-              style={styles.editBtn}
+              style={styles.primaryActionBtn}
               onPress={() => setEditModalVisible(true)}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
             >
-              <Ionicons name="create-outline" size={16} color={colors.white} />
-              <Text style={styles.editBtnText}>{t('Edit Voucher')}</Text>
+              <Ionicons name="create-outline" size={18} color="#ffffff" />
+              <Text style={styles.primaryActionBtnText}>{t('Edit Payment')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.deleteBtn}
+              style={styles.dangerActionBtn}
               onPress={handleDeletePayment}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
             >
-              <Ionicons name="trash-outline" size={16} color={colors.danger} />
-              <Text style={styles.deleteBtnText}>{t('Delete Record')}</Text>
+              <Ionicons name="trash-outline" size={18} color="#dc2626" />
+              <Text style={styles.dangerActionBtnText}>{t('Delete Payment')}</Text>
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Back Link at bottom */}
+        <TouchableOpacity
+          style={styles.backLinkContainer}
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.backLinkText}>{t('Back to Payment History')}</Text>
+        </TouchableOpacity>
       </ScrollView>
 
-      {/* Edit Payment Modal */}
+      {/* Edit Payment Modal (PWA Form Parity) */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -355,20 +452,20 @@ export default function StaffPaymentViewScreen() {
               contentContainerStyle={{ paddingBottom: 30 }}
             >
               <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>{t('Edit Payment Record')}</Text>
+                <Text style={styles.modalTitle}>{t('Edit Payment')}</Text>
                 <TouchableOpacity onPress={() => setEditModalVisible(false)}>
                   <Ionicons name="close" size={22} color={colors.slate600} />
                 </TouchableOpacity>
               </View>
 
               <ModernInput
-                label={t('Staff Member')}
+                label={t('Staff')}
                 value={payment.staff?.name || 'Unknown Staff'}
                 editable={false}
               />
 
               <ModernInput
-                label={t('Amount Paid')}
+                label={t('Amount')}
                 required
                 prefix="₹"
                 placeholder="0.00"
@@ -378,7 +475,9 @@ export default function StaffPaymentViewScreen() {
                 containerStyle={{ marginTop: spacing.md }}
               />
 
-              <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>{t('Payment Method')}</Text>
+              <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>
+                {t('Payment Method')}
+              </Text>
               <QuickChipGroup
                 options={PAYMENT_METHOD_OPTIONS.map((opt) => ({
                   ...opt,
@@ -391,7 +490,7 @@ export default function StaffPaymentViewScreen() {
 
               <SearchableSelect
                 label={t('Given By')}
-                placeholder={t('Select owner or manager')}
+                placeholder={t('Select')}
                 searchPlaceholder={t('Search staff...')}
                 items={owners.map((o) => ({
                   value: o.id,
@@ -405,14 +504,14 @@ export default function StaffPaymentViewScreen() {
               />
 
               <ModernDatePicker
-                label={t('Payment Date')}
+                label={t('Date')}
                 value={payDate}
                 onChange={setPayDate}
                 containerStyle={{ marginTop: spacing.md }}
               />
 
               <ModernInput
-                label={t('Notes (Optional)')}
+                label={t('Notes')}
                 placeholder={t('Reference details, transaction ID...')}
                 value={payNotes}
                 onChangeText={setPayNotes}
@@ -453,13 +552,13 @@ export default function StaffPaymentViewScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.slate50,
+    backgroundColor: '#f8fafc',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.slate50,
+    backgroundColor: '#f8fafc',
   },
   loadingText: {
     marginTop: 10,
@@ -472,7 +571,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: colors.slate50,
+    backgroundColor: '#f8fafc',
   },
   errorText: {
     fontSize: 16,
@@ -482,7 +581,7 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     marginTop: spacing.md,
-    backgroundColor: colors.primary,
+    backgroundColor: '#166534',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: radius.pill,
@@ -491,224 +590,323 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '700',
   },
+
+  // Navbar - PWA Parity
   navbar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.white,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#f8fafc',
     borderBottomWidth: 1,
-    borderBottomColor: colors.slate200,
+    borderBottomColor: '#e2e8f0',
   },
   navBackBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.md,
-    backgroundColor: colors.slate100,
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
   },
   navbarTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
-    color: colors.slate900,
-  },
-  navbarSubtitle: {
-    fontSize: 11,
-    color: colors.slate500,
+    color: '#0f172a',
+    textAlign: 'center',
   },
   navEditBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.md,
-    backgroundColor: colors.primarySurface,
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(22, 101, 52, 0.12)',
+    backgroundColor: '#ecfdf5',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: 40,
-    gap: spacing.md,
+  navPlaceholder: {
+    width: 38,
+    height: 38,
   },
-  summaryCard: {
-    padding: spacing.lg,
-    borderRadius: radius.xl,
-    alignItems: 'center',
+
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 36,
+    gap: 16,
+  },
+
+  // Card Base - PWA Parity
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    overflow: 'hidden',
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+
+  // Card 1: Summary Card
+  summaryPadding: {
+    padding: 20,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   summaryLabel: {
     fontSize: 11,
-    fontWeight: '800',
-    color: colors.slate400,
-    letterSpacing: 1,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    color: '#7c7a67',
+    textTransform: 'uppercase',
   },
-  summaryAmountText: {
-    fontSize: 32,
+  summaryAmount: {
+    marginTop: 6,
+    fontSize: 26,
+    lineHeight: 30,
     fontWeight: '900',
-    color: colors.primary,
-    marginTop: 4,
-    marginBottom: spacing.md,
+    color: '#111827',
   },
-  badgeRow: {
+  cycleBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#f3f4f6',
+  },
+  cycleBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    color: '#4b5563',
+    textTransform: 'uppercase',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#e5e7eb',
+    marginVertical: 16,
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  tagText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // Card 2: Staff Member
+  staffContainer: {
+    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  staffAvatar: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#166534',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    flexShrink: 0,
+  },
+  staffAvatarImg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 29,
+  },
+  staffAvatarText: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#ffffff',
+  },
+  staffDetails: {
+    flex: 1,
+  },
+  staffNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  staffName: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  staffRole: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  staffEmail: {
+    marginTop: 2,
+    fontSize: 13,
+    color: '#4b5563',
+  },
+  staffFarmRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
+  },
+  staffFarmText: {
+    fontSize: 13,
+    color: '#4b5563',
+  },
+  staffNote: {
+    marginTop: 6,
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: '#8b8b7b',
+  },
+
+  // Card 3: Transaction Details
+  sectionHead: {
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  dateBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.slate100,
-  },
-  dateBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.slate600,
-  },
-  staffCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderRadius: radius.lg,
-  },
-  staffAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primarySurface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-    overflow: 'hidden',
-  },
-  staffAvatarImg: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.pill,
-  },
-  staffAvatarText: {
-    fontSize: 16,
+  sectionHeadTitle: {
+    fontSize: 13,
     fontWeight: '800',
-    color: colors.primaryDark,
+    letterSpacing: 0.8,
+    color: '#2d3327',
+    textTransform: 'uppercase',
   },
-  staffName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.slate900,
-  },
-  staffRoleText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primaryDark,
-    marginTop: 2,
-  },
-  staffEmailText: {
-    fontSize: 11,
-    color: colors.slate500,
-    marginTop: 2,
-  },
-  farmRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-  },
-  farmText: {
-    fontSize: 11,
-    color: colors.slate500,
-  },
-  detailsCard: {
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: colors.slate900,
-    marginBottom: spacing.md,
+  sectionBody: {
+    paddingHorizontal: 18,
+    paddingVertical: 14,
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
-  detailDivider: {
-    height: 1,
-    backgroundColor: colors.slate100,
-  },
-  detailLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.slate500,
+  detailKey: {
+    fontSize: 14,
+    color: '#20242a',
   },
   detailValue: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
-    color: colors.slate900,
-    maxWidth: '55%',
+    color: '#111827',
     textAlign: 'right',
   },
+  detailValueAmount: {
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  rowDivider: {
+    height: 1,
+    backgroundColor: '#e5e7eb',
+  },
   notesContainer: {
-    marginTop: spacing.md,
-    padding: 10,
-    borderRadius: radius.sm,
-    backgroundColor: colors.slate50,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
+    marginTop: 14,
+    padding: 14,
+    borderLeftWidth: 4,
+    borderLeftColor: '#1f6b35',
+    borderRadius: 10,
+    backgroundColor: '#f9fafb',
   },
   notesLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
-    color: colors.slate400,
+    letterSpacing: 0.8,
+    color: '#4b5563',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
-  notesText: {
-    fontSize: 12,
-    color: colors.slate700,
-    marginTop: 2,
+  notesBody: {
+    marginTop: 6,
+    fontSize: 14,
+    lineHeight: 20,
+    fontStyle: 'italic',
+    color: '#111827',
   },
+
+  // PWA Actions
   actionsContainer: {
-    flexDirection: 'row',
-    gap: 12,
+    flexDirection: 'column',
+    gap: 10,
     marginTop: 4,
   },
-  editBtn: {
-    flex: 1,
+  primaryActionBtn: {
+    width: '100%',
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#14532d',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    height: 44,
-    borderRadius: radius.md,
-    backgroundColor: colors.primary,
+    gap: 8,
+    shadowColor: '#14532d',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  editBtnText: {
-    fontSize: 13,
+  primaryActionBtnText: {
+    fontSize: 15,
     fontWeight: '700',
-    color: colors.white,
+    color: '#ffffff',
   },
-  deleteBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
+  dangerActionBtn: {
+    width: '100%',
     height: 44,
-    borderRadius: radius.md,
-    backgroundColor: colors.dangerSurface,
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: colors.dangerBorder,
+    borderColor: '#fecaca',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
-  deleteBtnText: {
-    fontSize: 13,
+  dangerActionBtnText: {
+    fontSize: 15,
     fontWeight: '700',
-    color: colors.dangerText,
+    color: '#dc2626',
   },
+  backLinkContainer: {
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 20,
+    paddingVertical: 6,
+  },
+  backLinkText: {
+    fontSize: 14,
+    color: '#44403c',
+    textDecorationLine: 'underline',
+    fontWeight: '600',
+  },
+
+  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.55)',
@@ -741,58 +939,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     marginTop: spacing.sm,
   },
-  input: {
-    height: 46,
-    borderWidth: 1,
-    borderColor: colors.slate200,
-    borderRadius: radius.md,
-    paddingHorizontal: 12,
-    fontSize: 14,
-    color: colors.slate900,
-    backgroundColor: colors.slate50,
-  },
-  multilineInput: {
-    height: 70,
-    paddingTop: 8,
-    textAlignVertical: 'top',
-  },
-  dropdownTrigger: {
-    height: 46,
-    borderWidth: 1,
-    borderColor: colors.slate200,
-    borderRadius: radius.md,
-    paddingHorizontal: 14,
-    backgroundColor: colors.slate50,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  dropdownTriggerText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.slate800,
-  },
-  dropdownList: {
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.slate200,
-    borderRadius: radius.md,
-    marginTop: 4,
-    maxHeight: 180,
-    overflow: 'hidden',
-    ...shadows.subtle,
-  },
-  dropdownItem: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.slate100,
-  },
-  dropdownItemText: {
-    fontSize: 14,
-    color: colors.slate800,
-    fontWeight: '500',
-  },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -815,7 +961,7 @@ const styles = StyleSheet.create({
     color: colors.slate700,
   },
   saveBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#14532d',
   },
   saveBtnText: {
     fontSize: 14,
