@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,47 +7,159 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  Modal,
   TextInput,
   RefreshControl,
   Platform,
-  KeyboardAvoidingView,
   StatusBar,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { farmActivitiesApi } from '../src/api/farmActivities';
 import { expensesApi } from '../src/api/expenses';
-import { FarmActivity, FarmExpense } from '../src/types';
+import { mastersApi } from '../src/api/masters';
+import { cropCyclesApi } from '../src/api/cropCycles';
+import { FarmActivity, FarmExpense, FarmActivityMaster, AgroInputProduct, CropCycle } from '../src/types';
 import { extractErrorMessage } from '../src/api/client';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
 import { useResponsive } from '../src/utils/responsive';
 import { formatCurrency } from '../src/utils/formatters';
-import { ModalSheet, ModernInput, ModernDatePicker } from '../src/components/ui';
+import { ModalSheet, ModernInput, ModernDatePicker, SearchableSelect } from '../src/components/ui';
+import { useTranslation } from '../src/i18n/I18nContext';
 
-const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; border: string }> = {
-  completed: { label: 'Completed', bg: '#ecfdf3', text: '#15803d', border: '#bbf7d0' },
-  scheduled: { label: 'Scheduled', bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe' },
-  in_progress: { label: 'In Progress', bg: '#fffbeb', text: '#d97706', border: '#fde68a' },
-  cancelled: { label: 'Cancelled', bg: '#fef2f2', text: '#dc2626', border: '#fecaca' },
+const findFallbackMaster = (selectedName: string) => {
+  if (!selectedName) return undefined;
+  const normalized = selectedName.trim().toLowerCase();
+
+  const nameMappings = [
+    { key: 'f1', names: ['pesticide application', 'જંતુનાશક છંટકાવ', 'कीटनाशक छिड़काव'] },
+    { key: 'f2', names: ['fertilizer application', 'ખાતર ઉપયોગ', 'उर्वरक अनुप्रयोग'] },
+    { key: 'f3', names: ['harvesting/picking', 'કાપણી/તોડણી', 'कटाई/तोड़ाई'] },
+    { key: 'f4', names: ['irrigation', 'સિંચાઈ', 'सिंचाई'] },
+    { key: 'f5', names: ['sowing/planting', 'વાવેતર/રોપણ', 'बुवाई/रोपाई'] },
+    { key: 'f6', names: ['other', 'અન્ય', 'अन्य'] },
+  ];
+
+  const matched = nameMappings.find((m) => m.names.includes(normalized));
+  if (matched) {
+    return fallbackActivityMasters.find((f) => f.id === matched.key);
+  }
+  return undefined;
+};
+
+const fallbackActivityMasters: FarmActivityMaster[] = [
+  {
+    id: 'f1',
+    ulid: 'f1',
+    name: 'Pesticide Application',
+    is_active: true,
+    fields: [
+      { key: 'product_id', label: 'Pesticide', type: 'morph', required: true, morph: 'agro_input_products' },
+      { key: 'quantity', label: 'Quantity', type: 'number', required: true, min: 0 },
+      { key: 'quantity_unit', label: 'Unit', type: 'enum', required: true, options: { 'LITRE': 'Litre', 'ML': 'ML', 'KG': 'KG', 'GRAM': 'Gram' } },
+    ],
+  },
+  {
+    id: 'f2',
+    ulid: 'f2',
+    name: 'Fertilizer Application',
+    is_active: true,
+    fields: [
+      { key: 'product_id', label: 'Fertilizer', type: 'morph', required: true, morph: 'agro_input_products' },
+      { key: 'quantity', label: 'Quantity', type: 'number', required: true, min: 0 },
+      { key: 'quantity_unit', label: 'Unit', type: 'enum', required: true, options: { 'KG': 'KG', 'GRAM': 'Gram', 'BAGS': 'Bags' } },
+    ],
+  },
+  {
+    id: 'f3',
+    ulid: 'f3',
+    name: 'Harvesting/Picking',
+    is_active: true,
+    fields: [
+      { key: 'harvested_yield', label: 'Harvested Yield', type: 'number', required: true, min: 0 },
+      { key: 'yield_unit', label: 'Unit', type: 'enum', required: true, options: { 'KG': 'KG', 'QUINTAL': 'Quintal', 'TONNE': 'Tonne', 'CRATES': 'Crates' } },
+    ],
+  },
+  {
+    id: 'f4',
+    ulid: 'f4',
+    name: 'Irrigation',
+    is_active: true,
+    fields: [
+      { key: 'method', label: 'Irrigation Method', type: 'enum', required: true, options: { 'DRIP': 'Drip', 'FLOOD': 'Flood', 'SPRINKLER': 'Sprinkler', 'FURROW': 'Furrow' } },
+      { key: 'duration_hours', label: 'Duration (Hours)', type: 'number', required: false, min: 0 },
+    ],
+  },
+  {
+    id: 'f5',
+    ulid: 'f5',
+    name: 'Sowing/Planting',
+    is_active: true,
+    fields: [
+      { key: 'seed_variety', label: 'Seed Variety / Hybrid', type: 'string', required: true },
+      { key: 'seed_rate', label: 'Seed Rate (kg/acre)', type: 'number', required: false, min: 0 },
+    ],
+  },
+  {
+    id: 'f6',
+    ulid: 'f6',
+    name: 'Other',
+    is_active: true,
+    fields: [
+      { key: 'description', label: 'Description', type: 'string', required: true },
+    ],
+  },
+];
+
+const getNormalizedOptions = (options: any): { key: string; label: string }[] => {
+  if (!options) return [];
+  if (Array.isArray(options)) {
+    return options.map((val) => ({
+      key: val.toString(),
+      label: val.charAt(0).toUpperCase() + val.slice(1).toLowerCase(),
+    }));
+  }
+  if (typeof options === 'object') {
+    return Object.keys(options).map((key) => ({
+      key: key,
+      label: options[key],
+    }));
+  }
+  return [];
 };
 
 export default function ActivityViewScreen() {
+  const { t } = useTranslation();
   const params = useLocalSearchParams();
   const activityIdentifier = (params.activity_ulid as string) || (params.activity_id as string);
-  const { containerMaxWidth, isTablet } = useResponsive();
+  const { containerMaxWidth } = useResponsive();
 
   const [activity, setActivity] = useState<FarmActivity | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Edit Modal State
+  // Master data lists
+  const [activityMastersList, setActivityMastersList] = useState<FarmActivityMaster[]>([]);
+  const [inputProductsList, setInputProductsList] = useState<AgroInputProduct[]>([]);
+  const [farmCropCycles, setFarmCropCycles] = useState<CropCycle[]>([]);
+
+  // Edit Activity Modal State (Full matching PWA)
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editStatus, setEditStatus] = useState<string>('scheduled');
+  const [editActivityMasterId, setEditActivityMasterId] = useState<string>('');
   const [editDate, setEditDate] = useState<string>('');
+  const [editStatus, setEditStatus] = useState<string>('scheduled');
+  const [editCycleId, setEditCycleId] = useState<string>('');
   const [editNotes, setEditNotes] = useState<string>('');
+  const [editFieldsValues, setEditFieldsValues] = useState<Record<string, any>>({});
+  const [editCustomProductNames, setEditCustomProductNames] = useState<Record<string, string>>({});
+  const [editActivityErrors, setEditActivityErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+
+  // Operational Notes Modal State
+  const [editNotesModalVisible, setEditNotesModalVisible] = useState(false);
+  const [notesModalText, setNotesModalText] = useState<string>('');
+  const [savingNotes, setSavingNotes] = useState(false);
 
   // Link Expense Modal State
   const [linkModalVisible, setLinkModalVisible] = useState(false);
@@ -56,22 +168,50 @@ export default function ActivityViewScreen() {
   const [loadingAvailableExpenses, setLoadingAvailableExpenses] = useState(false);
   const [linkingExpenses, setLinkingExpenses] = useState(false);
 
+  const statusConfig: Record<string, { label: string; bg: string; text: string; border: string }> = useMemo(() => ({
+    completed: { label: t('Completed'), bg: '#ecfdf3', text: '#15803d', border: '#bbf7d0' },
+    scheduled: { label: t('Scheduled'), bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe' },
+    in_progress: { label: t('In Progress'), bg: '#fffbeb', text: '#d97706', border: '#fde68a' },
+    cancelled: { label: t('Cancelled'), bg: '#fef2f2', text: '#dc2626', border: '#fecaca' },
+  }), [t]);
+
+  const loadMasterData = useCallback(async (farmId?: string | number) => {
+    try {
+      const [masters, products] = await Promise.all([
+        mastersApi.getActivities(),
+        mastersApi.getInputProducts(),
+      ]);
+      setActivityMastersList(masters);
+      setInputProductsList(products);
+
+      if (farmId) {
+        const cycles = await cropCyclesApi.getAll({
+          farm_id: farmId,
+          per_page: 'all',
+        });
+        setFarmCropCycles(cycles.filter((c) => c.status?.toUpperCase() === 'ACTIVE' || c.status?.toLowerCase() === 'active'));
+      }
+    } catch (e) {
+      console.warn('Error loading masters for activity view:', e);
+    }
+  }, []);
+
   const fetchActivity = useCallback(async () => {
     if (!activityIdentifier) return;
     try {
       const data = await farmActivitiesApi.getById(activityIdentifier);
       setActivity(data);
-      setEditStatus(data.status || 'scheduled');
-      setEditDate(data.date ? data.date.split('T')[0] : '');
-      setEditNotes(data.notes || '');
+      if (data.farm_id) {
+        loadMasterData(data.farm_id);
+      }
     } catch (error) {
       console.error('Error fetching activity:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to load activity details.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to load activity details.')));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activityIdentifier]);
+  }, [activityIdentifier, loadMasterData, t]);
 
   useEffect(() => {
     fetchActivity();
@@ -91,33 +231,170 @@ export default function ActivityViewScreen() {
         status: 'completed',
       });
       setActivity(updated);
-      Alert.alert('Success', 'Activity marked as completed!');
+      Alert.alert(t('Success'), t('Activity marked as completed.'));
     } catch (error) {
       console.error('Error completing activity:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to update activity.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to update activity.')));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSaveEdit = async () => {
+  // Open Edit Activity Modal with populated fields matching PWA
+  const handleOpenEditModal = () => {
+    if (!activity) return;
+    setEditDate(activity.date ? activity.date.split('T')[0] : new Date().toISOString().split('T')[0]);
+    setEditStatus(activity.status || 'scheduled');
+    setEditNotes(activity.notes || '');
+    setEditActivityMasterId(activity.farm_activity_master_id ? activity.farm_activity_master_id.toString() : '');
+    setEditCycleId(activity.crop_cycle_id ? activity.crop_cycle_id.toString() : '');
+    setEditFieldsValues(activity.details_json && typeof activity.details_json === 'object' ? { ...activity.details_json } : {});
+    setEditCustomProductNames({});
+    setEditActivityErrors({});
+    setEditModalVisible(true);
+  };
+
+  const handleSelectEditActivityMaster = (masterId: string | number) => {
+    setEditActivityMasterId(masterId.toString());
+    const effectiveMasters = activityMastersList.length > 0 ? activityMastersList : fallbackActivityMasters;
+    const m = effectiveMasters.find((act) => act.id.toString() === masterId.toString());
+    const initialVals: Record<string, any> = {};
+    let fields = m?.fields || [];
+    if (fields.length === 0 && m) {
+      const fallback = findFallbackMaster(m.name);
+      if (fallback) fields = fallback.fields || [];
+    }
+    fields.forEach((f: any) => {
+      if (editFieldsValues[f.key] !== undefined) {
+        initialVals[f.key] = editFieldsValues[f.key];
+      } else if (f.default !== undefined) {
+        initialVals[f.key] = f.default;
+      } else if (f.type === 'boolean') {
+        initialVals[f.key] = false;
+      }
+    });
+    setEditFieldsValues(initialVals);
+    setEditActivityErrors({});
+  };
+
+  const handleSaveEditActivity = async () => {
     if (!activity) return;
     const identifier = activity.ulid || activity.id!;
+
+    if (!editDate) {
+      Alert.alert(t('Validation Error'), t('Date is required.'));
+      return;
+    }
+
+    const effectiveMasters = activityMastersList.length > 0 ? activityMastersList : fallbackActivityMasters;
+    const selectedMaster = effectiveMasters.find(
+      (m) => m.id.toString() === editActivityMasterId.toString()
+    );
+    let fields = selectedMaster?.fields || [];
+    if (fields.length === 0 && selectedMaster) {
+      const fallback = findFallbackMaster(selectedMaster.name);
+      if (fallback) fields = fallback.fields || [];
+    }
+
+    // Dynamic field validation
+    const errors: Record<string, string> = {};
+    let hasError = false;
+    fields.forEach((f: any) => {
+      const val = editFieldsValues[f.key];
+      if (f.required && (val === undefined || val === null || val === '')) {
+        errors[f.key] = t('%{label} is required.', { label: t(f.label) });
+        hasError = true;
+      } else if ((f.type === 'number' || f.type === 'decimal') && val !== undefined && val !== null && val !== '') {
+        const num = parseFloat(val);
+        if (isNaN(num) || num < 0) {
+          errors[f.key] = t('%{label} must be a valid number.', { label: t(f.label) });
+          hasError = true;
+        }
+      }
+      if (val === 'new' && (!editCustomProductNames[f.key] || !editCustomProductNames[f.key].trim())) {
+        errors[f.key] = t('Please enter custom %{label} name.', { label: t(f.label).toLowerCase() });
+        hasError = true;
+      }
+    });
+
+    if (hasError) {
+      setEditActivityErrors(errors);
+      return;
+    }
+
+    setSaving(true);
     try {
-      setSaving(true);
-      const updated = await farmActivitiesApi.update(identifier, {
-        status: editStatus,
+      let finalMasterId = editActivityMasterId;
+      if (editActivityMasterId.toString().startsWith('f')) {
+        const createdMaster = await mastersApi.createActivity({
+          name: selectedMaster?.name || 'General',
+          is_active: true,
+        });
+        finalMasterId = createdMaster.id.toString();
+      }
+
+      // Handle new custom product if entered
+      const updatedFieldsValues = { ...editFieldsValues };
+      for (const f of fields) {
+        if (f.type === 'morph' && updatedFieldsValues[f.key] === 'new') {
+          const customName = editCustomProductNames[f.key];
+          if (customName && customName.trim()) {
+            const newProduct = await mastersApi.createInputProduct({
+              name: customName.trim(),
+              is_active: true,
+            });
+            setInputProductsList((prev) => [...prev, newProduct]);
+            updatedFieldsValues[f.key] = newProduct.id;
+          }
+        }
+      }
+
+      const payload: Partial<FarmActivity> = {
         date: editDate,
-        notes: editNotes,
-      });
+        status: editStatus,
+        notes: editNotes || undefined,
+        farm_activity_master_id: finalMasterId ? parseInt(finalMasterId) : undefined,
+        activity_type: selectedMaster?.name || activity.activity_type,
+        crop_cycle_id: editCycleId ? parseInt(editCycleId) : null,
+        details_json: Object.keys(updatedFieldsValues).length > 0 ? updatedFieldsValues : undefined,
+      };
+
+      const updated = await farmActivitiesApi.update(identifier, payload);
       setActivity(updated);
       setEditModalVisible(false);
-      Alert.alert('Success', 'Activity updated successfully!');
+      Alert.alert(t('Success'), t('Activity updated.'));
+      fetchActivity();
     } catch (error) {
       console.error('Error updating activity:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to update activity.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to update activity.')));
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Dedicated Operational Notes edit
+  const handleOpenEditNotesModal = () => {
+    if (!activity) return;
+    setNotesModalText(activity.notes || '');
+    setEditNotesModalVisible(true);
+  };
+
+  const handleSaveNotesOnly = async () => {
+    if (!activity) return;
+    const identifier = activity.ulid || activity.id!;
+    setSavingNotes(true);
+    try {
+      const updated = await farmActivitiesApi.update(identifier, {
+        notes: notesModalText,
+      });
+      setActivity((prev) => prev ? { ...prev, notes: notesModalText } : updated);
+      setEditNotesModalVisible(false);
+      Alert.alert(t('Success'), t('Notes updated.'));
+    } catch (error) {
+      console.error('Error updating notes:', error);
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to update notes.')));
+    } finally {
+      setSavingNotes(false);
     }
   };
 
@@ -125,22 +402,22 @@ export default function ActivityViewScreen() {
     if (!activity) return;
     const identifier = activity.ulid || activity.id!;
     Alert.alert(
-      'Delete Activity',
-      'Are you sure you want to delete this activity? This cannot be undone.',
+      t('Delete Activity'),
+      t('This activity will be removed from your farm records.'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('Cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('Delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               setLoading(true);
               await farmActivitiesApi.delete(identifier);
-              Alert.alert('Deleted', 'Activity has been deleted.');
+              Alert.alert(t('Success'), t('Activity deleted.'));
               router.back();
             } catch (error) {
               console.error('Error deleting activity:', error);
-              Alert.alert('Error', extractErrorMessage(error, 'Failed to delete activity.'));
+              Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to delete activity.')));
               setLoading(false);
             }
           },
@@ -149,6 +426,8 @@ export default function ActivityViewScreen() {
     );
   };
 
+  // Open Link Expense Modal: in PWA whereDoesntHave('farmActivityLinks')
+  // A single expense CANNOT be linked to multiple activities!
   const handleOpenLinkExpensesModal = async () => {
     if (!activity) return;
     setLinkModalVisible(true);
@@ -159,13 +438,19 @@ export default function ActivityViewScreen() {
         farm_id: activity.farm_id,
         per_page: 'all',
       });
-      const alreadyLinkedIds = new Set(
+      const alreadyLinkedToCurrent = new Set(
         ((activity as any).expenses || []).map((e: any) => e.id)
       );
-      setAvailableExpenses(expenses.filter((e) => !alreadyLinkedIds.has(e.id)));
+      // PWA parity: An expense already linked to this or any other activity cannot be linked again!
+      const unlinkedExpenses = expenses.filter((e: any) => {
+        const isLinkedToCurrent = alreadyLinkedToCurrent.has(e.id);
+        const hasLinkedActivities = Array.isArray(e.activities) && e.activities.length > 0;
+        return !isLinkedToCurrent && !hasLinkedActivities;
+      });
+      setAvailableExpenses(unlinkedExpenses);
     } catch (error) {
       console.error('Error fetching available expenses:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to load expenses.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to load expenses.')));
     } finally {
       setLoadingAvailableExpenses(false);
     }
@@ -183,13 +468,13 @@ export default function ActivityViewScreen() {
     try {
       setLinkingExpenses(true);
       await farmActivitiesApi.linkExpenses(identifier, selectedExpenseIds);
-      Alert.alert('Success', 'Expenses linked successfully.');
+      Alert.alert(t('Success'), t('Expenses linked.'));
       setLinkModalVisible(false);
       setSelectedExpenseIds([]);
       fetchActivity();
     } catch (error) {
       console.error('Error linking expenses:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to link expenses.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to link expenses.')));
     } finally {
       setLinkingExpenses(false);
     }
@@ -199,22 +484,22 @@ export default function ActivityViewScreen() {
     if (!activity) return;
     const identifier = activity.ulid || activity.id!;
     Alert.alert(
-      'Unlink Expense',
-      `Are you sure you want to unlink "${expenseItem.expense_category || 'this expense'}" (₹${expenseItem.amount}) from this activity?`,
+      t('Unlink Expense'),
+      t('This expense will be detached from the current activity.'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('Cancel'), style: 'cancel' },
         {
-          text: 'Unlink',
+          text: t('Unlink'),
           style: 'destructive',
           onPress: async () => {
             try {
               setLoading(true);
               await farmActivitiesApi.unlinkExpense(identifier, expenseItem.id);
-              Alert.alert('Success', 'Expense unlinked successfully.');
+              Alert.alert(t('Success'), t('Expense unlinked.'));
               fetchActivity();
             } catch (error) {
               console.error('Error unlinking expense:', error);
-              Alert.alert('Error', extractErrorMessage(error, 'Failed to unlink expense.'));
+              Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to unlink expense.')));
               setLoading(false);
             }
           },
@@ -227,7 +512,7 @@ export default function ActivityViewScreen() {
     return (
       <View style={styles.centerBox}>
         <ActivityIndicator size="large" color="#16a34a" />
-        <Text style={styles.loadingText}>Loading activity details...</Text>
+        <Text style={styles.loadingText}>{t('Loading activity details...')}</Text>
       </View>
     );
   }
@@ -236,28 +521,165 @@ export default function ActivityViewScreen() {
     return (
       <View style={styles.centerBox}>
         <Ionicons name="alert-circle-outline" size={48} color="#94a3b8" />
-        <Text style={styles.notFoundText}>Activity not found.</Text>
+        <Text style={styles.notFoundText}>{t('Activity not found.')}</Text>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backBtnText}>Go Back</Text>
+          <Text style={styles.backBtnText}>{t('Go Back')}</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
   const rawStatus = (activity.status || 'scheduled').toLowerCase();
-  const statusInfo = STATUS_CONFIG[rawStatus] || STATUS_CONFIG.scheduled;
+  const statusInfo = statusConfig[rawStatus] || statusConfig.scheduled;
 
-  const activityTitle = activity.farm_activity_master?.name || activity.activity_type || 'Farm Activity';
-  const farmName = activity.farm_name || activity.farm?.name || 'Farm';
+  const activityTitle = activity.farm_activity_master?.name || activity.activity_type || t('Farm Activity');
+  const farmName = activity.farm_name || activity.farm?.name || t('Farm');
   const cycleName = activity.crop_cycle_name || activity.crop_cycle?.season_name || activity.crop_cycle?.crop_type || '';
 
-  // Extract custom input details
-  const details = activity.details_json && typeof activity.details_json === 'object'
-    ? Object.entries(activity.details_json).filter(([_, val]) => val !== null && val !== '')
-    : [];
+  // Formatted Inputs & Setup list
+  const formattedInputs = (() => {
+    const detailsJson = activity.details_json;
+    if (!detailsJson || typeof detailsJson !== 'object') return [];
+
+    const effectiveMasters = activityMastersList.length > 0 ? activityMastersList : fallbackActivityMasters;
+    const masterId = activity.farm_activity_master_id?.toString();
+    const master = effectiveMasters.find((m) => m.id?.toString() === masterId)
+      || findFallbackMaster(activity.farm_activity_master?.name || activity.activity_type || '');
+
+    let fields = master?.fields || [];
+    if (fields.length === 0 && master) {
+      const fallback = findFallbackMaster(master.name);
+      if (fallback) fields = fallback.fields || [];
+    }
+
+    const actType = (master?.name || activity.activity_type || '').toLowerCase();
+    const isFertilizer = actType.includes('fertil') || actType.includes('ખાતર') || actType.includes('उर्वरक');
+    const isPesticide = actType.includes('pestic') || actType.includes('spray') || actType.includes('જંતુનાશક') || actType.includes('कीटनाशक');
+
+    const unitVal = detailsJson.quantity_unit || detailsJson.unit || detailsJson.yield_unit || '';
+    let unitDisplay = unitVal;
+    const unitOptions: Record<string, string> = {
+      'LITRE': 'Litre',
+      'ML': 'ML',
+      'KG': 'KG',
+      'GRAM': 'Gram',
+      'BAGS': 'Bags',
+      'QUINTAL': 'Quintal',
+      'TONNE': 'Tonne',
+      'CRATES': 'Crates',
+    };
+    if (unitOptions[unitVal]) {
+      unitDisplay = t(unitOptions[unitVal]);
+    } else if (unitVal) {
+      unitDisplay = t(unitVal);
+    }
+
+    const result: { label: string; value: string }[] = [];
+    const handledKeys = new Set<string>();
+
+    if (fields.length > 0) {
+      for (const f of fields) {
+        handledKeys.add(f.key);
+        const val = detailsJson[f.key];
+
+        if (f.key === 'quantity_unit' || f.key === 'unit' || f.key === 'yield_unit') {
+          continue;
+        }
+
+        if (f.key === 'product_id') {
+          if (val === undefined || val === null || val === '') continue;
+          let prodName = '';
+          if (val === 'new' && detailsJson.custom_product_name) {
+            prodName = detailsJson.custom_product_name;
+          } else {
+            const found = inputProductsList.find((p) => p.id?.toString() === val.toString());
+            prodName = found ? found.name : String(val);
+          }
+          const label = f.label || (isFertilizer ? 'Fertilizer' : isPesticide ? 'Pesticide' : 'Product');
+          result.push({
+            label: t(label),
+            value: prodName,
+          });
+          continue;
+        }
+
+        if (f.key === 'quantity' || f.key === 'harvested_yield') {
+          if (val === undefined || val === null || val === '') continue;
+          const numVal = String(val);
+          const combined = unitDisplay ? `${numVal} ${unitDisplay}` : numVal;
+          result.push({
+            label: t(f.label || 'Quantity'),
+            value: combined,
+          });
+          continue;
+        }
+
+        if (val === undefined || val === null || val === '') continue;
+
+        if (f.type === 'boolean') {
+          result.push({
+            label: t(f.label),
+            value: val ? t('Yes') : t('No'),
+          });
+          continue;
+        }
+
+        if (f.type === 'enum') {
+          result.push({
+            label: t(f.label),
+            value: t(String(val)),
+          });
+          continue;
+        }
+
+        result.push({
+          label: t(f.label),
+          value: String(val),
+        });
+      }
+    }
+
+    // Remaining unhandled keys
+    for (const [key, val] of Object.entries(detailsJson)) {
+      if (handledKeys.has(key)) continue;
+      if (key === 'quantity_unit' || key === 'unit' || key === 'yield_unit' || key === 'custom_product_name') continue;
+      if (val === null || val === undefined || val === '') continue;
+
+      if (key === 'product_id') {
+        const found = inputProductsList.find((p) => p.id?.toString() === String(val));
+        const prodName = found ? found.name : String(val);
+        const label = isFertilizer ? 'Fertilizer' : isPesticide ? 'Pesticide' : 'Product';
+        result.push({
+          label: t(label),
+          value: prodName,
+        });
+        continue;
+      }
+
+      if (key === 'quantity') {
+        const combined = unitDisplay ? `${val} ${unitDisplay}` : String(val);
+        result.push({
+          label: t('Quantity'),
+          value: combined,
+        });
+        continue;
+      }
+
+      const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+      result.push({
+        label: t(formattedKey),
+        value: typeof val === 'boolean' ? (val ? t('Yes') : t('No')) : String(val),
+      });
+    }
+
+    return result;
+  })();
 
   const linkedExpenses = (activity as any).expenses || [];
-  const linkedExpensesTotal = linkedExpenses.reduce((sum: number, e: any) => sum + (parseFloat(e.amount) || 0), 0);
+  const linkedExpensesTotal = linkedExpenses.reduce(
+    (sum: number, e: any) => sum + (parseFloat(e.amount) || 0),
+    0
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -270,18 +692,18 @@ export default function ActivityViewScreen() {
             style={styles.iconBtn}
             onPress={() => router.back()}
             activeOpacity={0.7}
-            accessibilityLabel="Back"
+            accessibilityLabel={t('Back')}
           >
             <Ionicons name="arrow-back" size={20} color="#166534" />
           </TouchableOpacity>
 
-          <Text style={styles.topBarTitle}>Activity Details</Text>
+          <Text style={styles.topBarTitle}>{t('Activity Details')}</Text>
 
           <TouchableOpacity
             style={styles.iconBtn}
-            onPress={() => setEditModalVisible(true)}
+            onPress={handleOpenEditModal}
             activeOpacity={0.7}
-            accessibilityLabel="Edit Activity"
+            accessibilityLabel={t('Edit Activity')}
           >
             <Ionicons name="create-outline" size={20} color="#166534" />
           </TouchableOpacity>
@@ -290,290 +712,553 @@ export default function ActivityViewScreen() {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={['#16a34a']}
-            tintColor="#16a34a"
-          />
-        }
-      >
-        {/* 1. Hero Card */}
-        <View style={styles.card}>
-          <View style={styles.heroHead}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.heroTitle}>{activityTitle}</Text>
-              {cycleName !== '' ? (
-                <Text style={styles.heroSubtitle}>{cycleName}</Text>
-              ) : null}
-            </View>
-            <View style={[styles.statusPill, { backgroundColor: statusInfo.bg, borderColor: statusInfo.border }]}>
-              <View style={[styles.statusDot, { backgroundColor: statusInfo.text }]} />
-              <Text style={[styles.statusText, { color: statusInfo.text }]}>{statusInfo.label}</Text>
-            </View>
-          </View>
-
-          <View style={styles.statsGrid}>
-            <View style={styles.statBox}>
-              <Ionicons name="calendar-outline" size={18} color="#166534" style={styles.statIcon} />
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={['#16a34a']}
+              tintColor="#16a34a"
+            />
+          }
+        >
+          {/* 1. Hero Card */}
+          <View style={styles.card}>
+            <View style={styles.heroHead}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.statLabel}>DATE</Text>
-                <Text style={styles.statValue}>
-                  {activity.date ? activity.date.split('T')[0] : 'Not Set'}
-                </Text>
+                <Text style={styles.heroTitle}>{t(activityTitle)}</Text>
+                {cycleName !== '' ? (
+                  <Text style={styles.heroSubtitle}>{cycleName}</Text>
+                ) : null}
+              </View>
+              <View style={[styles.statusPill, { backgroundColor: statusInfo.bg, borderColor: statusInfo.border }]}>
+                <View style={[styles.statusDot, { backgroundColor: statusInfo.text }]} />
+                <Text style={[styles.statusText, { color: statusInfo.text }]}>{statusInfo.label}</Text>
               </View>
             </View>
 
-            <View style={styles.statBox}>
-              <Ionicons name="location-outline" size={18} color="#166534" style={styles.statIcon} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.statLabel}>FARM</Text>
-                <Text style={styles.statValue} numberOfLines={1}>{farmName}</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* 2. Inputs & Setup Card */}
-        <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="options-outline" size={18} color="#166534" />
-            <Text style={styles.sectionTitle}>Inputs & Setup</Text>
-          </View>
-
-          {details.length > 0 ? (
-            <View style={styles.detailsList}>
-              {details.map(([key, value], idx) => {
-                const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                return (
-                  <View key={idx} style={[styles.detailRow, idx < details.length - 1 && styles.detailRowBorder]}>
-                    <Text style={styles.detailKey}>{label}</Text>
-                    <Text style={styles.detailVal}>{String(value)}</Text>
-                  </View>
-                );
-              })}
-            </View>
-          ) : (
-            <Text style={styles.emptyText}>No custom inputs were captured for this activity.</Text>
-          )}
-        </View>
-
-        {/* 3. Operational Notes */}
-        <View style={styles.card}>
-          <View style={styles.sectionHeaderBetween}>
-            <View style={styles.row}>
-              <Ionicons name="document-text-outline" size={18} color="#166534" />
-              <Text style={styles.sectionTitle}>Operational Notes</Text>
-            </View>
-            <TouchableOpacity onPress={() => setEditModalVisible(true)} style={styles.miniActionBtn}>
-              <Ionicons name="pencil" size={13} color="#166534" />
-              <Text style={styles.miniActionText}>Edit</Text>
-            </TouchableOpacity>
-          </View>
-
-          {activity.notes ? (
-            <View style={styles.notesBox}>
-              <Text style={styles.notesText}>{activity.notes}</Text>
-            </View>
-          ) : (
-            <Text style={styles.emptyText}>No notes were added to this activity.</Text>
-          )}
-        </View>
-
-        {/* 4. Linked Expenses */}
-        <View style={styles.card}>
-          <View style={styles.sectionHeaderBetween}>
-            <View style={styles.row}>
-              <Ionicons name="wallet-outline" size={18} color="#166534" />
-              <Text style={styles.sectionTitle}>Linked Expenses</Text>
-              <View style={styles.countBadge}>
-                <Text style={styles.countBadgeText}>{linkedExpenses.length}</Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              style={styles.miniActionBtn}
-              onPress={handleOpenLinkExpensesModal}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="link-outline" size={13} color="#166534" />
-              <Text style={styles.miniActionText}>+ Link</Text>
-            </TouchableOpacity>
-          </View>
-
-          {linkedExpenses.length > 0 ? (
-            <View>
-              <View style={styles.expenseSummaryBanner}>
-                <View>
-                  <Text style={styles.bannerLabel}>TOTAL LINKED COST</Text>
-                  <Text style={styles.bannerValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
-                    {formatCurrency(linkedExpensesTotal)}
+            <View style={styles.statsGrid}>
+              <View style={styles.statBox}>
+                <Ionicons name="calendar-outline" size={18} color="#166534" style={styles.statIcon} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.statLabel}>{t('Date').toUpperCase()}</Text>
+                  <Text style={styles.statValue}>
+                    {activity.date ? activity.date.split('T')[0] : t('Not Set')}
                   </Text>
                 </View>
-                <View style={styles.chipRow}>
-                  <Text style={styles.bannerChip}>{linkedExpenses.length} Records</Text>
+              </View>
+
+              <View style={styles.statBox}>
+                <Ionicons name="location-outline" size={18} color="#166534" style={styles.statIcon} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.statLabel}>{t('Farm').toUpperCase()}</Text>
+                  <Text style={styles.statValue} numberOfLines={1}>{farmName}</Text>
                 </View>
               </View>
+            </View>
+          </View>
 
-              <View style={styles.linkedList}>
-                {linkedExpenses.map((exp: any, index: number) => (
-                  <TouchableOpacity
-                    key={exp.ulid || exp.id || index}
-                    style={styles.linkedItem}
-                    activeOpacity={0.7}
-                    onPress={() => router.push({
-                      pathname: '/expense-view',
-                      params: { expense_id: exp.id?.toString(), expense_ulid: exp.ulid },
-                    })}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.linkedItemTitle}>{exp.expense_category || 'Expense'}</Text>
-                      <Text style={styles.linkedItemSub}>{exp.date ? exp.date.split('T')[0] : ''}</Text>
-                    </View>
-                    <View style={styles.linkedItemRight}>
-                      <Text style={styles.linkedItemAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
-                        {formatCurrency(exp.amount || 0)}
-                      </Text>
-                      <TouchableOpacity
-                        style={styles.unlinkBtn}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleUnlinkExpense(exp);
-                        }}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        accessibilityLabel="Unlink Expense"
-                      >
-                        <Ionicons name="trash-outline" size={16} color="#dc2626" />
-                      </TouchableOpacity>
-                      <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                    </View>
-                  </TouchableOpacity>
+          {/* 2. Inputs & Setup Card */}
+          <View style={styles.card}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="options-outline" size={18} color="#166534" />
+              <Text style={styles.sectionTitle}>{t('Inputs & Setup')}</Text>
+            </View>
+
+            {formattedInputs.length > 0 ? (
+              <View style={styles.detailsList}>
+                {formattedInputs.map((item, idx) => (
+                  <View key={idx} style={[styles.detailRow, idx < formattedInputs.length - 1 && styles.detailRowBorder]}>
+                    <Text style={styles.detailKey}>{item.label}</Text>
+                    <Text style={styles.detailVal}>{item.value}</Text>
+                  </View>
                 ))}
               </View>
+            ) : (
+              <Text style={styles.emptyText}>{t('No custom inputs were captured for this activity.')}</Text>
+            )}
+          </View>
+
+          {/* 3. Operational Notes Card */}
+          <View style={styles.card}>
+            <View style={styles.sectionHeaderBetween}>
+              <View style={styles.row}>
+                <Ionicons name="document-text-outline" size={18} color="#166534" />
+                <Text style={styles.sectionTitle}>{t('Operational Notes')}</Text>
+              </View>
+              <TouchableOpacity onPress={handleOpenEditNotesModal} style={styles.miniActionBtn}>
+                <Ionicons name="pencil" size={13} color="#166534" />
+                <Text style={styles.miniActionText}>{t('Edit')}</Text>
+              </TouchableOpacity>
             </View>
-          ) : (
-            <Text style={styles.emptyText}>No expenses have been linked to this activity yet.</Text>
-          )}
-        </View>
 
-        {/* Bottom Actions */}
-        <View style={styles.bottomActions}>
-          {rawStatus !== 'completed' && rawStatus !== 'cancelled' ? (
-            <TouchableOpacity
-              style={styles.primaryActionBtn}
-              onPress={handleMarkAsCompleted}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="checkmark-circle" size={18} color="#ffffff" />
-              <Text style={styles.primaryActionText}>Mark as Completed</Text>
-            </TouchableOpacity>
-          ) : null}
+            {activity.notes ? (
+              <View style={styles.notesBox}>
+                <Text style={styles.notesText}>{activity.notes}</Text>
+              </View>
+            ) : (
+              <Text style={styles.emptyText}>{t('No notes were added to this activity.')}</Text>
+            )}
+          </View>
 
-          <TouchableOpacity
-            style={styles.outlineActionBtn}
-            onPress={() => setEditModalVisible(true)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="create-outline" size={18} color="#166534" />
-            <Text style={styles.outlineActionText}>Edit Activity</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.dangerActionBtn}
-            onPress={handleDeleteActivity}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="trash-outline" size={18} color="#dc2626" />
-            <Text style={styles.dangerActionText}>Delete Activity</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-      </View>
-
-      {/* Edit Activity Modal */}
-      <ModalSheet
-        visible={editModalVisible}
-        onClose={() => setEditModalVisible(false)}
-        title="Edit Activity"
-      >
-        <ModernDatePicker
-          label="Date"
-          value={editDate}
-          onChange={setEditDate}
-        />
-
-        <Text style={styles.inputLabel}>Status</Text>
-        <View style={styles.statusSelectRow}>
-          {['scheduled', 'in_progress', 'completed', 'cancelled'].map((st) => {
-            const cfg = STATUS_CONFIG[st];
-            const isSelected = editStatus.toLowerCase() === st;
-            return (
+          {/* 4. Linked Expenses Card */}
+          <View style={styles.card}>
+            <View style={styles.sectionHeaderBetween}>
+              <View style={styles.row}>
+                <Ionicons name="wallet-outline" size={18} color="#166534" />
+                <Text style={styles.sectionTitle}>{t('Linked Expenses')}</Text>
+                <View style={styles.countBadge}>
+                  <Text style={styles.countBadgeText}>{linkedExpenses.length}</Text>
+                </View>
+              </View>
               <TouchableOpacity
-                key={st}
-                style={[
-                  styles.statusOption,
-                  isSelected && { backgroundColor: cfg.bg, borderColor: cfg.border },
-                ]}
-                onPress={() => setEditStatus(st)}
+                style={styles.miniActionBtn}
+                onPress={handleOpenLinkExpensesModal}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.statusOptionText, isSelected && { color: cfg.text, fontWeight: '800' }]}>
-                  {cfg.label}
-                </Text>
+                <Ionicons name="link-outline" size={13} color="#166534" />
+                <Text style={styles.miniActionText}>+ {t('Link')}</Text>
               </TouchableOpacity>
-            );
-          })}
-        </View>
+            </View>
 
+            {linkedExpenses.length > 0 ? (
+              <View>
+                <View style={styles.expenseSummaryBanner}>
+                  <View>
+                    <Text style={styles.bannerLabel}>{t('Total Linked Cost').toUpperCase()}</Text>
+                    <Text style={styles.bannerValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                      {formatCurrency(linkedExpensesTotal)}
+                    </Text>
+                  </View>
+                  <View style={styles.chipRow}>
+                    <Text style={styles.bannerChip}>{t('%{count} Records', { count: linkedExpenses.length })}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.linkedList}>
+                  {linkedExpenses.map((exp: any, index: number) => (
+                    <TouchableOpacity
+                      key={exp.ulid || exp.id || index}
+                      style={styles.linkedItem}
+                      activeOpacity={0.7}
+                      onPress={() => router.push({
+                        pathname: '/expense-view',
+                        params: { expense_id: exp.id?.toString(), expense_ulid: exp.ulid },
+                      })}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.linkedItemTitle}>{t(exp.expense_category || 'Expense')}</Text>
+                        <Text style={styles.linkedItemSub}>{exp.date ? exp.date.split('T')[0] : ''}</Text>
+                      </View>
+                      <View style={styles.linkedItemRight}>
+                        <Text style={styles.linkedItemAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                          {formatCurrency(exp.amount || 0)}
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.unlinkBtn}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleUnlinkExpense(exp);
+                          }}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                          accessibilityLabel={t('Unlink Expense')}
+                        >
+                          <Ionicons name="trash-outline" size={16} color="#dc2626" />
+                        </TouchableOpacity>
+                        <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            ) : (
+              <Text style={styles.emptyText}>{t('No unlinked expenses found for this farm.')}</Text>
+            )}
+          </View>
+
+          {/* Bottom Actions */}
+          <View style={styles.bottomActions}>
+            {rawStatus !== 'completed' && rawStatus !== 'cancelled' ? (
+              <TouchableOpacity
+                style={styles.primaryActionBtn}
+                onPress={handleMarkAsCompleted}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="checkmark-circle" size={18} color="#ffffff" />
+                <Text style={styles.primaryActionText}>{t('Mark as Completed')}</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            <TouchableOpacity
+              style={styles.outlineActionBtn}
+              onPress={handleOpenEditModal}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="create-outline" size={18} color="#166534" />
+              <Text style={styles.outlineActionText}>{t('Edit Activity')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.dangerActionBtn}
+              onPress={handleDeleteActivity}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="trash-outline" size={18} color="#dc2626" />
+              <Text style={styles.dangerActionText}>{t('Delete Activity')}</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </View>
+
+      {/* MODAL 1: Dedicated Operational Notes Edit Modal */}
+      <ModalSheet
+        visible={editNotesModalVisible}
+        onClose={() => setEditNotesModalVisible(false)}
+        title={t('Update Notes')}
+        maxHeight="60%"
+      >
         <ModernInput
-          label="Notes"
-          value={editNotes}
-          onChangeText={setEditNotes}
-          placeholder="Field observations, spray conditions, remarks..."
+          label={t('Notes')}
+          value={notesModalText}
+          onChangeText={setNotesModalText}
+          placeholder={t('Field observations, spray conditions, remarks...')}
+          placeholderTextColor={colors.slate400}
           multiline
-          numberOfLines={4}
-          containerStyle={{ marginTop: spacing.md }}
+          numberOfLines={5}
+          containerStyle={{ marginBottom: spacing.md }}
         />
 
         <View style={styles.modalActions}>
           <TouchableOpacity
             style={styles.modalCancelBtn}
-            onPress={() => setEditModalVisible(false)}
+            onPress={() => setEditNotesModalVisible(false)}
             activeOpacity={0.7}
           >
-            <Text style={styles.modalCancelText}>Cancel</Text>
+            <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.modalSaveBtn}
-            onPress={handleSaveEdit}
-            disabled={saving}
+            onPress={handleSaveNotesOnly}
+            disabled={savingNotes}
             activeOpacity={0.7}
           >
-            {saving ? (
+            {savingNotes ? (
               <ActivityIndicator size="small" color="#ffffff" />
             ) : (
-              <Text style={styles.modalSaveText}>Save Changes</Text>
+              <Text style={styles.modalSaveText}>{t('Save')}</Text>
             )}
           </TouchableOpacity>
         </View>
       </ModalSheet>
 
-      {/* Link Expense Modal */}
+      {/* MODAL 2: Full Edit Activity Details Modal (Matching PWA) */}
+      <ModalSheet
+        visible={editModalVisible}
+        onClose={() => setEditModalVisible(false)}
+        title={t('Edit Activity')}
+        maxHeight="92%"
+      >
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Activity Type Selection */}
+          <Text style={styles.inputLabel}>{t('Select Activity Type *')}</Text>
+          <View style={styles.chipSelectorWrap}>
+            {(activityMastersList.length > 0 ? activityMastersList : fallbackActivityMasters).map((master) => {
+              const isSel = editActivityMasterId?.toString() === master.id?.toString();
+              return (
+                <TouchableOpacity
+                  key={master.id}
+                  style={[styles.masterChip, isSel && styles.masterChipSelected]}
+                  onPress={() => handleSelectEditActivityMaster(master.id)}
+                >
+                  <Text style={[styles.masterChipText, isSel && styles.masterChipTextSelected]}>
+                    {t(master.name)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Dynamic Master Fields */}
+          {editActivityMasterId && (() => {
+            const effectiveMasters = activityMastersList.length > 0 ? activityMastersList : fallbackActivityMasters;
+            const selectedMaster = effectiveMasters.find(
+              (m) => m.id.toString() === editActivityMasterId.toString()
+            );
+            if (!selectedMaster) return null;
+            let fields = selectedMaster.fields || [];
+            if (fields.length === 0) {
+              const fallback = findFallbackMaster(selectedMaster.name);
+              if (fallback) fields = fallback.fields || [];
+            }
+            if (fields.length === 0) return null;
+
+            return (
+              <View style={styles.dynamicFieldsCard}>
+                <View style={styles.dynamicFieldsHeader}>
+                  <Ionicons name="options-outline" size={16} color={colors.slate700} style={{ marginRight: 6 }} />
+                  <Text style={styles.dynamicFieldsTitle}>
+                    {t('%{name} Details', { name: t(selectedMaster.name) })}
+                  </Text>
+                </View>
+
+                {fields.map((f: any) => {
+                  const val = editFieldsValues[f.key];
+                  const error = editActivityErrors[f.key];
+
+                  if (f.type === 'string') {
+                    return (
+                      <View key={f.key} style={{ marginBottom: 12 }}>
+                        <Text style={styles.inputLabel}>
+                          {t(f.label)} {f.required && <Text style={{ color: colors.danger }}>*</Text>}
+                        </Text>
+                        <TextInput
+                          style={[styles.input, { backgroundColor: colors.white }, error ? styles.inputErrorBorder : null]}
+                          value={val || ''}
+                          onChangeText={(txt) => {
+                            setEditFieldsValues((prev) => ({ ...prev, [f.key]: txt }));
+                            if (editActivityErrors[f.key]) {
+                              setEditActivityErrors((prev) => ({ ...prev, [f.key]: '' }));
+                            }
+                          }}
+                          placeholder={t('Enter %{label}', { label: t(f.label).toLowerCase() })}
+                          placeholderTextColor={colors.slate400}
+                        />
+                        {error ? <Text style={styles.inputErrorText}>{error}</Text> : null}
+                      </View>
+                    );
+                  }
+
+                  if (f.type === 'number' || f.type === 'decimal') {
+                    return (
+                      <View key={f.key} style={{ marginBottom: 12 }}>
+                        <Text style={styles.inputLabel}>
+                          {t(f.label)} {f.required && <Text style={{ color: colors.danger }}>*</Text>}
+                        </Text>
+                        <TextInput
+                          style={[styles.input, { backgroundColor: colors.white }, error ? styles.inputErrorBorder : null]}
+                          value={val !== undefined && val !== null ? val.toString() : ''}
+                          onChangeText={(txt) => {
+                            setEditFieldsValues((prev) => ({ ...prev, [f.key]: txt }));
+                            if (editActivityErrors[f.key]) {
+                              setEditActivityErrors((prev) => ({ ...prev, [f.key]: '' }));
+                            }
+                          }}
+                          placeholder={t('e.g. 10')}
+                          placeholderTextColor={colors.slate400}
+                          keyboardType="numeric"
+                        />
+                        {error ? <Text style={styles.inputErrorText}>{error}</Text> : null}
+                      </View>
+                    );
+                  }
+
+                  if (f.type === 'boolean') {
+                    return (
+                      <View key={f.key} style={styles.dynamicBoolRow}>
+                        <Text style={styles.dynamicBoolLabel}>{t(f.label)}</Text>
+                        <Switch
+                          value={!!val}
+                          onValueChange={(boolVal) => {
+                            setEditFieldsValues((prev) => ({ ...prev, [f.key]: boolVal }));
+                          }}
+                          trackColor={{ false: colors.slate200, true: '#86efac' }}
+                          thumbColor={val ? colors.primary : colors.slate400}
+                        />
+                      </View>
+                    );
+                  }
+
+                  if (f.type === 'enum') {
+                    const normalizedOpts = getNormalizedOptions(f.options);
+                    return (
+                      <View key={f.key} style={{ marginBottom: 12 }}>
+                        <Text style={styles.inputLabel}>
+                          {t(f.label)} {f.required && <Text style={{ color: colors.danger }}>*</Text>}
+                        </Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 }}>
+                          {normalizedOpts.map((opt) => {
+                            const isSelected = val === opt.key;
+                            return (
+                              <TouchableOpacity
+                                key={opt.key}
+                                style={[styles.enumChip, isSelected && styles.enumChipSelected]}
+                                onPress={() => {
+                                  setEditFieldsValues((prev) => ({ ...prev, [f.key]: opt.key }));
+                                  if (editActivityErrors[f.key]) {
+                                    setEditActivityErrors((prev) => ({ ...prev, [f.key]: '' }));
+                                  }
+                                }}
+                                activeOpacity={0.7}
+                              >
+                                <Text style={[styles.enumChipText, isSelected && styles.enumChipTextSelected]}>
+                                  {t(opt.label)}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                        {error ? <Text style={styles.inputErrorText}>{error}</Text> : null}
+                      </View>
+                    );
+                  }
+
+                  if (f.type === 'morph') {
+                    const isCustom = val === 'new';
+
+                    const dropdownItems = [
+                      ...inputProductsList.map((p) => ({
+                        value: p.id.toString(),
+                        label: p.name,
+                        icon: 'flask-outline' as const,
+                      })),
+                      { value: 'new', label: t('+ Add Custom Product...'), icon: 'add-circle-outline' as const },
+                    ];
+
+                    return (
+                      <View key={f.key} style={{ marginBottom: 12 }}>
+                        <SearchableSelect
+                          label={t(f.label)}
+                          required={f.required}
+                          placeholder={t('Select %{label}', { label: t(f.label) })}
+                          searchPlaceholder={t('Search %{label}...', { label: t(f.label) })}
+                          items={dropdownItems}
+                          value={val?.toString() || null}
+                          onSelect={(selectedId) => {
+                            setEditFieldsValues((prev) => ({ ...prev, [f.key]: selectedId }));
+                            if (editActivityErrors[f.key]) {
+                              setEditActivityErrors((prev) => ({ ...prev, [f.key]: '' }));
+                            }
+                          }}
+                          error={error}
+                        />
+
+                        {isCustom && (
+                          <TextInput
+                            style={[styles.input, { marginTop: 6, backgroundColor: colors.white }]}
+                            placeholder={t('Enter custom %{label} name', { label: t(f.label).toLowerCase() })}
+                            placeholderTextColor={colors.slate400}
+                            value={editCustomProductNames[f.key] || ''}
+                            onChangeText={(txt) => {
+                              setEditCustomProductNames((prev) => ({ ...prev, [f.key]: txt }));
+                              if (editActivityErrors[f.key]) {
+                                setEditActivityErrors((prev) => ({ ...prev, [f.key]: '' }));
+                              }
+                            }}
+                          />
+                        )}
+                      </View>
+                    );
+                  }
+
+                  return null;
+                })}
+              </View>
+            );
+          })()}
+
+          {/* Date Picker */}
+          <ModernDatePicker
+            label={t('Date')}
+            required
+            value={editDate}
+            onChange={setEditDate}
+            containerStyle={{ marginBottom: spacing.md }}
+          />
+
+          {/* Crop Cycle Selector (Optional, matching PWA) */}
+          <SearchableSelect
+            label={t('Cycle (Optional)')}
+            allowClear
+            clearLabel={t('None (General Farm Activity)')}
+            placeholder={t('None (General Farm Activity)')}
+            searchPlaceholder={t('Search active cycles...')}
+            items={farmCropCycles.map((c) => ({
+              value: c.id!.toString(),
+              label: `${c.crop_name || c.crop_type} (${c.season_name})`,
+              icon: 'leaf-outline',
+            }))}
+            value={editCycleId || null}
+            onSelect={(val) => setEditCycleId((val as string) || '')}
+            containerStyle={{ marginBottom: spacing.md }}
+            emptyMessage={t('No active crop cycles found.')}
+          />
+
+          {/* Status Selection */}
+          <Text style={styles.inputLabel}>{t('Status')}</Text>
+          <View style={styles.statusSelectRow}>
+            {['scheduled', 'in_progress', 'completed', 'cancelled'].map((st) => {
+              const cfg = statusConfig[st] || statusConfig.scheduled;
+              const isSelected = editStatus.toLowerCase() === st;
+              return (
+                <TouchableOpacity
+                  key={st}
+                  style={[
+                    styles.statusOption,
+                    isSelected && { backgroundColor: cfg.bg, borderColor: cfg.border },
+                  ]}
+                  onPress={() => setEditStatus(st)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.statusOptionText, isSelected && { color: cfg.text, fontWeight: '800' }]}>
+                    {cfg.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Operational Notes */}
+          <ModernInput
+            label={t('Notes')}
+            value={editNotes}
+            onChangeText={setEditNotes}
+            placeholder={t('Field observations, spray conditions, remarks...')}
+            placeholderTextColor={colors.slate400}
+            multiline
+            numberOfLines={4}
+            containerStyle={{ marginTop: spacing.md, marginBottom: spacing.md }}
+          />
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={styles.modalCancelBtn}
+              onPress={() => setEditModalVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalSaveBtn}
+              onPress={handleSaveEditActivity}
+              disabled={saving}
+              activeOpacity={0.7}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.modalSaveText}>{t('Save Changes')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </ModalSheet>
+
+      {/* MODAL 3: Link Expense Modal */}
       <ModalSheet
         visible={linkModalVisible}
         onClose={() => setLinkModalVisible(false)}
-        title="Link Existing Expense"
+        title={t('Link Existing Expense')}
       >
         {loadingAvailableExpenses ? (
           <View style={{ paddingVertical: spacing.xl, alignItems: 'center' }}>
             <ActivityIndicator size="small" color="#16a34a" />
-            <Text style={styles.loadingText}>Fetching available expenses...</Text>
+            <Text style={styles.loadingText}>{t('Fetching available expenses...')}</Text>
           </View>
         ) : availableExpenses.length === 0 ? (
           <View style={{ paddingVertical: spacing.lg, alignItems: 'center' }}>
             <Ionicons name="wallet-outline" size={36} color="#94a3b8" />
-            <Text style={[styles.emptyText, { marginTop: 8 }]}>No unlinked expenses found for this farm.</Text>
+            <Text style={[styles.emptyText, { marginTop: 8 }]}>{t('No unlinked expenses found for this farm.')}</Text>
           </View>
         ) : (
           <ScrollView style={{ maxHeight: 320, marginVertical: spacing.xs }}>
@@ -597,9 +1282,9 @@ export default function ActivityViewScreen() {
                     color={isSelected ? '#16a34a' : '#94a3b8'}
                   />
                   <View style={{ flex: 1, marginLeft: spacing.sm }}>
-                    <Text style={styles.candidateTitle}>{exp.expense_category || 'Expense'}</Text>
+                    <Text style={styles.candidateTitle}>{t(exp.expense_category || 'Expense')}</Text>
                     <Text style={styles.candidateSub}>
-                      {exp.date ? exp.date.split('T')[0] : ''} • {exp.payment_method || 'Cash'}
+                      {exp.date ? exp.date.split('T')[0] : ''} • {t(exp.payment_method || 'Cash')}
                     </Text>
                   </View>
                   <Text style={styles.candidateAmount}>
@@ -617,7 +1302,7 @@ export default function ActivityViewScreen() {
             onPress={() => setLinkModalVisible(false)}
             activeOpacity={0.7}
           >
-            <Text style={styles.modalCancelText}>Cancel</Text>
+            <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
@@ -632,7 +1317,7 @@ export default function ActivityViewScreen() {
               <ActivityIndicator size="small" color="#ffffff" />
             ) : (
               <Text style={styles.modalSaveText}>
-                Link ({selectedExpenseIds.length})
+                {t('Link')} ({selectedExpenseIds.length})
               </Text>
             )}
           </TouchableOpacity>
@@ -1006,29 +1691,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#dc2626',
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    maxHeight: '85%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
   inputLabel: {
     fontSize: 13,
     fontWeight: '700',
@@ -1046,9 +1708,14 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     backgroundColor: '#ffffff',
   },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: 'top',
+  inputErrorBorder: {
+    borderColor: colors.danger,
+  },
+  inputErrorText: {
+    fontSize: 11,
+    color: colors.danger,
+    marginTop: 3,
+    fontWeight: '600',
   },
   statusSelectRow: {
     flexDirection: 'row',
@@ -1082,6 +1749,7 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5e1',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#f1f5f9',
   },
   modalCancelText: {
     fontSize: 14,
@@ -1100,9 +1768,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#ffffff',
-  },
-  modalCloseBtn: {
-    padding: 4,
   },
   unlinkBtn: {
     padding: 4,
@@ -1137,5 +1802,88 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#15803d',
     marginLeft: 8,
+  },
+  chipSelectorWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: spacing.md,
+  },
+  masterChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  masterChipSelected: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#86efac',
+  },
+  masterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  masterChipTextSelected: {
+    color: '#166534',
+    fontWeight: '700',
+  },
+  dynamicFieldsCard: {
+    marginBottom: spacing.md,
+    backgroundColor: '#f1f5f9',
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  dynamicFieldsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  dynamicFieldsTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  dynamicBoolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    backgroundColor: '#ffffff',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  dynamicBoolLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  enumChip: {
+    backgroundColor: '#ffffff',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    marginRight: 6,
+    marginBottom: 6,
+  },
+  enumChipSelected: {
+    backgroundColor: '#16a34a',
+    borderColor: '#16a34a',
+  },
+  enumChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  enumChipTextSelected: {
+    color: '#ffffff',
   },
 });
