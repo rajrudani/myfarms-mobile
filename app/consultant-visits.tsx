@@ -28,9 +28,11 @@ import { extractErrorMessage } from '../src/api/client';
 import { AttachmentPicker } from '../src/components/AttachmentPicker';
 import { BentoCard, MetricTile, StatusBadge, QuickChipGroup, SearchFilterBar, SearchableSelect, ModernDatePicker, ModernInput, EmptyState, ConfirmModal } from '../src/components/ui';
 import { useToast } from '../src/context/ToastContext';
+import { useTranslation } from '../src/i18n/I18nContext';
 import { colors, spacing, radius, typography, shadows } from '../src/theme/tokens';
 
 export default function ConsultantVisitsScreen() {
+  const { t } = useTranslation();
   const { showToast } = useToast();
   const [visits, setVisits] = useState<ConsultantVisit[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
@@ -235,26 +237,29 @@ export default function ConsultantVisitsScreen() {
 
   // Filter options for chips
   const farmFilterOptions = useMemo(() => {
-    const opts = [{ label: 'All Farms', value: 'all' }];
+    const opts = [{ label: t('All Farms'), value: 'all' }];
     farms.forEach((f) => {
       opts.push({ label: f.name, value: f.id?.toString() || '' });
     });
     return opts;
-  }, [farms]);
+  }, [farms, t]);
 
   const consultantFilterOptions = useMemo(() => {
-    const opts = [{ label: 'All Agronomists', value: 'all' }];
+    const opts = [{ label: t('All Agronomists'), value: 'all' }];
     consultants.forEach((c) => {
       opts.push({ label: c.name, value: c.id.toString() });
     });
     return opts;
-  }, [consultants]);
+  }, [consultants, t]);
 
-  const statusFilterOptions = [
-    { label: 'Active', value: 'active' },
-    { label: 'All Status', value: 'all' },
-    { label: 'Archived', value: 'inactive' },
-  ];
+  const statusFilterOptions = useMemo(
+    () => [
+      { label: t('Active'), value: 'active' },
+      { label: t('All Status'), value: 'all' },
+      { label: t('Archived'), value: 'inactive' },
+    ],
+    [t]
+  );
 
   // Summary counts
   const visitStats = useMemo(() => {
@@ -288,7 +293,7 @@ export default function ConsultantVisitsScreen() {
             activeOpacity={0.7}
           >
             <StatusBadge
-              label={item.is_active ? 'ACTIVE VISIT' : 'RESOLVED'}
+              label={item.is_active ? t('ACTIVE VISIT') : t('RESOLVED')}
               variant={item.is_active ? 'success' : 'neutral'}
               dot={item.is_active}
             />
@@ -302,9 +307,9 @@ export default function ConsultantVisitsScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.consultantNameText}>
-              {item.consultant?.name || 'Agronomist / Consultant'}
+              {item.consultant?.name || t('Consultant')}
             </Text>
-            <Text style={styles.consultantSubtext}>Field Advisory & Health Inspection</Text>
+            <Text style={styles.consultantSubtext}>{t('Field Advisory & Health Inspection')}</Text>
           </View>
         </View>
 
@@ -313,7 +318,7 @@ export default function ConsultantVisitsScreen() {
           <View style={styles.tagPill}>
             <Ionicons name="map-outline" size={12} color={colors.slate500} />
             <Text style={styles.tagPillText} numberOfLines={1}>
-              {item.farm?.name || 'Farm'}
+              {item.farm?.name || t('Farm')}
             </Text>
           </View>
 
@@ -333,13 +338,13 @@ export default function ConsultantVisitsScreen() {
           <View style={styles.prescriptionBox}>
             <View style={styles.prescriptionHeader}>
               <Ionicons name="medkit-outline" size={13} color={colors.primaryDark} />
-              <Text style={styles.prescriptionLabel}>ADVISORY & PRESCRIPTION</Text>
+              <Text style={styles.prescriptionLabel}>{t('ADVISORY & PRESCRIPTION')}</Text>
             </View>
             <Text style={styles.notesText}>{item.notes}</Text>
           </View>
         ) : (
           <View style={styles.noNotesBox}>
-            <Text style={styles.noNotesText}>No inspection notes recorded for this visit.</Text>
+            <Text style={styles.noNotesText}>{t('No inspection notes recorded for this visit.')}</Text>
           </View>
         )}
 
@@ -351,7 +356,7 @@ export default function ConsultantVisitsScreen() {
             activeOpacity={0.7}
           >
             <Ionicons name="document-attach-outline" size={14} color={colors.primary} />
-            <Text style={styles.attachmentBadgeText}>View Attached Report / Photo</Text>
+            <Text style={styles.attachmentBadgeText}>{t('View Attached Report / Photo')}</Text>
             <Ionicons name="arrow-forward" size={12} color={colors.primary} />
           </TouchableOpacity>
         ) : null}
@@ -364,7 +369,7 @@ export default function ConsultantVisitsScreen() {
             activeOpacity={0.7}
           >
             <Ionicons name="pencil-outline" size={14} color={colors.slate700} />
-            <Text style={styles.actionBtnText}>Edit</Text>
+            <Text style={styles.actionBtnText}>{t('Edit')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -373,7 +378,7 @@ export default function ConsultantVisitsScreen() {
             activeOpacity={0.7}
           >
             <Ionicons name="trash-outline" size={14} color={colors.danger} />
-            <Text style={styles.deleteBtnText}>Delete</Text>
+            <Text style={styles.deleteBtnText}>{t('Delete')}</Text>
           </TouchableOpacity>
         </View>
       </BentoCard>
@@ -391,8 +396,8 @@ export default function ConsultantVisitsScreen() {
             <Ionicons name="arrow-back" size={20} color={colors.slate700} />
           </TouchableOpacity>
           <View style={styles.headerTitleCol}>
-            <Text style={styles.headerTitle}>Consultant Visits</Text>
-            <Text style={styles.headerSubtitle}>Track consultant activities and recommendations.</Text>
+            <Text style={styles.headerTitle}>{t('Consultant Visits')}</Text>
+            <Text style={styles.headerSubtitle}>{t('Track consultant activities and recommendations.')}</Text>
           </View>
         </View>
       </View>
@@ -402,7 +407,7 @@ export default function ConsultantVisitsScreen() {
         <SearchFilterBar
           query={searchQuery}
           onChangeQuery={setSearchQuery}
-          placeholder="Search visits..."
+          placeholder={t('Search visits...')}
           hasFilter
           isFilterActive={showFilters}
           activeFilterCount={
@@ -412,80 +417,13 @@ export default function ConsultantVisitsScreen() {
           }
           onToggleFilter={() => setShowFilters(!showFilters)}
         />
-
-        {showFilters && (
-          <View style={styles.filterTray}>
-            <View style={styles.filterTrayRow}>
-              <Text style={styles.filterTrayLabel}>Farm:</Text>
-              <QuickChipGroup
-                options={farmFilterOptions}
-                selectedValue={selectedFarmFilter}
-                onSelect={(val) => setSelectedFarmFilter(val as any)}
-                scrollable
-                size="sm"
-              />
-            </View>
-
-            <View style={styles.filterTrayRow}>
-              <Text style={styles.filterTrayLabel}>Agronomist:</Text>
-              <QuickChipGroup
-                options={consultantFilterOptions}
-                selectedValue={selectedConsultantFilter}
-                onSelect={(val) => setSelectedConsultantFilter(val as any)}
-                scrollable
-                size="sm"
-              />
-            </View>
-
-            <View style={styles.filterTrayRow}>
-              <Text style={styles.filterTrayLabel}>Status:</Text>
-              <QuickChipGroup
-                options={statusFilterOptions}
-                selectedValue={selectedStatusFilter}
-                onSelect={(val) => setSelectedStatusFilter(val as any)}
-                size="sm"
-              />
-            </View>
-          </View>
-        )}
-      </View>
-
-      {/* Metric Tiles Header */}
-      <View style={styles.summaryGrid}>
-        <View style={styles.summaryTile}>
-          <MetricTile
-            label="TOTAL VISITS"
-            value={visitStats.total}
-            iconName="clipboard-text-outline"
-            iconColor={colors.slate700}
-            iconBg={colors.slate100}
-          />
-        </View>
-        <View style={styles.summaryTile}>
-          <MetricTile
-            label="ACTIVE ADVISORY"
-            value={visitStats.active}
-            iconName="pulse"
-            iconColor={colors.successText}
-            iconBg={colors.successSurface}
-          />
-        </View>
-        <View style={styles.summaryTile}>
-          <MetricTile
-            label="PRESCRIPTIONS"
-            value={visitStats.withPrescription}
-            iconName="file-document-outline"
-            iconColor={colors.purpleText}
-            iconBg={colors.purpleSurface}
-          />
-        </View>
       </View>
 
       {/* Visits List */}
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading agronomist logs...</Text>
+          <Text style={styles.loadingText}>{t('Loading agronomist logs...')}</Text>
         </View>
       ) : (
         <FlatList
@@ -493,6 +431,75 @@ export default function ConsultantVisitsScreen() {
           keyExtractor={(item) => item.ulid}
           renderItem={renderVisitItem}
           contentContainerStyle={styles.listContainer}
+          ListHeaderComponent={
+            <View style={styles.listHeaderComponent}>
+              {showFilters && (
+                <View style={styles.filterTray}>
+                  <View style={styles.filterTrayRow}>
+                    <Text style={styles.filterTrayLabel}>{t('Farm')}:</Text>
+                    <QuickChipGroup
+                      options={farmFilterOptions}
+                      selectedValue={selectedFarmFilter}
+                      onSelect={(val) => setSelectedFarmFilter(val as any)}
+                      scrollable
+                      size="sm"
+                    />
+                  </View>
+
+                  <View style={styles.filterTrayRow}>
+                    <Text style={styles.filterTrayLabel}>{t('Agronomist')}:</Text>
+                    <QuickChipGroup
+                      options={consultantFilterOptions}
+                      selectedValue={selectedConsultantFilter}
+                      onSelect={(val) => setSelectedConsultantFilter(val as any)}
+                      scrollable
+                      size="sm"
+                    />
+                  </View>
+
+                  <View style={styles.filterTrayRow}>
+                    <Text style={styles.filterTrayLabel}>{t('Status')}:</Text>
+                    <QuickChipGroup
+                      options={statusFilterOptions}
+                      selectedValue={selectedStatusFilter}
+                      onSelect={(val) => setSelectedStatusFilter(val as any)}
+                      size="sm"
+                    />
+                  </View>
+                </View>
+              )}
+
+              <View style={styles.summaryGrid}>
+                <View style={styles.summaryTile}>
+                  <MetricTile
+                    label={t('TOTAL VISITS')}
+                    value={visitStats.total}
+                    iconName="clipboard-text-outline"
+                    iconColor={colors.slate700}
+                    iconBg={colors.slate100}
+                  />
+                </View>
+                <View style={styles.summaryTile}>
+                  <MetricTile
+                    label={t('ACTIVE ADVISORY')}
+                    value={visitStats.active}
+                    iconName="pulse"
+                    iconColor={colors.successText}
+                    iconBg={colors.successSurface}
+                  />
+                </View>
+                <View style={styles.summaryTile}>
+                  <MetricTile
+                    label={t('PRESCRIPTIONS')}
+                    value={visitStats.withPrescription}
+                    iconName="file-document-outline"
+                    iconColor={colors.purpleText}
+                    iconBg={colors.purpleSurface}
+                  />
+                </View>
+              </View>
+            </View>
+          }
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -504,21 +511,21 @@ export default function ConsultantVisitsScreen() {
           ListEmptyComponent={
             <EmptyState
               icon="clipboard-outline"
-              title="No Visits Found"
+              title={t('No Visits Found')}
               message={
                 searchQuery || selectedFarmFilter !== 'all' || selectedConsultantFilter !== 'all' || selectedStatusFilter !== 'active'
-                  ? 'No advisory visits match your active search or filters.'
-                  : 'Track expert agronomist visits, field diagnostics, and spray prescriptions.'
+                  ? t('No advisory visits match your active search or filters.')
+                  : t('Track expert agronomist visits, field diagnostics, and spray prescriptions.')
               }
               actionLabel={
                 !searchQuery && selectedFarmFilter === 'all' && selectedConsultantFilter === 'all'
-                  ? '+ Log Advisory Visit'
+                  ? t('+ Log Advisory Visit')
                   : undefined
               }
               onAction={handleOpenCreateModal}
               secondaryActionLabel={
                 searchQuery || selectedFarmFilter !== 'all' || selectedConsultantFilter !== 'all' || selectedStatusFilter !== 'active'
-                  ? 'Clear Filters'
+                  ? t('Clear Filters')
                   : undefined
               }
               onSecondaryAction={() => {
@@ -789,7 +796,13 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   filterTray: {
-    paddingTop: spacing.xs,
+    backgroundColor: colors.white,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.slate200,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
     gap: spacing.sm,
   },
   filterTrayRow: {
@@ -800,9 +813,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.slate500,
   },
+  listHeaderComponent: {
+    paddingBottom: spacing.xs,
+  },
   summaryGrid: {
     flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     gap: spacing.sm,
   },
@@ -811,7 +826,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 90,
+    paddingBottom: 115,
   },
   emptyContainer: {
     alignItems: 'center',

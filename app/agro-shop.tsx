@@ -479,6 +479,44 @@ export default function AgroShopScreen() {
       );
     }
 
+    const renderSummaryMetrics = () => {
+      if (!permissions.canViewFinancials(user)) return null;
+      return (
+        <View style={styles.tabSummaryGrid}>
+          <View style={styles.summaryTile}>
+            <MetricTile
+              label={t('PURCHASES')}
+              value={summary.total_purchase}
+              formatAs="currency"
+              iconName="cart-outline"
+              iconColor={colors.slate700}
+              iconBg={colors.slate100}
+            />
+          </View>
+          <View style={styles.summaryTile}>
+            <MetricTile
+              label={t('PAID')}
+              value={summary.total_paid}
+              formatAs="currency"
+              iconName="check-circle-outline"
+              iconColor={colors.successText}
+              iconBg={colors.successSurface}
+            />
+          </View>
+          <View style={styles.summaryTile}>
+            <MetricTile
+              label={t('BALANCE DUE')}
+              value={summary.balance}
+              formatAs="currency"
+              iconName="alert-circle-outline"
+              iconColor={summary.balance > 0 ? colors.dangerText : colors.slate600}
+              iconBg={summary.balance > 0 ? colors.dangerSurface : colors.slate100}
+            />
+          </View>
+        </View>
+      );
+    };
+
     if (activeTab === 'purchases') {
       return (
         <FlatList
@@ -495,6 +533,7 @@ export default function AgroShopScreen() {
           }
           ListHeaderComponent={
             <View style={styles.listHeaderWrapper}>
+              {renderSummaryMetrics()}
               <SearchFilterBar
                 query={searchQuery}
                 onChangeQuery={setSearchQuery}
@@ -671,6 +710,7 @@ export default function AgroShopScreen() {
           }
           ListHeaderComponent={
             <View style={styles.listHeaderWrapper}>
+              {renderSummaryMetrics()}
               <SearchFilterBar
                 query={searchQuery}
                 onChangeQuery={setSearchQuery}
@@ -775,6 +815,7 @@ export default function AgroShopScreen() {
           />
         }
       >
+        {renderSummaryMetrics()}
         <BentoCard variant="elevated" style={styles.shopProfileCard}>
           <View style={styles.profileHeader}>
             <View style={{ flex: 1 }}>
@@ -911,43 +952,6 @@ export default function AgroShopScreen() {
             )}
           </ScrollView>
         </View>
-
-        {/* Summary Bento Stats */}
-        {selectedShopId && permissions.canViewFinancials(user) && (
-          <View style={styles.summaryGrid}>
-            <View style={styles.summaryTile}>
-              <MetricTile
-                label={t('PURCHASES')}
-                value={summary.total_purchase}
-                formatAs="currency"
-                iconName="cart-outline"
-                iconColor={colors.slate700}
-                iconBg={colors.slate100}
-              />
-            </View>
-            <View style={styles.summaryTile}>
-              <MetricTile
-                label={t('PAID')}
-                value={summary.total_paid}
-                formatAs="currency"
-                iconName="check-circle-outline"
-                iconColor={colors.successText}
-                iconBg={colors.successSurface}
-              />
-            </View>
-            <View style={styles.summaryTile}>
-              <MetricTile
-                label={t('BALANCE DUE')}
-                value={summary.balance}
-                formatAs="currency"
-                iconName="alert-circle-outline"
-                iconColor={summary.balance > 0 ? colors.dangerText : colors.slate600}
-                iconBg={summary.balance > 0 ? colors.dangerSurface : colors.slate100}
-              />
-            </View>
-          </View>
-        )}
-
       {/* Segmented Control tab row */}
       {selectedShopId && (
         <View style={styles.tabContainer}>
@@ -1792,7 +1796,12 @@ const styles = StyleSheet.create({
   },
   tabListContent: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 90,
+    paddingBottom: 115,
+  },
+  tabSummaryGrid: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
   listHeaderWrapper: {
     paddingVertical: spacing.sm,
@@ -2053,7 +2062,7 @@ const styles = StyleSheet.create({
   },
   infoTabContainer: {
     padding: spacing.lg,
-    paddingBottom: 90,
+    paddingBottom: 115,
   },
   shopProfileCard: {
     gap: spacing.md,

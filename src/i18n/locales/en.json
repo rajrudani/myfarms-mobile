@@ -1513,6 +1513,13 @@
   "Edit Payment Record": "Edit Payment Record",
   "Delete Payment Record": "Delete Payment Record",
   "Payment details updated successfully.": "Payment details updated successfully.",
-  "Payment record deleted successfully.": "Payment record deleted successfully."
+  "Payment record deleted successfully.": "Payment record deleted successfully.",
+  "System": "System",
+  "Custom": "Custom",
+  "System Default": "System Default",
+  "System crops cannot be edited.": "System crops cannot be edited.",
+  "System products cannot be edited.": "System products cannot be edited.",
+  "System activities cannot be edited.": "System activities cannot be edited.",
+  "System masters cannot be modified.": "System masters cannot be modified."
 }
 

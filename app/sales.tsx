@@ -468,57 +468,14 @@ export default function SalesScreen() {
         </View>
       </View>
 
-      {/* Search and Farm Filter Chips */}
+      {/* Search Bar */}
       <View style={styles.filterSection}>
         <SearchFilterBar
           query={search}
           onChangeQuery={setSearch}
           placeholder={t('Search sales...')}
         />
-
-        <View style={styles.farmPillWrapper}>
-          <QuickChipGroup
-            options={farmFilterOptions}
-            selectedValue={selectedFarmFilter}
-            onSelect={(val) => setSelectedFarmFilter(val)}
-            scrollable
-            size="sm"
-          />
-        </View>
       </View>
-
-      {/* Live Sales Realization Bento Tiles */}
-      {permissions.canViewFinancials(user) && (
-        <View style={styles.summaryGrid}>
-          <View style={styles.summaryTile}>
-            <MetricTile
-              label={t('GROSS SALES')}
-              value={`₹${salesSummary.gross.toFixed(0)}`}
-              iconName="trending-up"
-              iconColor={colors.slate700}
-              iconBg={colors.slate100}
-            />
-          </View>
-          <View style={styles.summaryTile}>
-            <MetricTile
-              label={t('DEDUCTIONS')}
-              value={`-₹${salesSummary.deductions.toFixed(0)}`}
-              iconName="tag-outline"
-              iconColor={colors.dangerText}
-              iconBg={colors.dangerSurface}
-            />
-          </View>
-          <View style={styles.summaryTile}>
-            <MetricTile
-              label={t('NET REALIZED')}
-              value={`₹${salesSummary.net.toFixed(0)}`}
-              iconName="cash-multiple"
-              iconColor={colors.successText}
-              iconBg={colors.successSurface}
-            />
-          </View>
-        </View>
-      )}
 
       {/* Sales List */}
       {loading ? (
@@ -531,6 +488,51 @@ export default function SalesScreen() {
           data={accessibleSales}
           keyExtractor={(item) => item.ulid}
           contentContainerStyle={styles.listContent}
+          ListHeaderComponent={
+            <View style={styles.listHeaderComponent}>
+              <View style={styles.farmPillWrapper}>
+                <QuickChipGroup
+                  options={farmFilterOptions}
+                  selectedValue={selectedFarmFilter}
+                  onSelect={(val) => setSelectedFarmFilter(val)}
+                  scrollable
+                  size="sm"
+                />
+              </View>
+
+              {permissions.canViewFinancials(user) && (
+                <View style={styles.summaryGrid}>
+                  <View style={styles.summaryTile}>
+                    <MetricTile
+                      label={t('GROSS SALES')}
+                      value={`₹${salesSummary.gross.toFixed(0)}`}
+                      iconName="trending-up"
+                      iconColor={colors.slate700}
+                      iconBg={colors.slate100}
+                    />
+                  </View>
+                  <View style={styles.summaryTile}>
+                    <MetricTile
+                      label={t('DEDUCTIONS')}
+                      value={`-₹${salesSummary.deductions.toFixed(0)}`}
+                      iconName="tag-outline"
+                      iconColor={colors.dangerText}
+                      iconBg={colors.dangerSurface}
+                    />
+                  </View>
+                  <View style={styles.summaryTile}>
+                    <MetricTile
+                      label={t('NET REALIZED')}
+                      value={`₹${salesSummary.net.toFixed(0)}`}
+                      iconName="cash-multiple"
+                      iconColor={colors.successText}
+                      iconBg={colors.successSurface}
+                    />
+                  </View>
+                </View>
+              )}
+            </View>
+          }
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -655,7 +657,7 @@ export default function SalesScreen() {
                     activeOpacity={0.7}
                   >
                     <Ionicons name="receipt-outline" size={14} color={colors.primary} />
-                    <Text style={styles.attachmentBadgeText}>View Weighment Slip</Text>
+                    <Text style={styles.attachmentBadgeText}>{t('View Weighment Slip')}</Text>
                     <Ionicons name="arrow-forward" size={12} color={colors.primary} />
                   </TouchableOpacity>
                 ) : null}
@@ -673,11 +675,11 @@ export default function SalesScreen() {
                   {permissions.canViewFinancials(user) ? (
                     <View style={styles.amountsRow}>
                       <View style={styles.amountBlock}>
-                        <Text style={styles.amountLabel}>GROSS</Text>
+                        <Text style={styles.amountLabel}>{t('Gross')}</Text>
                         <Text style={styles.amountVal}>₹{item.gross_total}</Text>
                       </View>
                       <View style={styles.finalAmountBlock}>
-                        <Text style={styles.amountLabel}>FINAL</Text>
+                        <Text style={styles.amountLabel}>{t('Final')}</Text>
                         <Text style={styles.finalVal}>₹{item.final_amount}</Text>
                       </View>
                     </View>
@@ -696,7 +698,7 @@ export default function SalesScreen() {
                       }
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.salesCardViewText}>VIEW</Text>
+                      <Text style={styles.salesCardViewText}>{t('VIEW')}</Text>
                       <Ionicons name="chevron-forward" size={14} color="#64748b" />
                     </TouchableOpacity>
                   </View>
@@ -1344,13 +1346,15 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     gap: spacing.xs,
   },
+  listHeaderComponent: {
+    paddingBottom: spacing.xs,
+  },
   farmPillWrapper: {
-    marginTop: spacing.xs,
+    paddingVertical: spacing.xs,
   },
   summaryGrid: {
     flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     gap: spacing.sm,
   },
   summaryTile: {
@@ -1358,7 +1362,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 90,
+    paddingBottom: 115,
   },
   emptyContainer: {
     alignItems: 'center',

@@ -339,6 +339,7 @@ export interface AgroShop {
 export interface AgroInputProduct {
   id: number | string;
   ulid: string;
+  farm_group_id?: number | string | null;
   name: string;
   name_gu?: string | null;
   name_hi?: string | null;
@@ -467,6 +468,7 @@ export interface CreateSalePayload {
 export interface Crop {
   id: number | string;
   ulid: string;
+  farm_group_id?: number | string | null;
   name: string;
   name_gu?: string | null;
   name_hi?: string | null;
@@ -482,6 +484,7 @@ export interface Crop {
 export interface Buyer {
   id: number | string;
   ulid: string;
+  farm_group_id?: number | string | null;
   name: string;
   phone?: string | null;
   company_name?: string | null;

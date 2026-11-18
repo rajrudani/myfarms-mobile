@@ -83,12 +83,16 @@ export default function CropsScreen() {
   };
 
   const handleToggleStatus = async (crop: Crop) => {
+    if (crop.farm_group_id === null || crop.farm_group_id === undefined) {
+      Alert.alert(t('System Default'), t('System crops cannot be edited.'));
+      return;
+    }
     try {
       await mastersApi.toggleCropStatus(crop.id);
       fetchCrops(false);
     } catch (error) {
       console.error('Error toggling crop status:', error);
-      Alert.alert('Error', 'Failed to update crop status.');
+      Alert.alert(t('Error'), extractErrorMessage(error, 'Failed to update crop status.'));
     }
   };
 
@@ -140,6 +144,10 @@ export default function CropsScreen() {
   };
 
   const openEditModal = (crop: Crop) => {
+    if (crop.farm_group_id === null || crop.farm_group_id === undefined) {
+      Alert.alert(t('System Default'), t('System crops cannot be edited.'));
+      return;
+    }
     setEditingCrop(crop);
     setName(crop.name);
     setNameGu(crop.name_gu || '');
@@ -295,21 +303,38 @@ export default function CropsScreen() {
 
                 {/* Pill row */}
                 <View style={styles.pillsRow}>
+                  {(() => {
+                    const isSystemCrop = item.farm_group_id === null || item.farm_group_id === undefined;
+                    return (
+                      <View style={[styles.statusPill, isSystemCrop ? styles.systemPill : styles.customPill]}>
+                        <Ionicons
+                          name={isSystemCrop ? 'shield-checkmark-outline' : 'person-outline'}
+                          size={11}
+                          color={isSystemCrop ? '#0f766e' : '#1e40af'}
+                          style={{ marginRight: 3 }}
+                        />
+                        <Text style={[styles.statusPillText, { color: isSystemCrop ? '#0f766e' : '#1e40af' }]}>
+                          {isSystemCrop ? t('System') : t('Custom')}
+                        </Text>
+                      </View>
+                    );
+                  })()}
+
                   <View style={[styles.statusPill, item.is_active ? styles.statusPillActive : styles.statusPillInactive]}>
                     <View style={[styles.pillDot, { backgroundColor: item.is_active ? '#14815f' : '#64748b' }]} />
                     <Text style={[styles.statusPillText, { color: item.is_active ? '#14815f' : '#64748b' }]}>
-                      {item.is_active ? 'Active' : 'Inactive'}
+                      {item.is_active ? t('Active') : t('Inactive')}
                     </Text>
                   </View>
 
                   <View style={[styles.statusPill, item.is_perennial ? styles.perennialPill : styles.seasonalPill]}>
                     <Text style={[styles.statusPillText, { color: item.is_perennial ? '#3f5bf0' : '#c97712' }]}>
-                      {item.is_perennial ? 'Perennial' : 'Seasonal'}
+                      {item.is_perennial ? t('Perennial') : t('Seasonal')}
                     </Text>
                   </View>
 
                   <View style={styles.unitPill}>
-                    <Text style={styles.unitPillText}>Unit: {item.unit}</Text>
+                    <Text style={styles.unitPillText}>{t('Unit')}: {item.unit}</Text>
                   </View>
 
                   {item.default_duration_days ? (
@@ -324,20 +349,29 @@ export default function CropsScreen() {
 
                 {/* Card footer */}
                 <View style={styles.cardFooter}>
-                  <View style={styles.statusToggleRow}>
-                    <Text style={styles.statusLabel}>Active</Text>
-                    <Switch
-                      value={item.is_active}
-                      onValueChange={() => handleToggleStatus(item)}
-                      trackColor={{ false: '#cbd5e1', true: '#86efac' }}
-                      thumbColor={item.is_active ? '#166534' : '#f1f5f9'}
-                    />
-                  </View>
+                  {item.farm_group_id === null || item.farm_group_id === undefined ? (
+                    <View style={styles.systemLockRow}>
+                      <Ionicons name="lock-closed-outline" size={13} color="#64748b" />
+                      <Text style={styles.systemLockText}>{t('System Default')}</Text>
+                    </View>
+                  ) : (
+                    <>
+                      <View style={styles.statusToggleRow}>
+                        <Text style={styles.statusLabel}>{t('Active')}</Text>
+                        <Switch
+                          value={item.is_active}
+                          onValueChange={() => handleToggleStatus(item)}
+                          trackColor={{ false: '#cbd5e1', true: '#86efac' }}
+                          thumbColor={item.is_active ? '#166534' : '#f1f5f9'}
+                        />
+                      </View>
 
-                  <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(item)} activeOpacity={0.7}>
-                    <Ionicons name="pencil-outline" size={15} color="#475569" />
-                    <Text style={styles.editBtnText}>Edit</Text>
-                  </TouchableOpacity>
+                      <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(item)} activeOpacity={0.7}>
+                        <Ionicons name="pencil-outline" size={15} color="#475569" />
+                        <Text style={styles.editBtnText}>{t('Edit')}</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
                 </View>
               </View>
             );
@@ -693,6 +727,26 @@ const styles = StyleSheet.create({
   },
   seasonalPill: {
     backgroundColor: '#fff3df',
+  },
+  systemPill: {
+    backgroundColor: '#ecfeff',
+  },
+  customPill: {
+    backgroundColor: '#eff6ff',
+  },
+  systemLockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+  },
+  systemLockText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748b',
   },
   unitPill: {
     paddingHorizontal: 9,

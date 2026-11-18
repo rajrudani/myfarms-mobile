@@ -67,12 +67,16 @@ export default function ActivitiesScreen() {
   };
 
   const handleToggleStatus = async (activity: FarmActivityMaster) => {
+    if (activity.farm_group_id === null || activity.farm_group_id === undefined) {
+      Alert.alert(t('System Default'), t('System activities cannot be edited.'));
+      return;
+    }
     try {
       await mastersApi.toggleActivityStatus(activity.id);
       fetchActivities(false);
     } catch (error) {
       console.error('Error toggling status:', error);
-      Alert.alert(t('Error'), t('Failed to update status.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to update status.')));
     }
   };
 
@@ -87,6 +91,10 @@ export default function ActivitiesScreen() {
   };
 
   const openEditModal = (activity: FarmActivityMaster) => {
+    if (activity.farm_group_id === null || activity.farm_group_id === undefined) {
+      Alert.alert(t('System Default'), t('System activities cannot be edited.'));
+      return;
+    }
     setEditingActivity(activity);
     setName(activity.name);
     setNameGu(activity.name_gu || '');
@@ -220,11 +228,18 @@ export default function ActivitiesScreen() {
                   ) : null}
                 </View>
 
-                <StatusBadge
-                  label={item.is_active ? t('Active') : t('Inactive')}
-                  variant={item.is_active ? 'success' : 'neutral'}
-                  dot
-                />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {item.farm_group_id === null || item.farm_group_id === undefined ? (
+                    <StatusBadge label={t('System')} variant="info" dot={false} />
+                  ) : (
+                    <StatusBadge label={t('Custom')} variant="neutral" dot={false} />
+                  )}
+                  <StatusBadge
+                    label={item.is_active ? t('Active') : t('Inactive')}
+                    variant={item.is_active ? 'success' : 'neutral'}
+                    dot
+                  />
+                </View>
               </View>
 
               {item.notes ? (
@@ -234,24 +249,33 @@ export default function ActivitiesScreen() {
               ) : null}
 
               <View style={styles.cardFooter}>
-                <View style={styles.statusToggleRow}>
-                  <Text style={styles.statusLabel}>{t('Enabled')}</Text>
-                  <Switch
-                    value={item.is_active}
-                    onValueChange={() => handleToggleStatus(item)}
-                    trackColor={{ false: colors.slate300, true: colors.primaryBorder }}
-                    thumbColor={item.is_active ? colors.primary : colors.slate100}
-                  />
-                </View>
+                {item.farm_group_id === null || item.farm_group_id === undefined ? (
+                  <View style={styles.systemLockRow}>
+                    <Ionicons name="lock-closed-outline" size={13} color={colors.slate500} />
+                    <Text style={styles.systemLockText}>{t('System Default')}</Text>
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.statusToggleRow}>
+                      <Text style={styles.statusLabel}>{t('Enabled')}</Text>
+                      <Switch
+                        value={item.is_active}
+                        onValueChange={() => handleToggleStatus(item)}
+                        trackColor={{ false: colors.slate300, true: colors.primaryBorder }}
+                        thumbColor={item.is_active ? colors.primary : colors.slate100}
+                      />
+                    </View>
 
-                <TouchableOpacity
-                  style={styles.editBtn}
-                  onPress={() => openEditModal(item)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="pencil-outline" size={15} color={colors.slate700} />
-                  <Text style={styles.editBtnText}>{t('Edit')}</Text>
-                </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.editBtn}
+                      onPress={() => openEditModal(item)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="pencil-outline" size={15} color={colors.slate700} />
+                      <Text style={styles.editBtnText}>{t('Edit')}</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
             </BentoCard>
           )}
@@ -502,6 +526,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: colors.slate700,
+  },
+  systemLockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: radius.sm,
+    backgroundColor: colors.slate100,
+  },
+  systemLockText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.slate500,
   },
   fab: {
     position: 'absolute',

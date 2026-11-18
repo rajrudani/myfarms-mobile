@@ -1564,6 +1564,13 @@
   "Edit Payment Record": "भुगतान रिकॉर्ड संपादित करें",
   "Delete Payment Record": "भुगतान रिकॉर्ड हटाएं",
   "Payment details updated successfully.": "भुगतान विवरण सफलतापूर्वक अपडेट किया गया।",
-  "Payment record deleted successfully.": "भुगतान रिकॉर्ड सफलतापूर्वक हटा दिया गया।"
+  "Payment record deleted successfully.": "भुगतान रिकॉर्ड सफलतापूर्वक हटा दिया गया।",
+  "System": "सिस्टम",
+  "Custom": "कस्टम",
+  "System Default": "सिस्टम डिफ़ॉल्ट",
+  "System crops cannot be edited.": "सिस्टम फसलें संपादित नहीं की जा सकतीं।",
+  "System products cannot be edited.": "सिस्टम उत्पाद संपादित नहीं किए जा सकते।",
+  "System activities cannot be edited.": "सिस्टम गतिविधियाँ संपादित नहीं की जा सकतीं।",
+  "System masters cannot be modified.": "सिस्टम मास्टर संशोधित नहीं किए जा सकते।"
 }
 

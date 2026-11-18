@@ -68,12 +68,16 @@ export default function BuyersScreen() {
   };
 
   const handleToggleStatus = async (buyer: Buyer) => {
+    if (buyer.farm_group_id === null) {
+      Alert.alert(t('System Default'), t('System masters cannot be modified.'));
+      return;
+    }
     try {
       await mastersApi.toggleBuyerStatus(buyer.id);
       fetchBuyers(false);
     } catch (error) {
       console.error('Error toggling status:', error);
-      Alert.alert(t('Error'), t('Failed to update status.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to update status.')));
     }
   };
 
@@ -89,6 +93,10 @@ export default function BuyersScreen() {
   };
 
   const openEditModal = (buyer: Buyer) => {
+    if (buyer.farm_group_id === null) {
+      Alert.alert(t('System Default'), t('System masters cannot be modified.'));
+      return;
+    }
     setEditingBuyer(buyer);
     setName(buyer.name);
     setPhone(buyer.phone || '');
@@ -271,20 +279,29 @@ export default function BuyersScreen() {
                 ) : null}
 
                 <View style={styles.cardFooter}>
-                  <View style={styles.statusToggleRow}>
-                    <Text style={styles.statusLabel}>{t('Active')}</Text>
-                    <Switch
-                      value={item.is_active}
-                      onValueChange={() => handleToggleStatus(item)}
-                      trackColor={{ false: '#cbd5e1', true: '#86efac' }}
-                      thumbColor={item.is_active ? '#166534' : '#f1f5f9'}
-                    />
-                  </View>
+                  {item.farm_group_id === null ? (
+                    <View style={styles.systemLockRow}>
+                      <Ionicons name="lock-closed-outline" size={13} color="#64748b" />
+                      <Text style={styles.systemLockText}>{t('System Default')}</Text>
+                    </View>
+                  ) : (
+                    <>
+                      <View style={styles.statusToggleRow}>
+                        <Text style={styles.statusLabel}>{t('Active')}</Text>
+                        <Switch
+                          value={item.is_active}
+                          onValueChange={() => handleToggleStatus(item)}
+                          trackColor={{ false: '#cbd5e1', true: '#86efac' }}
+                          thumbColor={item.is_active ? '#166534' : '#f1f5f9'}
+                        />
+                      </View>
 
-                  <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(item)} activeOpacity={0.7}>
-                    <Ionicons name="pencil-outline" size={15} color="#475569" />
-                    <Text style={styles.editBtnText}>{t('Edit')}</Text>
-                  </TouchableOpacity>
+                      <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(item)} activeOpacity={0.7}>
+                        <Ionicons name="pencil-outline" size={15} color="#475569" />
+                        <Text style={styles.editBtnText}>{t('Edit')}</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
                 </View>
               </View>
             );
@@ -598,6 +615,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#475569',
     marginLeft: 4,
+  },
+  systemLockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+  },
+  systemLockText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748b',
   },
   fab: {
     position: 'absolute',

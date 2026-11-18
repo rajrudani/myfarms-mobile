@@ -80,6 +80,10 @@ export default function AgroInputProductsScreen() {
   };
 
   const handleToggleStatus = async (product: AgroInputProduct) => {
+    if (product.farm_group_id === null || product.farm_group_id === undefined) {
+      Alert.alert(t('System Default'), t('System products cannot be edited.'));
+      return;
+    }
     try {
       await mastersApi.toggleInputProductStatus(product.id);
       fetchProducts(false);
@@ -104,6 +108,10 @@ export default function AgroInputProductsScreen() {
   };
 
   const openEditModal = (product: AgroInputProduct) => {
+    if (product.farm_group_id === null || product.farm_group_id === undefined) {
+      Alert.alert(t('System Default'), t('System products cannot be edited.'));
+      return;
+    }
     setEditingProduct(product);
     setType(product.type);
     setName(product.name);
@@ -255,11 +263,25 @@ export default function AgroInputProductsScreen() {
                   ) : null}
                 </View>
                 
-                <View style={[styles.statusPill, item.is_active ? styles.statusPillActive : styles.statusPillInactive]}>
-                  <View style={[styles.pillDot, { backgroundColor: item.is_active ? '#14815f' : '#64748b' }]} />
-                  <Text style={[styles.statusPillText, { color: item.is_active ? '#14815f' : '#64748b' }]}>
-                    {item.is_active ? t('Active') : t('Inactive')}
-                  </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {item.farm_group_id === null || item.farm_group_id === undefined ? (
+                    <View style={[styles.statusPill, styles.systemPill]}>
+                      <Ionicons name="shield-checkmark-outline" size={11} color="#0f766e" style={{ marginRight: 3 }} />
+                      <Text style={[styles.statusPillText, { color: '#0f766e' }]}>{t('System')}</Text>
+                    </View>
+                  ) : (
+                    <View style={[styles.statusPill, styles.customPill]}>
+                      <Ionicons name="person-outline" size={11} color="#1e40af" style={{ marginRight: 3 }} />
+                      <Text style={[styles.statusPillText, { color: '#1e40af' }]}>{t('Custom')}</Text>
+                    </View>
+                  )}
+
+                  <View style={[styles.statusPill, item.is_active ? styles.statusPillActive : styles.statusPillInactive]}>
+                    <View style={[styles.pillDot, { backgroundColor: item.is_active ? '#14815f' : '#64748b' }]} />
+                    <Text style={[styles.statusPillText, { color: item.is_active ? '#14815f' : '#64748b' }]}>
+                      {item.is_active ? t('Active') : t('Inactive')}
+                    </Text>
+                  </View>
                 </View>
               </View>
 
@@ -299,20 +321,29 @@ export default function AgroInputProductsScreen() {
               ) : null}
 
               <View style={styles.cardFooter}>
-                <View style={styles.statusToggleRow}>
-                  <Text style={styles.statusLabel}>{t('Active')}</Text>
-                  <Switch
-                    value={item.is_active}
-                    onValueChange={() => handleToggleStatus(item)}
-                    trackColor={{ false: '#cbd5e1', true: '#86efac' }}
-                    thumbColor={item.is_active ? '#166534' : '#f1f5f9'}
-                  />
-                </View>
+                {item.farm_group_id === null || item.farm_group_id === undefined ? (
+                  <View style={styles.systemLockRow}>
+                    <Ionicons name="lock-closed-outline" size={13} color="#64748b" />
+                    <Text style={styles.systemLockText}>{t('System Default')}</Text>
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.statusToggleRow}>
+                      <Text style={styles.statusLabel}>{t('Active')}</Text>
+                      <Switch
+                        value={item.is_active}
+                        onValueChange={() => handleToggleStatus(item)}
+                        trackColor={{ false: '#cbd5e1', true: '#86efac' }}
+                        thumbColor={item.is_active ? '#166534' : '#f1f5f9'}
+                      />
+                    </View>
 
-                <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(item)} activeOpacity={0.7}>
-                  <Ionicons name="pencil-outline" size={15} color="#475569" />
-                  <Text style={styles.editBtnText}>{t('Edit')}</Text>
-                </TouchableOpacity>
+                    <TouchableOpacity style={styles.editBtn} onPress={() => openEditModal(item)} activeOpacity={0.7}>
+                      <Ionicons name="pencil-outline" size={15} color="#475569" />
+                      <Text style={styles.editBtnText}>{t('Edit')}</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
             </View>
           )}
@@ -570,6 +601,12 @@ const styles = StyleSheet.create({
   statusPillInactive: {
     backgroundColor: '#f1f5f9',
   },
+  systemPill: {
+    backgroundColor: '#ecfeff',
+  },
+  customPill: {
+    backgroundColor: '#eff6ff',
+  },
   pillDot: {
     width: 7,
     height: 7,
@@ -668,6 +705,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#475569',
     marginLeft: 4,
+  },
+  systemLockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+  },
+  systemLockText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748b',
   },
   fab: {
     position: 'absolute',
