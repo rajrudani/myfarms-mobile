@@ -364,7 +364,7 @@ export default function StaffViewScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#166534" />
-        <Text style={styles.loadingText}>Loading staff details...</Text>
+        <Text style={styles.loadingText}>{t('Loading staff details...')}</Text>
       </View>
     );
   }
@@ -372,9 +372,9 @@ export default function StaffViewScreen() {
   if (!staff) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Staff member not found.</Text>
+        <Text style={styles.errorText}>{t('Staff member not found.')}</Text>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backBtnText}>Go Back</Text>
+          <Text style={styles.backBtnText}>{t('Go Back')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -925,14 +925,14 @@ export default function StaffViewScreen() {
               onPress={() => setShowDangerZone(!showDangerZone)}
             >
               <Ionicons name="warning-outline" size={18} color="#dc2626" style={{ marginRight: 8 }} />
-              <Text style={styles.dangerZoneTitle}>Danger Zone</Text>
+              <Text style={styles.dangerZoneTitle}>{t('Danger Zone')}</Text>
               <Ionicons name={showDangerZone ? "chevron-up" : "chevron-down"} size={16} color="#dc2626" style={{ marginLeft: 'auto' }} />
             </TouchableOpacity>
 
             {showDangerZone && (
               <View style={styles.dangerZoneContent}>
                 <Text style={styles.dangerZoneDesc}>
-                  Actions here can affect this staff member's active status and portal access.
+                  {t("Actions here can affect this staff member's active status and portal access.")}
                 </Text>
 
                 <TouchableOpacity
@@ -940,7 +940,7 @@ export default function StaffViewScreen() {
                   onPress={handleToggleStatus}
                 >
                   <Text style={[styles.dangerZoneBtnText, { color: staff.is_active ? '#d97706' : '#15803d' }]}>
-                    {staff.is_active ? 'Deactivate Staff' : 'Activate Staff'}
+                    {staff.is_active ? t('Deactivate Staff') : t('Activate Staff')}
                   </Text>
                 </TouchableOpacity>
 
@@ -948,7 +948,7 @@ export default function StaffViewScreen() {
                   style={[styles.dangerZoneBtn, { backgroundColor: '#fee2e2', marginTop: 10 }]}
                   onPress={handleDeleteStaff}
                 >
-                  <Text style={[styles.dangerZoneBtnText, { color: '#b91c1c' }]}>Delete Staff Member</Text>
+                  <Text style={[styles.dangerZoneBtnText, { color: '#b91c1c' }]}>{t('Delete Staff Member')}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -1292,7 +1292,7 @@ export default function StaffViewScreen() {
               onPress={() => setAttendanceStatus('present')}
               activeOpacity={0.7}
             >
-              <Text style={[styles.attBtnText, attendanceStatus === 'present' && { color: '#15803d' }]}>Present</Text>
+              <Text style={[styles.attBtnText, attendanceStatus === 'present' && { color: '#15803d' }]}>{t('Present')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -1302,7 +1302,7 @@ export default function StaffViewScreen() {
               onPress={() => setAttendanceStatus('half_day')}
               activeOpacity={0.7}
             >
-              <Text style={[styles.attBtnText, attendanceStatus === 'half_day' && { color: '#b45309' }]}>Half Day</Text>
+              <Text style={[styles.attBtnText, attendanceStatus === 'half_day' && { color: '#b45309' }]}>{t('Half Day')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -1312,16 +1312,16 @@ export default function StaffViewScreen() {
               onPress={() => setAttendanceStatus('absent')}
               activeOpacity={0.7}
             >
-              <Text style={[styles.attBtnText, attendanceStatus === 'absent' && { color: '#b91c1c' }]}>Absent</Text>
+              <Text style={[styles.attBtnText, attendanceStatus === 'absent' && { color: '#b91c1c' }]}>{t('Absent')}</Text>
             </TouchableOpacity>
           </View>
 
           {attendanceStatus !== 'absent' && (
             <>
               <SearchableSelect
-                label="Work Location"
-                placeholder="Select farm location"
-                searchPlaceholder="Search staff farms..."
+                label={t('Work Location')}
+                placeholder={t('Select farm location')}
+                searchPlaceholder={t('Search staff farms...')}
                 items={staff.farms.map((f) => ({
                   value: Number(f.id),
                   label: f.name,
@@ -1363,7 +1363,7 @@ export default function StaffViewScreen() {
               {savingAttendance ? (
                 <ActivityIndicator color="#ffffff" />
               ) : (
-                <Text style={styles.saveBtnText}>Save</Text>
+                <Text style={styles.saveBtnText}>{t('Save')}</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -1372,9 +1372,9 @@ export default function StaffViewScreen() {
 
       <ConfirmModal
         visible={deleteStaffModalVisible}
-        title="Delete Staff Member"
-        message={`Are you sure you want to delete "${staff?.name || 'this staff member'}"? This will remove them from active views.`}
-        confirmText="Delete Staff Member"
+        title={t('Delete Staff Member')}
+        message={t('Are you sure you want to delete this staff member?')}
+        confirmText={t('Delete Staff Member')}
         destructive
         loading={deletingStaff}
         onConfirm={handleConfirmDeleteStaff}
@@ -1383,9 +1383,9 @@ export default function StaffViewScreen() {
 
       <ConfirmModal
         visible={!!unassignFarmTarget}
-        title="Unassign Farm"
-        message={`Are you sure you want to unassign "${unassignFarmTarget?.name || 'this farm'}"? Past records will be preserved.`}
-        confirmText="Unassign Farm"
+        title={t('Unassign Farm')}
+        message={t('Are you sure you want to unassign this farm?')}
+        confirmText={t('Unassign Farm')}
         destructive
         loading={unassigningFarm}
         onConfirm={handleConfirmUnassignFarm}

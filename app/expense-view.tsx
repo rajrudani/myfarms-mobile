@@ -25,15 +25,17 @@ import { colors, radius, spacing, shadows } from '../src/theme/tokens';
 import { useResponsive } from '../src/utils/responsive';
 import { formatCurrency } from '../src/utils/formatters';
 import { ModalSheet, ModernInput, ModernDatePicker } from '../src/components/ui';
+import { useTranslation } from '../src/i18n/I18nContext';
 
 const PAYMENT_METHODS = ['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Other'];
 const PAYMENT_STATUSES = [
-  { key: 'PAID', label: 'Paid', bg: '#ecfdf5', text: '#059669', border: '#a7f3d0' },
-  { key: 'UNPAID', label: 'Pending', bg: '#fffbeb', text: '#d97706', border: '#fde68a' },
-  { key: 'PARTIALLY_PAID', label: 'Partial', bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe' },
+  { key: 'PAID', labelKey: 'Paid', bg: '#ecfdf5', text: '#059669', border: '#a7f3d0' },
+  { key: 'UNPAID', labelKey: 'Pending', bg: '#fffbeb', text: '#d97706', border: '#fde68a' },
+  { key: 'PARTIALLY_PAID', labelKey: 'Partial', bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe' },
 ];
 
 export default function ExpenseViewScreen() {
+  const { t } = useTranslation();
   const params = useLocalSearchParams();
   const expenseIdentifier = (params.expense_ulid as string) || (params.expense_id as string);
   const { containerMaxWidth, isTablet } = useResponsive();
@@ -72,12 +74,12 @@ export default function ExpenseViewScreen() {
       setEditNotes(data.notes || '');
     } catch (error) {
       console.error('Error fetching expense:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to load expense details.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to load expense details.')));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [expenseIdentifier]);
+  }, [expenseIdentifier, t]);
 
   useEffect(() => {
     fetchExpense();
@@ -91,7 +93,7 @@ export default function ExpenseViewScreen() {
   const handleSaveEdit = async () => {
     if (!expense) return;
     if (!editAmount || isNaN(parseFloat(editAmount))) {
-      Alert.alert('Validation Error', 'Please enter a valid expense amount.');
+      Alert.alert(t('Validation Error'), t('Please enter a valid expense amount.'));
       return;
     }
 
@@ -108,10 +110,10 @@ export default function ExpenseViewScreen() {
       });
       setExpense(updated);
       setEditModalVisible(false);
-      Alert.alert('Success', 'Expense updated successfully!');
+      Alert.alert(t('Success'), t('Expense updated successfully!'));
     } catch (error) {
       console.error('Error updating expense:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to update expense.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to update expense.')));
     } finally {
       setSaving(false);
     }
@@ -121,22 +123,22 @@ export default function ExpenseViewScreen() {
     if (!expense) return;
     const identifier = expense.ulid || expense.id!;
     Alert.alert(
-      'Delete Expense',
-      'Are you sure you want to delete this expense? This action cannot be undone.',
+      t('Delete Expense'),
+      t('Are you sure you want to delete this expense? This action cannot be undone.'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('Cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('Delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               setLoading(true);
               await expensesApi.delete(identifier);
-              Alert.alert('Deleted', 'Expense has been deleted.');
+              Alert.alert(t('Deleted'), t('Expense has been deleted.'));
               router.back();
             } catch (error) {
               console.error('Error deleting expense:', error);
-              Alert.alert('Error', extractErrorMessage(error, 'Failed to delete expense.'));
+              Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to delete expense.')));
               setLoading(false);
             }
           },
@@ -161,7 +163,7 @@ export default function ExpenseViewScreen() {
       setAvailableActivities(activities.filter((a) => !alreadyLinkedIds.has(a.id)));
     } catch (error) {
       console.error('Error fetching available activities:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to load activities.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to load activities.')));
     } finally {
       setLoadingAvailableActivities(false);
     }
@@ -179,13 +181,13 @@ export default function ExpenseViewScreen() {
     try {
       setLinkingActivities(true);
       await expensesApi.linkActivities(identifier, selectedActivityIds);
-      Alert.alert('Success', 'Activities linked successfully.');
+      Alert.alert(t('Success'), t('Activities linked successfully.'));
       setLinkModalVisible(false);
       setSelectedActivityIds([]);
       fetchExpense();
     } catch (error) {
       console.error('Error linking activities:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to link activities.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to link activities.')));
     } finally {
       setLinkingActivities(false);
     }
@@ -194,23 +196,24 @@ export default function ExpenseViewScreen() {
   const handleUnlinkActivity = (activityItem: any) => {
     if (!expense) return;
     const identifier = expense.ulid || expense.id!;
+    const actName = activityItem.farm_activity_master?.name || activityItem.activity_type || t('this activity');
     Alert.alert(
-      'Unlink Activity',
-      `Are you sure you want to unlink "${activityItem.farm_activity_master?.name || activityItem.activity_type || 'this activity'}" from this expense?`,
+      t('Unlink Activity'),
+      t('Are you sure you want to unlink :name from this expense?', { name: actName }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('Cancel'), style: 'cancel' },
         {
-          text: 'Unlink',
+          text: t('Unlink'),
           style: 'destructive',
           onPress: async () => {
             try {
               setLoading(true);
               await expensesApi.unlinkActivity(identifier, activityItem.id);
-              Alert.alert('Success', 'Activity unlinked successfully.');
+              Alert.alert(t('Success'), t('Activity unlinked successfully.'));
               fetchExpense();
             } catch (error) {
               console.error('Error unlinking activity:', error);
-              Alert.alert('Error', extractErrorMessage(error, 'Failed to unlink activity.'));
+              Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to unlink activity.')));
               setLoading(false);
             }
           },
@@ -223,7 +226,7 @@ export default function ExpenseViewScreen() {
     return (
       <View style={styles.centerBox}>
         <ActivityIndicator size="large" color="#16a34a" />
-        <Text style={styles.loadingText}>Loading expense details...</Text>
+        <Text style={styles.loadingText}>{t('Loading expense details...')}</Text>
       </View>
     );
   }
@@ -232,9 +235,9 @@ export default function ExpenseViewScreen() {
     return (
       <View style={styles.centerBox}>
         <Ionicons name="alert-circle-outline" size={48} color="#94a3b8" />
-        <Text style={styles.notFoundText}>Expense not found.</Text>
+        <Text style={styles.notFoundText}>{t('Expense not found.')}</Text>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backBtnText}>Go Back</Text>
+          <Text style={styles.backBtnText}>{t('Go Back')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -249,9 +252,9 @@ export default function ExpenseViewScreen() {
     ? PAYMENT_STATUSES[2]
     : PAYMENT_STATUSES[1];
 
-  const categoryName = expense.expense_name || expense.expense_category || 'Expense';
+  const categoryName = expense.expense_name || expense.expense_category || t('Expense');
   const farmName = expense.farm_name || expense.farm?.name || '-';
-  const cycleName = expense.crop_cycle_name || expense.crop_cycle?.season_name || expense.crop_cycle?.crop_type || 'Not linked';
+  const cycleName = expense.crop_cycle_name || expense.crop_cycle?.season_name || expense.crop_cycle?.crop_type || t('Not linked');
   const linkedActivities = expense.activities || [];
 
   return (
@@ -265,18 +268,18 @@ export default function ExpenseViewScreen() {
             style={styles.iconBtn}
             onPress={() => router.back()}
             activeOpacity={0.7}
-            accessibilityLabel="Back"
+            accessibilityLabel={t('Back')}
           >
             <Ionicons name="arrow-back" size={20} color="#166534" />
           </TouchableOpacity>
 
-          <Text style={styles.topBarTitle}>Expense Details</Text>
+          <Text style={styles.topBarTitle}>{t('Expense Details')}</Text>
 
           <TouchableOpacity
             style={styles.iconBtn}
             onPress={() => setEditModalVisible(true)}
             activeOpacity={0.7}
-            accessibilityLabel="Edit Expense"
+            accessibilityLabel={t('Edit Expense')}
           >
             <Ionicons name="create-outline" size={20} color="#166534" />
           </TouchableOpacity>
@@ -298,7 +301,7 @@ export default function ExpenseViewScreen() {
           <View style={styles.card}>
             <View style={styles.summaryTopRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.label}>EXPENSE CATEGORY</Text>
+                <Text style={styles.label}>{t('EXPENSE CATEGORY')}</Text>
                 <Text style={styles.categoryTitle}>{categoryName}</Text>
                 <Text style={styles.amountDisplay} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                   {formatCurrency(parseFloat(expense.amount ? expense.amount.toString() : '0'))}
@@ -307,7 +310,7 @@ export default function ExpenseViewScreen() {
 
             <View style={[styles.statusPill, { backgroundColor: statusConfig.bg, borderColor: statusConfig.border }]}>
               <View style={[styles.statusDot, { backgroundColor: statusConfig.text }]} />
-              <Text style={[styles.statusText, { color: statusConfig.text }]}>{statusConfig.label}</Text>
+              <Text style={[styles.statusText, { color: statusConfig.text }]}>{t(statusConfig.labelKey)}</Text>
             </View>
           </View>
 
@@ -316,13 +319,13 @@ export default function ExpenseViewScreen() {
           <View style={styles.tagsRow}>
             <View style={styles.tag}>
               <Ionicons name="wallet-outline" size={14} color="#166534" />
-              <Text style={styles.tagText}>{expense.payment_method || 'Cash'}</Text>
+              <Text style={styles.tagText}>{t(expense.payment_method || 'Cash')}</Text>
             </View>
 
             <View style={styles.tag}>
               <Ionicons name="calendar-outline" size={14} color="#64748b" />
               <Text style={styles.tagText}>
-                {expense.date ? expense.date.split('T')[0] : 'No date'}
+                {expense.date ? expense.date.split('T')[0] : t('No date')}
               </Text>
             </View>
           </View>
@@ -332,41 +335,41 @@ export default function ExpenseViewScreen() {
         <View style={styles.card}>
           <View style={styles.sectionHeader}>
             <Ionicons name="receipt-outline" size={18} color="#166534" />
-            <Text style={styles.sectionTitle}>Transaction Details</Text>
+            <Text style={styles.sectionTitle}>{t('Transaction Details')}</Text>
           </View>
 
           <View style={styles.infoList}>
             <View style={styles.infoRow}>
-              <Text style={styles.infoKey}>Amount</Text>
+              <Text style={styles.infoKey}>{t('Amount')}</Text>
               <Text style={styles.infoValAmount}>
                 ₹{parseFloat(expense.amount ? expense.amount.toString() : '0').toFixed(2)}
               </Text>
             </View>
 
             <View style={styles.infoRow}>
-              <Text style={styles.infoKey}>Expense Date</Text>
+              <Text style={styles.infoKey}>{t('Expense Date')}</Text>
               <Text style={styles.infoVal}>{expense.date ? expense.date.split('T')[0] : '-'}</Text>
             </View>
 
             <View style={styles.infoRow}>
-              <Text style={styles.infoKey}>Payment Method</Text>
-              <Text style={styles.infoVal}>{expense.payment_method || 'Cash'}</Text>
+              <Text style={styles.infoKey}>{t('Payment Method')}</Text>
+              <Text style={styles.infoVal}>{t(expense.payment_method || 'Cash')}</Text>
             </View>
 
             <View style={styles.infoRow}>
-              <Text style={styles.infoKey}>Farm</Text>
+              <Text style={styles.infoKey}>{t('Farm')}</Text>
               <Text style={styles.infoVal}>{farmName}</Text>
             </View>
 
             <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-              <Text style={styles.infoKey}>Crop Cycle</Text>
+              <Text style={styles.infoKey}>{t('Crop Cycle')}</Text>
               <Text style={styles.infoVal}>{cycleName}</Text>
             </View>
           </View>
 
           {expense.notes ? (
             <View style={styles.notesWrap}>
-              <Text style={styles.notesLabel}>Notes</Text>
+              <Text style={styles.notesLabel}>{t('Notes')}</Text>
               <Text style={styles.notesContent}>{expense.notes}</Text>
             </View>
           ) : null}
@@ -377,7 +380,7 @@ export default function ExpenseViewScreen() {
           <View style={styles.sectionHeaderBetween}>
             <View style={styles.row}>
               <Ionicons name="clipboard-outline" size={18} color="#166534" />
-              <Text style={styles.sectionTitle}>Linked Activities</Text>
+              <Text style={styles.sectionTitle}>{t('Linked Activities')}</Text>
               <View style={styles.countBadge}>
                 <Text style={styles.countBadgeText}>{linkedActivities.length}</Text>
               </View>
@@ -388,7 +391,7 @@ export default function ExpenseViewScreen() {
               activeOpacity={0.7}
             >
               <Ionicons name="link-outline" size={13} color="#166534" />
-              <Text style={styles.miniActionText}>+ Link</Text>
+              <Text style={styles.miniActionText}>{t('+ Link')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -405,7 +408,7 @@ export default function ExpenseViewScreen() {
                   })}
                 >
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.activityItemTitle}>{act.farm_activity_master?.name || act.activity_type || 'Farm Activity'}</Text>
+                    <Text style={styles.activityItemTitle}>{act.farm_activity_master?.name || act.activity_type || t('Farm Activity')}</Text>
                     <Text style={styles.activityItemDate}>{act.date ? act.date.split('T')[0] : ''}</Text>
                   </View>
                   <View style={styles.activityItemRight}>
@@ -417,7 +420,7 @@ export default function ExpenseViewScreen() {
                         handleUnlinkActivity(act);
                       }}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      accessibilityLabel="Unlink Activity"
+                      accessibilityLabel={t('Unlink Activity')}
                     >
                       <Ionicons name="trash-outline" size={16} color="#dc2626" />
                     </TouchableOpacity>
@@ -427,7 +430,7 @@ export default function ExpenseViewScreen() {
               ))}
             </View>
           ) : (
-            <Text style={styles.emptyText}>No activities have been linked to this expense.</Text>
+            <Text style={styles.emptyText}>{t('No activities have been linked to this expense.')}</Text>
           )}
         </View>
 
@@ -439,7 +442,7 @@ export default function ExpenseViewScreen() {
             activeOpacity={0.8}
           >
             <Ionicons name="create-outline" size={18} color="#166534" />
-            <Text style={styles.outlineActionText}>Edit Expense</Text>
+            <Text style={styles.outlineActionText}>{t('Edit Expense')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -448,7 +451,7 @@ export default function ExpenseViewScreen() {
             activeOpacity={0.8}
           >
             <Ionicons name="trash-outline" size={18} color="#dc2626" />
-            <Text style={styles.dangerActionText}>Delete Expense</Text>
+            <Text style={styles.dangerActionText}>{t('Delete Expense')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -458,21 +461,21 @@ export default function ExpenseViewScreen() {
       <ModalSheet
         visible={editModalVisible}
         onClose={() => setEditModalVisible(false)}
-        title="Edit Expense"
+        title={t('Edit Expense')}
         maxHeight="85%"
       >
         <ScrollView showsVerticalScrollIndicator={false}>
           <ModernInput
-            label="Category"
+            label={t('Category')}
             value={editCategory}
             onChangeText={setEditCategory}
-            placeholder="e.g. Fertilizer, Seed, Labor"
+            placeholder={t('e.g. Fertilizer, Seed, Labor')}
             placeholderTextColor="#94a3b8"
             containerStyle={{ marginBottom: spacing.md }}
           />
 
           <ModernInput
-            label="Amount"
+            label={t('Amount')}
             value={editAmount}
             onChangeText={setEditAmount}
             keyboardType="decimal-pad"
@@ -483,13 +486,13 @@ export default function ExpenseViewScreen() {
           />
 
           <ModernDatePicker
-            label="Date"
+            label={t('Date')}
             value={editDate}
             onChange={setEditDate}
             containerStyle={{ marginBottom: spacing.md }}
           />
 
-          <Text style={styles.inputLabel}>Payment Method</Text>
+          <Text style={styles.inputLabel}>{t('Payment Method')}</Text>
           <View style={styles.chipsRow}>
             {PAYMENT_METHODS.map((method) => {
               const isSelected = editPaymentMethod === method;
@@ -501,14 +504,14 @@ export default function ExpenseViewScreen() {
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                    {method}
+                    {t(method)}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
 
-          <Text style={styles.inputLabel}>Payment Status</Text>
+          <Text style={styles.inputLabel}>{t('Payment Status')}</Text>
           <View style={styles.chipsRow}>
             {PAYMENT_STATUSES.map((st) => {
               const isSelected = editPaymentStatus === st.key;
@@ -523,7 +526,7 @@ export default function ExpenseViewScreen() {
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.chipText, isSelected && { color: st.text, fontWeight: '800' }]}>
-                    {st.label}
+                    {t(st.labelKey)}
                   </Text>
                 </TouchableOpacity>
               );
@@ -531,10 +534,10 @@ export default function ExpenseViewScreen() {
           </View>
 
           <ModernInput
-            label="Notes"
+            label={t('Notes')}
             value={editNotes}
             onChangeText={setEditNotes}
-            placeholder="Invoice details, vendor name, remarks..."
+            placeholder={t('Invoice details, vendor name, remarks...')}
             placeholderTextColor="#94a3b8"
             multiline
             numberOfLines={3}
@@ -547,7 +550,7 @@ export default function ExpenseViewScreen() {
               onPress={() => setEditModalVisible(false)}
               activeOpacity={0.7}
             >
-              <Text style={styles.modalCancelText}>Cancel</Text>
+              <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -559,7 +562,7 @@ export default function ExpenseViewScreen() {
               {saving ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text style={styles.modalSaveText}>Save Changes</Text>
+                <Text style={styles.modalSaveText}>{t('Save Changes')}</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -570,18 +573,18 @@ export default function ExpenseViewScreen() {
       <ModalSheet
         visible={linkModalVisible}
         onClose={() => setLinkModalVisible(false)}
-        title="Link Farm Activity"
+        title={t('Link Farm Activity')}
         maxHeight="80%"
       >
         {loadingAvailableActivities ? (
           <View style={{ paddingVertical: spacing.xl, alignItems: 'center' }}>
             <ActivityIndicator size="small" color="#16a34a" />
-            <Text style={styles.loadingText}>Fetching available activities...</Text>
+            <Text style={styles.loadingText}>{t('Fetching available activities...')}</Text>
           </View>
         ) : availableActivities.length === 0 ? (
           <View style={{ paddingVertical: spacing.lg, alignItems: 'center' }}>
             <Ionicons name="clipboard-outline" size={36} color="#94a3b8" />
-            <Text style={[styles.emptyText, { marginTop: 8 }]}>No unlinked activities found for this farm.</Text>
+            <Text style={[styles.emptyText, { marginTop: 8 }]}>{t('No unlinked activities found for this farm.')}</Text>
           </View>
         ) : (
           <ScrollView style={{ maxHeight: 320, marginVertical: spacing.xs }}>
@@ -606,7 +609,7 @@ export default function ExpenseViewScreen() {
                   />
                   <View style={{ flex: 1, marginLeft: spacing.sm }}>
                     <Text style={styles.candidateTitle}>
-                      {act.farm_activity_master?.name || act.activity_type || 'Farm Activity'}
+                      {act.farm_activity_master?.name || act.activity_type || t('Farm Activity')}
                     </Text>
                     <Text style={styles.candidateSub}>
                       {act.date ? act.date.split('T')[0] : ''} • {act.status || 'scheduled'}
@@ -624,7 +627,7 @@ export default function ExpenseViewScreen() {
             onPress={() => setLinkModalVisible(false)}
             activeOpacity={0.7}
           >
-            <Text style={styles.modalCancelText}>Cancel</Text>
+            <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
@@ -639,7 +642,7 @@ export default function ExpenseViewScreen() {
               <ActivityIndicator size="small" color="#ffffff" />
             ) : (
               <Text style={styles.modalSaveText}>
-                Link ({selectedActivityIds.length})
+                {t('Link (:count)', { count: selectedActivityIds.length })}
               </Text>
             )}
           </TouchableOpacity>

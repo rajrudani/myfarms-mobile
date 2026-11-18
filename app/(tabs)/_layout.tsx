@@ -3,8 +3,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { Platform, StyleSheet, View } from 'react-native';
 import { colors, radius, shadows, typography } from '../../src/theme/tokens';
+import { useTranslation } from '../../src/i18n/I18nContext';
 
 export default function TabLayout() {
+  const { t } = useTranslation();
   return (
     <Tabs
       screenOptions={{
@@ -15,8 +17,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="farm"
         options={{
-          title: 'Farm',
-          tabBarLabel: 'Farm',
+          title: t('Farm'),
+          tabBarLabel: t('Farm'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'grid' : 'grid-outline'}
@@ -29,8 +31,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="staff"
         options={{
-          title: 'Staff',
-          tabBarLabel: 'Staff',
+          title: t('Staff'),
+          tabBarLabel: t('Staff'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'people' : 'people-outline'}
@@ -43,8 +45,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarLabel: 'Home',
+          title: t('Home'),
+          tabBarLabel: t('Home'),
           tabBarIcon: ({ color, focused }) => (
             <View
               style={[
@@ -64,8 +66,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="notes"
         options={{
-          title: 'Notes',
-          tabBarLabel: 'Notes',
+          title: t('Notes'),
+          tabBarLabel: t('Notes'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'clipboard' : 'clipboard-outline'}
@@ -78,8 +80,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="more"
         options={{
-          title: 'More',
-          tabBarLabel: 'More',
+          title: t('More'),
+          tabBarLabel: t('More'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'ellipsis-horizontal' : 'ellipsis-horizontal-outline'}

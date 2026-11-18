@@ -26,8 +26,10 @@ import { AttachmentPicker } from '../src/components/AttachmentPicker';
 import { colors, radius, spacing, typography } from '../src/theme/tokens';
 import { ModernDatePicker, ModernInput, ConfirmModal } from '../src/components/ui';
 import { useToast } from '../src/context/ToastContext';
+import { useTranslation } from '../src/i18n/I18nContext';
 
 export default function NoteViewScreen() {
+  const { t, locale } = useTranslation();
   const params = useLocalSearchParams<{ id?: string }>();
   const noteId = params.id;
   const { width } = useWindowDimensions();
@@ -60,7 +62,7 @@ export default function NoteViewScreen() {
       setNote(data);
     } catch (error) {
       console.error('Failed to load note:', error);
-      Alert.alert('Error', extractErrorMessage(error, 'Failed to load note details.'));
+      Alert.alert(t('Error'), extractErrorMessage(error, t('Failed to load note details.')));
     } finally {
       setLoading(false);
     }
@@ -91,11 +93,11 @@ export default function NoteViewScreen() {
   const handleSaveEdit = async () => {
     if (!note) return;
     if (!editTitle.trim()) {
-      Alert.alert('Validation Error', 'Title is required.');
+      Alert.alert(t('Validation Error'), t('Title is required.'));
       return;
     }
     if (editNotifyEnabled && !editNotifyAt.trim()) {
-      Alert.alert('Validation Error', 'Notification date is required when reminder is enabled.');
+      Alert.alert(t('Validation Error'), t('Notification date is required when reminder is enabled.'));
       return;
     }
 
@@ -111,10 +113,10 @@ export default function NoteViewScreen() {
       });
       setNote(updated);
       setEditModalVisible(false);
-      showToast('Note updated successfully!', 'success');
+      showToast(t('Note updated successfully!'), 'success');
     } catch (error) {
       console.error('Failed to update note:', error);
-      showToast(extractErrorMessage(error, 'Failed to update note.'), 'error');
+      showToast(extractErrorMessage(error, t('Failed to update note.')), 'error');
     } finally {
       setSaving(false);
     }
@@ -128,10 +130,10 @@ export default function NoteViewScreen() {
         status: nextStatus,
       });
       setNote(updated);
-      showToast(`Status updated to ${nextStatus}.`, 'info');
+      showToast(t('Status updated to :status.', { status: t(nextStatus.toUpperCase()) }), 'info');
     } catch (error) {
       console.error('Failed to change status:', error);
-      showToast(extractErrorMessage(error, 'Failed to change status.'), 'error');
+      showToast(extractErrorMessage(error, t('Failed to change status.')), 'error');
     }
   };
 
@@ -143,16 +145,16 @@ export default function NoteViewScreen() {
   const handleConfirmDelete = async () => {
     if (!note) return;
     const isReminder = note.notify_enabled;
-    const label = isReminder ? 'Reminder' : 'Note';
+    const label = isReminder ? t('Reminder') : t('Note');
     setDeleting(true);
     try {
       await notesApi.delete(note.ulid || note.id);
       setDeleteConfirmVisible(false);
-      showToast(`${label} deleted successfully.`, 'success');
+      showToast(t(':label deleted successfully.', { label }), 'success');
       router.back();
     } catch (error) {
       console.error('Failed to delete note:', error);
-      showToast(extractErrorMessage(error, `Failed to delete ${label.toLowerCase()}.`), 'error');
+      showToast(extractErrorMessage(error, t('Failed to delete :label.', { label })), 'error');
     } finally {
       setDeleting(false);
     }
@@ -161,11 +163,20 @@ export default function NoteViewScreen() {
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return '-';
     const d = new Date(dateStr);
-    return d.toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
+    const localeMap: Record<string, string> = { en: 'en-GB', gu: 'gu-IN', hi: 'hi-IN' };
+    try {
+      return d.toLocaleDateString(localeMap[locale] || 'en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch {
+      return d.toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+    }
   };
 
   const isImageAttachment = (path?: string | null) => {
@@ -207,12 +218,12 @@ export default function NoteViewScreen() {
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={20} color="#334155" />
           </TouchableOpacity>
-          <Text style={styles.topbarTitle}>Loading Details...</Text>
+          <Text style={styles.topbarTitle}>{t('Loading Details...')}</Text>
           <View style={{ width: 38 }} />
         </View>
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Fetching record...</Text>
+          <Text style={styles.loadingText}>{t('Fetching record...')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -226,14 +237,14 @@ export default function NoteViewScreen() {
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={20} color="#334155" />
           </TouchableOpacity>
-          <Text style={styles.topbarTitle}>Record Not Found</Text>
+          <Text style={styles.topbarTitle}>{t('Record Not Found')}</Text>
           <View style={{ width: 38 }} />
         </View>
         <View style={styles.centered}>
           <Ionicons name="alert-circle-outline" size={48} color="#94a3b8" />
-          <Text style={styles.emptyTitle}>Note or Reminder not found</Text>
+          <Text style={styles.emptyTitle}>{t('Note or Reminder not found')}</Text>
           <TouchableOpacity style={styles.backToNotesLink} onPress={() => router.back()}>
-            <Text style={styles.backToNotesText}>Back to Reminders & Notes</Text>
+            <Text style={styles.backToNotesText}>{t('Back to Reminders & Notes')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -252,20 +263,20 @@ export default function NoteViewScreen() {
           style={styles.backButton}
           onPress={() => router.back()}
           activeOpacity={0.7}
-          accessibilityLabel="Back"
+          accessibilityLabel={t('Back')}
         >
           <Ionicons name="arrow-back" size={20} color="#334155" />
         </TouchableOpacity>
 
         <Text style={styles.topbarTitle}>
-          {isReminder ? 'Reminder Details' : 'Note Details'}
+          {isReminder ? t('Reminder Details') : t('Note Details')}
         </Text>
 
         <TouchableOpacity
           style={styles.editButton}
           onPress={handleOpenEdit}
           activeOpacity={0.7}
-          accessibilityLabel="Edit"
+          accessibilityLabel={t('Edit')}
         >
           <Ionicons name="create-outline" size={18} color="#166534" />
         </TouchableOpacity>
@@ -281,7 +292,7 @@ export default function NoteViewScreen() {
         {/* Meta Row: Creator • Date & Status Pill */}
         <View style={styles.metaRow}>
           <Text style={styles.createdInfo}>
-            {note.creator_name || 'Staff'} • {formatDate(note.created_at)}
+            {note.creator_name || t('Staff')} • {formatDate(note.created_at)}
           </Text>
 
           <TouchableOpacity
@@ -294,7 +305,7 @@ export default function NoteViewScreen() {
           >
             <View style={[styles.statusDot, { backgroundColor: statusStyle.text }]} />
             <Text style={[styles.statusBadgeText, { color: statusStyle.text }]}>
-              {effectiveStatus.toUpperCase()}
+              {t(effectiveStatus.toUpperCase())}
             </Text>
             <Ionicons name="chevron-down" size={12} color={statusStyle.text} />
           </TouchableOpacity>
@@ -311,19 +322,19 @@ export default function NoteViewScreen() {
               <Ionicons name="notifications" size={22} color="#b45309" />
             </View>
             <View style={styles.reminderAlertContent}>
-              <Text style={styles.reminderAlertLabel}>SCHEDULED REMINDER</Text>
-              <Text style={styles.reminderAlertValue}>Notify At: {formatDate(note.notify_at)}</Text>
+              <Text style={styles.reminderAlertLabel}>{t('SCHEDULED REMINDER')}</Text>
+              <Text style={styles.reminderAlertValue}>{t('Notify At: :date', { date: formatDate(note.notify_at) })}</Text>
             </View>
           </View>
         )}
 
         {/* Description Card */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>DESCRIPTION</Text>
+          <Text style={styles.cardTitle}>{t('DESCRIPTION')}</Text>
           {note.details ? (
             <Text style={styles.descText}>{note.details}</Text>
           ) : (
-            <Text style={styles.emptyDescText}>No description added.</Text>
+            <Text style={styles.emptyDescText}>{t('No description added.')}</Text>
           )}
 
           {/* Embedded Image Preview */}
@@ -340,7 +351,7 @@ export default function NoteViewScreen() {
               />
               <View style={styles.imagePreviewOverlay}>
                 <Ionicons name="expand" size={14} color="#ffffff" />
-                <Text style={styles.imagePreviewText}>Tap to preview</Text>
+                <Text style={styles.imagePreviewText}>{t('Tap to preview')}</Text>
               </View>
             </TouchableOpacity>
           )}
@@ -349,7 +360,7 @@ export default function NoteViewScreen() {
         {/* File Attachment Card (if not image) */}
         {note.attachment_url && !isImageAttachment(note.attachment_path) && (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>ATTACHMENTS</Text>
+            <Text style={styles.cardTitle}>{t('ATTACHMENTS')}</Text>
             <TouchableOpacity
               style={styles.attachmentRow}
               onPress={() => note.attachment_url && Linking.openURL(note.attachment_url)}
@@ -360,9 +371,9 @@ export default function NoteViewScreen() {
               </View>
               <View style={styles.attachmentInfo}>
                 <Text style={styles.attachmentName} numberOfLines={1}>
-                  {note.attachment_path ? note.attachment_path.split('/').pop() : 'Attached Document'}
+                  {note.attachment_path ? note.attachment_path.split('/').pop() : t('Attached Document')}
                 </Text>
-                <Text style={styles.attachmentMeta}>Document file</Text>
+                <Text style={styles.attachmentMeta}>{t('Document file')}</Text>
               </View>
               <View style={styles.attachmentDownloadBtn}>
                 <Ionicons name="download-outline" size={18} color="#166534" />
@@ -380,7 +391,7 @@ export default function NoteViewScreen() {
           >
             <Ionicons name="create-outline" size={18} color="#ffffff" />
             <Text style={styles.primaryActionBtnText}>
-              {isReminder ? 'Edit Reminder' : 'Edit Note'}
+              {isReminder ? t('Edit Reminder') : t('Edit Note')}
             </Text>
           </TouchableOpacity>
 
@@ -391,7 +402,7 @@ export default function NoteViewScreen() {
           >
             <Ionicons name="trash-outline" size={18} color="#dc2626" />
             <Text style={styles.dangerActionBtnText}>
-              {isReminder ? 'Delete Reminder' : 'Delete Note'}
+              {isReminder ? t('Delete Reminder') : t('Delete Note')}
             </Text>
           </TouchableOpacity>
 
@@ -400,7 +411,7 @@ export default function NoteViewScreen() {
             onPress={() => router.back()}
             activeOpacity={0.7}
           >
-            <Text style={styles.backLinkText}>Back to Reminders & Notes</Text>
+            <Text style={styles.backLinkText}>{t('Back to Reminders & Notes')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -418,7 +429,7 @@ export default function NoteViewScreen() {
           onPress={() => setStatusMenuVisible(false)}
         >
           <View style={styles.statusSheet}>
-            <Text style={styles.statusSheetTitle}>Update Status</Text>
+            <Text style={styles.statusSheetTitle}>{t('Update Status')}</Text>
             {(['active', 'completed', 'overdue', 'inactive'] as NoteReminderStatus[]).map((st) => {
               const itemStyle = getStatusBadgeStyle(st);
               const isSelected = effectiveStatus === st;
@@ -433,7 +444,7 @@ export default function NoteViewScreen() {
                 >
                   <View style={[styles.statusDot, { backgroundColor: itemStyle.text }]} />
                   <Text style={[styles.statusOptionText, { color: itemStyle.text }]}>
-                    {st.toUpperCase()}
+                    {t(st.toUpperCase())}
                   </Text>
                   {isSelected && (
                     <Ionicons name="checkmark" size={18} color={itemStyle.text} style={{ marginLeft: 'auto' }} />
@@ -480,7 +491,7 @@ export default function NoteViewScreen() {
           <View style={styles.editModalCard}>
             <View style={styles.editModalHead}>
               <Text style={styles.editModalTitle}>
-                {editNotifyEnabled ? 'Edit Reminder' : 'Edit Note'}
+                {editNotifyEnabled ? t('Edit Reminder') : t('Edit Note')}
               </Text>
               <TouchableOpacity onPress={() => setEditModalVisible(false)} style={styles.editModalClose}>
                 <Ionicons name="close" size={20} color="#64748b" />
@@ -489,19 +500,19 @@ export default function NoteViewScreen() {
 
             <ScrollView contentContainerStyle={styles.editModalScroll} showsVerticalScrollIndicator={false}>
               <ModernInput
-                label="Title"
+                label={t('Title')}
                 required
                 value={editTitle}
                 onChangeText={setEditTitle}
-                placeholder="e.g. Check irrigation valves"
+                placeholder={t('e.g. Check irrigation valves')}
                 containerStyle={{ marginBottom: spacing.md }}
               />
 
               <ModernInput
-                label="Details & Instructions"
+                label={t('Details & Instructions')}
                 value={editDetails}
                 onChangeText={setEditDetails}
-                placeholder="Write observations, notes or instructions..."
+                placeholder={t('Write observations, notes or instructions...')}
                 multiline
                 numberOfLines={4}
                 containerStyle={{ marginBottom: spacing.md }}
@@ -510,8 +521,8 @@ export default function NoteViewScreen() {
               {/* Reminder Switch */}
               <View style={styles.switchRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.switchLabel}>Enable Reminder</Text>
-                  <Text style={styles.switchSub}>Schedule date for task alert</Text>
+                  <Text style={styles.switchLabel}>{t('Enable Reminder')}</Text>
+                  <Text style={styles.switchSub}>{t('Schedule date for task alert')}</Text>
                 </View>
                 <Switch
                   value={editNotifyEnabled}
@@ -524,7 +535,7 @@ export default function NoteViewScreen() {
               {editNotifyEnabled && (
                 <View style={styles.notifyBlock}>
                   <ModernDatePicker
-                    label="Notify At"
+                    label={t('Notify At')}
                     required
                     value={editNotifyAt}
                     onChange={setEditNotifyAt}
@@ -533,7 +544,7 @@ export default function NoteViewScreen() {
               )}
 
               {/* Status Picker */}
-              <Text style={styles.inputLabel}>Status</Text>
+              <Text style={styles.inputLabel}>{t('Status')}</Text>
               <View style={styles.statusChipsRow}>
                 {(['active', 'completed', 'overdue', 'inactive'] as NoteReminderStatus[]).map((st) => (
                   <TouchableOpacity
@@ -550,7 +561,7 @@ export default function NoteViewScreen() {
                         editStatus === st && styles.statusChipActiveText,
                       ]}
                     >
-                      {st.toUpperCase()}
+                      {t(st.toUpperCase())}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -559,7 +570,7 @@ export default function NoteViewScreen() {
               {/* Attachment Picker */}
               <View style={{ marginTop: 12 }}>
                 <AttachmentPicker
-                  label="Attachment (Photo / Document)"
+                  label={t('Attachment (Photo / Document)')}
                   category="note-reminders"
                   currentPath={editAttachmentPath}
                   currentUrl={editAttachmentUrl}
@@ -576,7 +587,7 @@ export default function NoteViewScreen() {
                   style={styles.modalCancelBtn}
                   onPress={() => setEditModalVisible(false)}
                 >
-                  <Text style={styles.modalCancelText}>Cancel</Text>
+                  <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -587,7 +598,7 @@ export default function NoteViewScreen() {
                   {saving ? (
                     <ActivityIndicator size="small" color="#ffffff" />
                   ) : (
-                    <Text style={styles.modalSaveText}>Update</Text>
+                    <Text style={styles.modalSaveText}>{t('Update')}</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -598,9 +609,10 @@ export default function NoteViewScreen() {
 
       <ConfirmModal
         visible={deleteConfirmVisible}
-        title={`Delete ${note?.notify_enabled ? 'Reminder' : 'Note'}`}
-        message={`Are you sure you want to delete this ${note?.notify_enabled ? 'reminder' : 'note'}? This action cannot be undone.`}
-        confirmText="Delete"
+        title={t('Delete :label', { label: note?.notify_enabled ? t('Reminder') : t('Note') })}
+        message={t('Are you sure you want to delete this :label? This action cannot be undone.', { label: note?.notify_enabled ? t('reminder') : t('note') })}
+        confirmText={t('Delete')}
+        cancelText={t('Cancel')}
         destructive
         loading={deleting}
         onConfirm={handleConfirmDelete}

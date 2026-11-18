@@ -27,16 +27,18 @@ import {
   ChipOption,
   EmptyState,
 } from '../src/components/ui';
-
-const PRICE_UNIT_OPTIONS: ChipOption<'quintal' | 'kg'>[] = [
-  { label: '₹/Qtl', value: 'quintal' },
-  { label: '₹/Kg', value: 'kg' },
-];
+import { useTranslation } from '../src/i18n/I18nContext';
 
 export default function MandiPricesScreen() {
+  const { t, locale } = useTranslation();
   const [prices, setPrices] = useState<DailyCropPrice[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  const priceUnitOptions: ChipOption<'quintal' | 'kg'>[] = useMemo(() => [
+    { label: t('₹/Qtl'), value: 'quintal' },
+    { label: t('₹/Kg'), value: 'kg' },
+  ], [t]);
 
   // Filters
   const [search, setSearch] = useState('');
@@ -145,7 +147,8 @@ export default function MandiPricesScreen() {
     let arrivalDate = item.arrival_date;
     try {
       const d = new Date(item.arrival_date);
-      arrivalDate = d.toLocaleDateString(undefined, {
+      const localeMap: Record<string, string> = { en: 'en-GB', gu: 'gu-IN', hi: 'hi-IN' };
+      arrivalDate = d.toLocaleDateString(localeMap[locale] || 'en-GB', {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
@@ -171,24 +174,24 @@ export default function MandiPricesScreen() {
           </View>
 
           <View style={styles.modalPriceContainer}>
-            <Text style={styles.modalPriceLabel}>MODAL RATE</Text>
+            <Text style={styles.modalPriceLabel}>{t('MODAL RATE')}</Text>
             <Text style={styles.modalPriceValue}>{formatPrice(item.modal_price)}</Text>
           </View>
         </View>
 
         <View style={styles.detailsRow}>
           <View style={styles.detailCol}>
-            <Text style={styles.detailLabel}>MIN PRICE</Text>
+            <Text style={styles.detailLabel}>{t('MIN PRICE')}</Text>
             <Text style={styles.detailVal}>{formatPrice(item.min_price)}</Text>
           </View>
           <View style={styles.detailDivider} />
           <View style={styles.detailCol}>
-            <Text style={styles.detailLabel}>MAX PRICE</Text>
+            <Text style={styles.detailLabel}>{t('MAX PRICE')}</Text>
             <Text style={styles.detailVal}>{formatPrice(item.max_price)}</Text>
           </View>
           <View style={styles.detailDivider} />
           <View style={styles.detailCol}>
-            <Text style={styles.detailLabel}>ARRIVAL DATE</Text>
+            <Text style={styles.detailLabel}>{t('ARRIVAL DATE')}</Text>
             <Text style={styles.detailVal}>{arrivalDate}</Text>
           </View>
         </View>
@@ -197,14 +200,14 @@ export default function MandiPricesScreen() {
           <View style={styles.tagsRow}>
             {item.variety && (
               <StatusBadge
-                label={`Variety: ${item.variety}`}
+                label={t('Variety: :variety', { variety: item.variety })}
                 variant="info"
                 dot={false}
               />
             )}
             {item.grade && (
               <StatusBadge
-                label={`Grade: ${item.grade}`}
+                label={t('Grade: :grade', { grade: item.grade })}
                 variant="warning"
                 dot={false}
               />
@@ -225,21 +228,22 @@ export default function MandiPricesScreen() {
           onPress={() => router.back()}
           style={styles.backButton}
           activeOpacity={0.7}
+          accessibilityLabel={t('Back')}
         >
           <Ionicons name="arrow-back" size={22} color={colors.slate800} />
         </TouchableOpacity>
 
         <View style={styles.headerTitleWrap}>
-          <Text style={styles.headerTitle}>Daily Mandi Prices</Text>
+          <Text style={styles.headerTitle}>{t('Daily Mandi Prices')}</Text>
           <View style={styles.liveTag}>
             <View style={styles.liveDot} />
-            <Text style={styles.liveTagText}>APMC Live</Text>
+            <Text style={styles.liveTagText}>{t('APMC Live')}</Text>
           </View>
         </View>
 
         <View style={styles.unitToggleWrap}>
           <QuickChipGroup
-            options={PRICE_UNIT_OPTIONS}
+            options={priceUnitOptions}
             selectedValue={priceUnit}
             onSelect={(val) => setPriceUnit(val)}
             size="sm"
@@ -252,7 +256,7 @@ export default function MandiPricesScreen() {
         <SearchFilterBar
           query={search}
           onChangeQuery={setSearch}
-          placeholder="Search crop or mandi..."
+          placeholder={t('Search crop or mandi...')}
         />
 
         <View style={styles.filterBar}>
@@ -275,7 +279,7 @@ export default function MandiPricesScreen() {
                 selectedDistrict !== 'all' && styles.filterChipTextActive,
               ]}
             >
-              {selectedDistrict === 'all' ? 'All Districts' : selectedDistrict}
+              {selectedDistrict === 'all' ? t('All Districts') : selectedDistrict}
             </Text>
             <Ionicons
               name="chevron-down"
@@ -290,12 +294,14 @@ export default function MandiPricesScreen() {
               onPress={() => setSelectedDistrict('all')}
               activeOpacity={0.7}
             >
-              <Text style={styles.clearChipText}>Reset Filter</Text>
+              <Text style={styles.clearChipText}>{t('Reset Filter')}</Text>
             </TouchableOpacity>
           )}
 
           <Text style={styles.resultsCount}>
-            {prices.length} {prices.length === 1 ? 'quote' : 'quotes'}
+            {prices.length === 1
+              ? t(':count quote', { count: prices.length })
+              : t(':count quotes', { count: prices.length })}
           </Text>
         </View>
       </View>
@@ -304,7 +310,7 @@ export default function MandiPricesScreen() {
       {loading && !refreshing ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Fetching government mandi prices...</Text>
+          <Text style={styles.loadingText}>{t('Fetching government mandi prices...')}</Text>
         </View>
       ) : (
         <FlatList
@@ -324,14 +330,14 @@ export default function MandiPricesScreen() {
           ListEmptyComponent={
             <EmptyState
               icon="pricetags-outline"
-              title="No Mandi Prices Found"
+              title={t('No Mandi Prices Found')}
               message={
                 search || selectedDistrict !== 'all'
-                  ? 'No market records match your search or selected district.'
-                  : 'Daily government mandi arrivals and rates will appear here.'
+                  ? t('No market records match your search or selected district.')
+                  : t('Daily government mandi arrivals and rates will appear here.')
               }
               secondaryActionLabel={
-                search || selectedDistrict !== 'all' ? 'Reset Filters' : undefined
+                search || selectedDistrict !== 'all' ? t('Reset Filters') : undefined
               }
               onSecondaryAction={() => {
                 setSearch('');
@@ -349,9 +355,11 @@ export default function MandiPricesScreen() {
             <View style={styles.sheetHandle} />
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalTitle}>Select Mandi District</Text>
+                <Text style={styles.modalTitle}>{t('Select Mandi District')}</Text>
                 <Text style={styles.modalSubtitle}>
-                  {filteredDistricts.length} {filteredDistricts.length === 1 ? 'district' : 'districts'} available
+                  {filteredDistricts.length === 1
+                    ? t(':count district available', { count: filteredDistricts.length })
+                    : t(':count districts available', { count: filteredDistricts.length })}
                 </Text>
               </View>
               <TouchableOpacity
@@ -371,7 +379,7 @@ export default function MandiPricesScreen() {
               <Ionicons name="search-outline" size={16} color={colors.slate400} />
               <TextInput
                 style={styles.modalSearchInput}
-                placeholder="Search district name..."
+                placeholder={t('Search district name...')}
                 placeholderTextColor={colors.slate400}
                 value={districtSearch}
                 onChangeText={setDistrictSearch}
@@ -412,7 +420,7 @@ export default function MandiPricesScreen() {
                       selectedDistrict === item && styles.modalItemTextSelected,
                     ]}
                   >
-                    {item === 'all' ? 'All Districts' : item}
+                    {item === 'all' ? t('All Districts') : item}
                   </Text>
                   {selectedDistrict === item && (
                     <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
@@ -422,7 +430,9 @@ export default function MandiPricesScreen() {
               ListEmptyComponent={
                 <View style={styles.modalEmptyWrap}>
                   <Ionicons name="location-outline" size={28} color={colors.slate300} />
-                  <Text style={styles.modalEmptyText}>No districts matching "{districtSearch}"</Text>
+                  <Text style={styles.modalEmptyText}>
+                    {t('No districts matching ":query"', { query: districtSearch })}
+                  </Text>
                 </View>
               }
             />

@@ -451,7 +451,7 @@ export default function ExpensesScreen() {
             activeOpacity={0.7}
           >
             <Ionicons name="eye-outline" size={15} color={colors.slate800} />
-            <Text style={styles.actionBtnTextView}>Details</Text>
+            <Text style={styles.actionBtnTextView}>{t('Details')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -460,7 +460,7 @@ export default function ExpensesScreen() {
             activeOpacity={0.7}
           >
             <Ionicons name="create-outline" size={15} color={colors.white} />
-            <Text style={styles.actionBtnTextManage}>Edit Expense</Text>
+            <Text style={styles.actionBtnTextManage}>{t('Edit Expense')}</Text>
           </TouchableOpacity>
         </View>
       </BentoCard>
@@ -471,7 +471,7 @@ export default function ExpensesScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Loading farm expenses...</Text>
+        <Text style={styles.loadingText}>{t('Loading farm expenses...')}</Text>
       </View>
     );
   }
@@ -610,7 +610,7 @@ export default function ExpensesScreen() {
               contentContainerStyle={{ paddingBottom: 24 }}
             >
               <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>Record Farm Expense</Text>
+                <Text style={styles.modalTitle}>{t('Record Farm Expense')}</Text>
                 <TouchableOpacity onPress={() => setCreateModalVisible(false)}>
                   <Ionicons name="close" size={22} color={colors.slate600} />
                 </TouchableOpacity>
@@ -618,10 +618,10 @@ export default function ExpensesScreen() {
 
               {/* Farm Selector */}
               <SearchableSelect
-                label="Associate Farm"
+                label={t('Associate Farm')}
                 required
-                placeholder="Select Farm"
-                searchPlaceholder="Search active farms..."
+                placeholder={t('Select Farm')}
+                searchPlaceholder={t('Search active farms...')}
                 items={activeFarms.map((f) => ({
                   value: (f.ulid || f.id!).toString(),
                   label: f.name,
@@ -633,16 +633,16 @@ export default function ExpensesScreen() {
                   setFarmId(val);
                   setCropCycleId('');
                 }}
-                emptyMessage="No active farms found"
+                emptyMessage={t('No active farms found')}
               />
 
               {/* Crop Cycle Selector (Optional) */}
               <SearchableSelect
-                label="Crop Cycle (Optional)"
+                label={t('Crop Cycle (Optional)')}
                 allowClear
-                clearLabel="None / General Farm Expense"
-                placeholder="None / General Farm Expense"
-                searchPlaceholder="Search crop cycles..."
+                clearLabel={t('None / General Farm Expense')}
+                placeholder={t('None / General Farm Expense')}
+                searchPlaceholder={t('Search crop cycles...')}
                 items={filteredCycles.map((c) => ({
                   value: (c.ulid || c.id!).toString(),
                   label: `${c.crop_name || c.crop_type} (${c.season_name || 'Current'})`,
@@ -650,14 +650,14 @@ export default function ExpensesScreen() {
                 }))}
                 value={cropCycleId || null}
                 onSelect={(val) => setCropCycleId(val || '')}
-                emptyMessage={farmId ? "No active crop cycles found for this farm" : "Select a farm first"}
+                emptyMessage={farmId ? t('No active crop cycles found for this farm') : t('Select a farm first')}
               />
 
               <Text style={[styles.inputLabel, { marginTop: spacing.sm }]}>
-                Expense Category <Text style={{ color: colors.danger }}>*</Text>
+                {t('Expense Category')} <Text style={{ color: colors.danger }}>*</Text>
               </Text>
               <QuickChipGroup
-                options={CATEGORIES.map((c) => ({ label: c, value: c }))}
+                options={CATEGORIES.map((c) => ({ label: t(c), value: c }))}
                 selectedValue={expenseCategory}
                 onSelect={(val) => setExpenseCategory(val)}
                 scrollable
@@ -665,7 +665,7 @@ export default function ExpensesScreen() {
               />
 
               <ModernInput
-                label={t('Amount') || 'Amount'}
+                label={t('Amount')}
                 required
                 prefix="₹"
                 placeholder="0.00"
@@ -677,8 +677,8 @@ export default function ExpensesScreen() {
 
               <View style={styles.switchRow}>
                 <View style={{ flex: 1, marginRight: 12 }}>
-                  <Text style={styles.switchTitle}>Paid</Text>
-                  <Text style={styles.switchSubtitle}>Toggle off if payment is pending or unpaid</Text>
+                  <Text style={styles.switchTitle}>{t('Paid')}</Text>
+                  <Text style={styles.switchSubtitle}>{t('Toggle off if payment is pending or unpaid')}</Text>
                 </View>
                 <Switch
                   value={expenseIsPaid}
@@ -690,9 +690,9 @@ export default function ExpensesScreen() {
 
               {expenseIsPaid && (
                 <>
-                  <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Payment Method</Text>
+                  <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>{t('Payment Method')}</Text>
                   <QuickChipGroup
-                    options={PAYMENT_METHODS}
+                    options={PAYMENT_METHODS.map((m) => ({ label: t(m.label), value: m.value }))}
                     selectedValue={paymentMethod}
                     onSelect={(val) => setPaymentMethod(val)}
                     size="sm"
@@ -701,15 +701,15 @@ export default function ExpensesScreen() {
               )}
 
               <ModernDatePicker
-                label="Date"
+                label={t('Date')}
                 value={date}
                 onChange={setDate}
                 containerStyle={{ marginTop: spacing.md }}
               />
 
               <ModernInput
-                label="Notes (Optional)"
-                placeholder="Receipt details, vendor info..."
+                label={t('Notes (Optional)')}
+                placeholder={t('Receipt details, vendor info...')}
                 value={notes}
                 onChangeText={setNotes}
                 multiline
@@ -723,7 +723,7 @@ export default function ExpensesScreen() {
                   onPress={() => setCreateModalVisible(false)}
                   disabled={saving}
                 >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -734,7 +734,7 @@ export default function ExpensesScreen() {
                   {saving ? (
                     <ActivityIndicator color={colors.white} />
                   ) : (
-                    <Text style={styles.saveBtnText}>Record Expense</Text>
+                    <Text style={styles.saveBtnText}>{t('Record Expense')}</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -828,8 +828,8 @@ export default function ExpensesScreen() {
 
                   <View style={styles.switchRow}>
                     <View style={{ flex: 1, marginRight: 12 }}>
-                      <Text style={styles.switchTitle}>Paid</Text>
-                      <Text style={styles.switchSubtitle}>Toggle off if payment is pending or unpaid</Text>
+                      <Text style={styles.switchTitle}>{t('Paid')}</Text>
+                      <Text style={styles.switchSubtitle}>{t('Toggle off if payment is pending or unpaid')}</Text>
                     </View>
                     <Switch
                       value={editIsPaid}
@@ -841,9 +841,9 @@ export default function ExpensesScreen() {
 
                   {editIsPaid && (
                     <>
-                      <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Payment Method</Text>
+                      <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>{t('Payment Method')}</Text>
                       <QuickChipGroup
-                        options={PAYMENT_METHODS}
+                        options={PAYMENT_METHODS.map((m) => ({ label: t(m.label), value: m.value }))}
                         selectedValue={editPaymentMethod}
                         onSelect={(val) => setEditPaymentMethod(val)}
                         size="sm"
@@ -852,14 +852,14 @@ export default function ExpensesScreen() {
                   )}
 
                   <ModernDatePicker
-                    label="Date"
+                    label={t('Date')}
                     value={editDate}
                     onChange={setEditDate}
                     containerStyle={{ marginTop: spacing.md }}
                   />
 
                   <ModernInput
-                    label="Notes"
+                    label={t('Notes')}
                     value={editNotes}
                     onChangeText={setEditNotes}
                     multiline
@@ -873,7 +873,7 @@ export default function ExpensesScreen() {
                       onPress={() => setIsEditing(false)}
                       disabled={updating}
                     >
-                      <Text style={styles.cancelBtnText}>Back to View</Text>
+                      <Text style={styles.cancelBtnText}>{t('Back to View')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -884,7 +884,7 @@ export default function ExpensesScreen() {
                       {updating ? (
                         <ActivityIndicator color={colors.white} />
                       ) : (
-                        <Text style={styles.saveBtnText}>Save</Text>
+                        <Text style={styles.saveBtnText}>{t('Save')}</Text>
                       )}
                     </TouchableOpacity>
                   </View>
@@ -893,42 +893,42 @@ export default function ExpensesScreen() {
                 <View style={styles.detailsView}>
                   <View style={styles.detailCard}>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Category:</Text>
+                      <Text style={styles.detailLabel}>{t('Category:')}</Text>
                       <Text style={styles.detailValue}>
                         {selectedExpense?.expense_category}
                       </Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Amount:</Text>
+                      <Text style={styles.detailLabel}>{t('Amount:')}</Text>
                       <Text style={[styles.detailValue, { color: colors.primary, fontSize: 16 }]}>
                         ₹{parseFloat(selectedExpense?.amount as string || '0').toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Status:</Text>
+                      <Text style={styles.detailLabel}>{t('Status:')}</Text>
                       <StatusBadge
-                        label={isPaid(selectedExpense?.payment_status) ? 'PAID' : 'UNPAID'}
+                        label={isPaid(selectedExpense?.payment_status) ? t('PAID') : t('UNPAID')}
                         variant={isPaid(selectedExpense?.payment_status) ? 'success' : 'danger'}
                         dot={isPaid(selectedExpense?.payment_status)}
                       />
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Farm:</Text>
+                      <Text style={styles.detailLabel}>{t('Farm:')}</Text>
                       <Text style={styles.detailValue}>
                         {farms.find(
                           (f) =>
                             f.ulid === selectedExpense?.farm_id || f.id === selectedExpense?.farm_id
-                        )?.name || 'General Farm'}
+                        )?.name || t('General Farm')}
                       </Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Payment Method:</Text>
+                      <Text style={styles.detailLabel}>{t('Payment Method:')}</Text>
                       <Text style={styles.detailValue}>
-                        {selectedExpense?.payment_method}
+                        {selectedExpense?.payment_method ? t(selectedExpense.payment_method) : '-'}
                       </Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Date:</Text>
+                      <Text style={styles.detailLabel}>{t('Date:')}</Text>
                       <Text style={styles.detailValue}>
                         {selectedExpense?.date ? selectedExpense.date.split('T')[0] : 'N/A'}
                       </Text>
@@ -936,7 +936,7 @@ export default function ExpensesScreen() {
 
                     {selectedExpense?.notes ? (
                       <View style={{ marginTop: 8 }}>
-                        <Text style={[styles.detailLabel, { marginBottom: 4 }]}>Notes:</Text>
+                        <Text style={[styles.detailLabel, { marginBottom: 4 }]}>{t('Notes:')}</Text>
                         <Text style={[styles.detailValue, { fontWeight: 'normal', color: colors.slate600 }]}>
                           {selectedExpense.notes}
                         </Text>
@@ -949,13 +949,13 @@ export default function ExpensesScreen() {
                       style={[styles.modalBtn, styles.deleteBtn]}
                       onPress={() => selectedExpense && handleDeleteExpense(selectedExpense)}
                     >
-                      <Text style={styles.deleteBtnText}>Delete</Text>
+                      <Text style={styles.deleteBtnText}>{t('Delete')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.modalBtn, styles.saveBtn]}
                       onPress={() => selectedExpense && setIsEditing(true)}
                     >
-                      <Text style={styles.saveBtnText}>Edit Details</Text>
+                      <Text style={styles.saveBtnText}>{t('Edit Details')}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>

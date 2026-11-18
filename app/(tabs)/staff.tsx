@@ -520,7 +520,7 @@ export default function StaffScreen() {
               activeOpacity={0.7}
             >
               <Ionicons name="card-outline" size={13} color="#334155" />
-              <Text style={styles.pwaPaymentBtnText}>Payment</Text>
+              <Text style={styles.pwaPaymentBtnText}>{t('Payment')}</Text>
             </TouchableOpacity>
           ) : null}
 
@@ -530,7 +530,7 @@ export default function StaffScreen() {
             activeOpacity={0.7}
           >
             <Ionicons name="eye-outline" size={14} color="#166534" />
-            <Text style={styles.pwaViewBtnText}>View</Text>
+            <Text style={styles.pwaViewBtnText}>{t('View')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1409,7 +1409,7 @@ export default function StaffScreen() {
             containerStyle={{ marginBottom: spacing.md }}
           />
 
-          <Text style={styles.inputLabel}>Staff Role</Text>
+          <Text style={styles.inputLabel}>{t('Staff Role')}</Text>
           <QuickChipGroup
             options={ROLE_OPTIONS}
             selectedValue={newStaffRole}
@@ -1431,7 +1431,7 @@ export default function StaffScreen() {
           {newStaffRole === 'Owner' ? (
             <View style={styles.roleInfoBox}>
               <Ionicons name="information-circle-outline" size={16} color="#1e40af" />
-              <Text style={styles.roleInfoText}>Owners automatically have full access to all farms.</Text>
+              <Text style={styles.roleInfoText}>{t('Owners automatically have full access to all farms.')}</Text>
             </View>
           ) : newStaffRole === 'Worker' ? (
             <SearchableSelect
@@ -1536,7 +1536,7 @@ export default function StaffScreen() {
               disabled={savingStaff}
               activeOpacity={0.7}
             >
-              <Text style={styles.cancelBtnText}>Cancel</Text>
+              <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1548,7 +1548,7 @@ export default function StaffScreen() {
               {savingStaff ? (
                 <ActivityIndicator color={colors.white} />
               ) : (
-                <Text style={styles.saveBtnText}>Save Staff</Text>
+                <Text style={styles.saveBtnText}>{t('Save Staff')}</Text>
               )}
             </TouchableOpacity>
           </View>

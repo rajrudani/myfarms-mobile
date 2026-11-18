@@ -16,8 +16,10 @@ import { router } from 'expo-router';
 import { dashboardApi } from '../src/api/dashboard';
 import { DashboardSearchCategory, DashboardSearchResultItem } from '../src/types';
 import { colors, radius, spacing, typography } from '../src/theme/tokens';
+import { useTranslation } from '../src/i18n/I18nContext';
 
 export default function SearchScreen() {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<DashboardSearchCategory[]>([]);
@@ -138,7 +140,7 @@ export default function SearchScreen() {
           style={styles.backButton}
           onPress={() => router.back()}
           activeOpacity={0.7}
-          accessibilityLabel="Back"
+          accessibilityLabel={t('Back')}
         >
           <Ionicons name="arrow-back" size={20} color="#334155" />
         </TouchableOpacity>
@@ -147,7 +149,7 @@ export default function SearchScreen() {
           <Ionicons name="search-outline" size={18} color="#64748b" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search farms, sales, purchases, staff..."
+            placeholder={t('Search farms, sales, purchases, staff...')}
             placeholderTextColor="#94a3b8"
             value={query}
             onChangeText={setQuery}
@@ -172,16 +174,16 @@ export default function SearchScreen() {
         {loading ? (
           <View style={styles.centered}>
             <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={styles.loadingText}>Searching...</Text>
+            <Text style={styles.loadingText}>{t('Searching...')}</Text>
           </View>
         ) : query.trim().length < 2 ? (
           <View style={styles.emptyState}>
             <View style={styles.emptyIconBox}>
               <Ionicons name="search" size={28} color="#94a3b8" />
             </View>
-            <Text style={styles.emptyTitle}>Global Search</Text>
+            <Text style={styles.emptyTitle}>{t('Global Search')}</Text>
             <Text style={styles.emptySubtitle}>
-              Type at least 2 characters to search across farms, sales, purchases, staff, notes & visits.
+              {t('Type at least 2 characters to search across farms, sales, purchases, staff, notes & visits.')}
             </Text>
           </View>
         ) : categories.length === 0 && hasSearched ? (
@@ -189,9 +191,9 @@ export default function SearchScreen() {
             <View style={styles.emptyIconBox}>
               <Ionicons name="alert-circle-outline" size={28} color="#94a3b8" />
             </View>
-            <Text style={styles.emptyTitle}>No results found</Text>
+            <Text style={styles.emptyTitle}>{t('No results found')}</Text>
             <Text style={styles.emptySubtitle}>
-              No matching records found for "{query}". Try a different keyword or check spelling.
+              {t('No matching records found for ":query". Try a different keyword or check spelling.', { query })}
             </Text>
           </View>
         ) : (
@@ -202,7 +204,7 @@ export default function SearchScreen() {
                   <View style={styles.categoryIconWrap}>
                     <Ionicons name={getCategoryIcon(category.icon)} size={16} color={colors.primary} />
                   </View>
-                  <Text style={styles.categoryTitle}>{category.label}</Text>
+                  <Text style={styles.categoryTitle}>{t(category.label)}</Text>
                   <View style={styles.categoryCountBadge}>
                     <Text style={styles.categoryCountText}>{category.items.length}</Text>
                   </View>
@@ -240,7 +242,7 @@ export default function SearchScreen() {
                               item.status_color === 'danger' && styles.statusDangerText,
                             ]}
                           >
-                            {item.status_label}
+                            {t(item.status_label)}
                           </Text>
                         </View>
                       )}

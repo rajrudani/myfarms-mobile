@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, shadows } from '../../theme/tokens';
+import { useTranslation } from '../../i18n/I18nContext';
 
 export interface ConfirmModalProps {
   visible: boolean;
@@ -45,10 +46,11 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   icon,
   loading = false,
 }) => {
+  const { t } = useTranslation();
   const [internalLoading, setInternalLoading] = useState(false);
   const handleClose = onCancel || onClose || (() => {});
-  const resolvedConfirmLabel = confirmLabel || confirmText || 'Confirm';
-  const resolvedCancelLabel = cancelLabel || cancelText || 'Cancel';
+  const resolvedConfirmLabel = confirmLabel || confirmText || t('Confirm');
+  const resolvedCancelLabel = cancelLabel || cancelText || t('Cancel');
   const effectiveVariant: 'danger' | 'warning' | 'primary' = variant || (destructive ? 'danger' : 'danger');
 
   const getVariantStyles = () => {
@@ -144,7 +146,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                     <ActivityIndicator size="small" color={colors.white} />
                   ) : (
                     <Text style={[styles.confirmBtnText, { color: v.btnText }]}>
-                      {resolvedConfirmLabel}
+                      {t(resolvedConfirmLabel)}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -155,7 +157,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                   disabled={isLoading}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.cancelBtnText}>{resolvedCancelLabel}</Text>
+                  <Text style={styles.cancelBtnText}>{t(resolvedCancelLabel)}</Text>
                 </TouchableOpacity>
               </View>
             </View>

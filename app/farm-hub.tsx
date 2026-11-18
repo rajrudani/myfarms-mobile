@@ -1747,29 +1747,29 @@ export default function FarmHubScreen() {
 
                     <View style={styles.infoRow}>
                       <View style={styles.infoCol}>
-                        <Text style={styles.infoLabel}>START</Text>
+                        <Text style={styles.infoLabel}>{t('START')}</Text>
                         <Text style={styles.infoValue}>
                           {item.started_on ? formatDisplayDate(item.started_on) : 'N/A'}
                         </Text>
                       </View>
                       
                       <View style={styles.infoCol}>
-                        <Text style={styles.infoLabel}>AREA</Text>
+                        <Text style={styles.infoLabel}>{t('AREA')}</Text>
                         <Text style={styles.infoValue}>
-                          {parseFloat(item.allocated_area as string).toFixed(2)} {item.allocated_area_unit.toLowerCase() === 'acre' ? 'Acre' : item.allocated_area_unit}
+                          {parseFloat(item.allocated_area as string).toFixed(2)} {item.allocated_area_unit.toLowerCase() === 'acre' ? t('Acre') : item.allocated_area_unit}
                         </Text>
                       </View>
 
                       {item.actual_harvest_on ? (
                         <View style={styles.infoCol}>
-                          <Text style={styles.infoLabel}>HARVESTED</Text>
+                          <Text style={styles.infoLabel}>{t('HARVESTED')}</Text>
                           <Text style={styles.infoValue}>
                             {formatDisplayDate(item.actual_harvest_on)}
                           </Text>
                         </View>
                       ) : item.expected_harvest_on ? (
                         <View style={styles.infoCol}>
-                          <Text style={styles.infoLabel}>EXPECTED</Text>
+                          <Text style={styles.infoLabel}>{t('EXPECTED')}</Text>
                           <Text style={styles.infoValue}>
                             {formatDisplayDate(item.expected_harvest_on)}
                           </Text>
@@ -2090,12 +2090,12 @@ export default function FarmHubScreen() {
             {loadingMoreActivities && (
               <View style={{ paddingVertical: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}>
                 <ActivityIndicator size="small" color="#16a34a" />
-                <Text style={{ marginLeft: 8, fontSize: 13, color: '#64748b', fontWeight: '500' }}>Loading more activities...</Text>
+                <Text style={{ marginLeft: 8, fontSize: 13, color: '#64748b', fontWeight: '500' }}>{t('Loading more activities...')}</Text>
               </View>
             )}
             {!loadingActivities && !loadingMoreActivities && !hasMoreActivities && activities.length > 0 && (
               <View style={{ paddingVertical: 14, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>All activities loaded</Text>
+                <Text style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>{t('All activities loaded')}</Text>
               </View>
             )}
           </View>
@@ -2339,12 +2339,12 @@ export default function FarmHubScreen() {
             {loadingMoreExpenses && (
               <View style={{ paddingVertical: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}>
                 <ActivityIndicator size="small" color="#16a34a" />
-                <Text style={{ marginLeft: 8, fontSize: 13, color: '#64748b', fontWeight: '500' }}>Loading more expenses...</Text>
+                <Text style={{ marginLeft: 8, fontSize: 13, color: '#64748b', fontWeight: '500' }}>{t('Loading more expenses...')}</Text>
               </View>
             )}
             {!loadingExpenses && !loadingMoreExpenses && !hasMoreExpenses && expenses.length > 0 && (
               <View style={{ paddingVertical: 14, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>All expenses loaded</Text>
+                <Text style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>{t('All expenses loaded')}</Text>
               </View>
             )}
           </View>
@@ -3236,7 +3236,7 @@ export default function FarmHubScreen() {
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.modalHeaderRow}>
                 <Text style={styles.modalTitle}>
-                  {isEditingExpense ? 'Manage Expense' : 'Expense Details'}
+                  {isEditingExpense ? t('Manage Expense') : t('Expense Details')}
                 </Text>
                 <TouchableOpacity onPress={() => setExpenseDetailVisible(false)}>
                   <Ionicons name="close" size={20} color="#64748b" />
@@ -3246,11 +3246,11 @@ export default function FarmHubScreen() {
               {isEditingExpense ? (
                 <View>
                   <SearchableSelect
-                    label="Associate Crop Cycle (Optional)"
+                    label={t('Associate Crop Cycle (Optional)')}
                     allowClear
-                    clearLabel="None (General Farm Expense)"
-                    placeholder="None (General Farm Expense)"
-                    searchPlaceholder="Search crop cycles..."
+                    clearLabel={t('None (General Farm Expense)')}
+                    placeholder={t('None (General Farm Expense)')}
+                    searchPlaceholder={t('Search crop cycles...')}
                     items={cycles.map((c) => ({
                       value: (c.ulid || c.id!).toString(),
                       label: `${c.crop_name || c.crop_type} (${c.season_name})`,
@@ -3262,12 +3262,12 @@ export default function FarmHubScreen() {
                   />
 
                   <SearchableSelect
-                    label="Expense Category"
-                    placeholder="Select Category"
-                    searchPlaceholder="Search categories..."
+                    label={t('Expense Category')}
+                    placeholder={t('Select Category')}
+                    searchPlaceholder={t('Search categories...')}
                     items={categories.map((cat) => ({
                       value: cat,
-                      label: cat,
+                      label: t(cat),
                       icon: 'pricetag-outline',
                     }))}
                     value={editExpenseCategory}
@@ -3275,7 +3275,7 @@ export default function FarmHubScreen() {
                     containerStyle={{ marginBottom: 12 }}
                   />
 
-                  <Text style={styles.inputLabel}>Amount (₹)</Text>
+                  <Text style={styles.inputLabel}>{t('Amount (₹)')}</Text>
                   <TextInput
                     style={styles.input}
                     value={editExpenseAmount}
@@ -3283,7 +3283,7 @@ export default function FarmHubScreen() {
                     keyboardType="decimal-pad"
                   />
 
-                  <Text style={styles.inputLabel}>Payment Method</Text>
+                  <Text style={styles.inputLabel}>{t('Payment Method')}</Text>
                   <View style={styles.tabSelector}>
                     {['Cash', 'Bank', 'Card'].map((method) => (
                       <TouchableOpacity
@@ -3291,12 +3291,12 @@ export default function FarmHubScreen() {
                         style={[styles.tabBtn, editPaymentMethod === method && styles.tabBtnSelected]}
                         onPress={() => setEditPaymentMethod(method)}
                       >
-                        <Text style={[styles.tabBtnText, editPaymentMethod === method && styles.tabBtnTextSelected]}>{method}</Text>
+                        <Text style={[styles.tabBtnText, editPaymentMethod === method && styles.tabBtnTextSelected]}>{t(method)}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
 
-                  <Text style={styles.inputLabel}>Payment Status</Text>
+                  <Text style={styles.inputLabel}>{t('Payment Status')}</Text>
                   <View style={styles.tabSelector}>
                     {['PAID', 'UNPAID'].map((status) => (
                       <TouchableOpacity
@@ -3304,28 +3304,28 @@ export default function FarmHubScreen() {
                         style={[styles.tabBtn, editPaymentStatus === status && (status === 'PAID' ? styles.tabPaidSelected : styles.tabUnpaidSelected)]}
                         onPress={() => setEditPaymentStatus(status)}
                       >
-                        <Text style={[styles.tabBtnText, editPaymentStatus === status && styles.tabBtnTextSelected]}>{status}</Text>
+                        <Text style={[styles.tabBtnText, editPaymentStatus === status && styles.tabBtnTextSelected]}>{t(status)}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
 
-                  <Text style={styles.inputLabel}>Expense Date</Text>
+                  <Text style={styles.inputLabel}>{t('Expense Date')}</Text>
                   <TouchableOpacity 
                     style={styles.selectorRow} 
                     onPress={() => {
                       setCalendarTarget('editExpense');
-                      setCalendarTitle('Select Expense Date');
+                      setCalendarTitle(t('Select Expense Date'));
                       setCalendarVisible(true);
                     }}
                     activeOpacity={0.7}
                   >
                     <Text style={[styles.selectorText, editExpenseDate ? styles.selectorTextSelected : null]}>
-                      {editExpenseDate ? formatDisplayDate(editExpenseDate) : 'Select Expense Date'}
+                      {editExpenseDate ? formatDisplayDate(editExpenseDate) : t('Select Expense Date')}
                     </Text>
                     <Ionicons name="calendar-outline" size={18} color="#64748b" />
                   </TouchableOpacity>
 
-                  <Text style={styles.inputLabel}>Notes</Text>
+                  <Text style={styles.inputLabel}>{t('Notes')}</Text>
                   <TextInput
                     style={[styles.input, styles.multilineInput]}
                     value={editExpenseNotes}
@@ -3336,10 +3336,10 @@ export default function FarmHubScreen() {
 
                   <View style={styles.modalActions}>
                     <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setIsEditingExpense(false)} disabled={updatingExpense}>
-                      <Text style={styles.cancelBtnText}>Back to View</Text>
+                      <Text style={styles.cancelBtnText}>{t('Back to View')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={[styles.modalBtn, styles.saveBtn]} onPress={handleUpdateExpense} disabled={updatingExpense}>
-                      {updatingExpense ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save</Text>}
+                      {updatingExpense ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>{t('Save')}</Text>}
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -3347,30 +3347,30 @@ export default function FarmHubScreen() {
                 <View style={styles.detailsView}>
                   <View style={styles.detailCard}>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Category:</Text>
-                      <Text style={styles.detailValue}>{selectedExpense?.expense_category}</Text>
+                      <Text style={styles.detailLabel}>{t('Category:')}</Text>
+                      <Text style={styles.detailValue}>{selectedExpense?.expense_category ? t(selectedExpense.expense_category) : ''}</Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Amount:</Text>
+                      <Text style={styles.detailLabel}>{t('Amount:')}</Text>
                       <Text style={[styles.detailValue, { color: selectedExpense?.payment_status === 'PAID' ? '#16a34a' : '#dc2626' }]}>
                         ₹{parseFloat(selectedExpense?.amount as string || '0').toFixed(2)}
                       </Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Crop Cycle:</Text>
+                      <Text style={styles.detailLabel}>{t('Crop Cycle:')}</Text>
                       <Text style={styles.detailValue}>
                         {(() => {
                           const c = cycles.find(cy => (cy.ulid === selectedExpense?.crop_cycle_id || cy.id === selectedExpense?.crop_cycle_id));
-                          return c ? (c.crop_name || c.crop_type || 'Unknown Crop') : 'General Expense';
+                          return c ? (c.crop_name || c.crop_type || 'Unknown Crop') : t('General Expense');
                         })()}
                       </Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Payment Method:</Text>
-                      <Text style={styles.detailValue}>{selectedExpense?.payment_method}</Text>
+                      <Text style={styles.detailLabel}>{t('Payment Method:')}</Text>
+                      <Text style={styles.detailValue}>{selectedExpense?.payment_method ? t(selectedExpense.payment_method) : ''}</Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Payment Status:</Text>
+                      <Text style={styles.detailLabel}>{t('Payment Status:')}</Text>
                       <Text style={[
                         styles.detailValue,
                         {
@@ -3378,11 +3378,11 @@ export default function FarmHubScreen() {
                           fontWeight: 'bold',
                         }
                       ]}>
-                        {selectedExpense?.payment_status}
+                        {selectedExpense?.payment_status ? t(selectedExpense.payment_status) : ''}
                       </Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Expense Date:</Text>
+                      <Text style={styles.detailLabel}>{t('Expense Date:')}</Text>
                       <Text style={styles.detailValue}>
                         {selectedExpense?.date ? selectedExpense.date.split('T')[0] : 'N/A'}
                       </Text>
@@ -3390,7 +3390,7 @@ export default function FarmHubScreen() {
 
                     {selectedExpense?.notes ? (
                       <View style={{ marginTop: 8 }}>
-                        <Text style={[styles.detailLabel, { marginBottom: 4 }]}>Notes:</Text>
+                        <Text style={[styles.detailLabel, { marginBottom: 4 }]}>{t('Notes:')}</Text>
                         <Text style={[styles.detailValue, { fontWeight: 'normal', color: '#475569' }]}>
                           {selectedExpense.notes}
                         </Text>
@@ -3400,10 +3400,10 @@ export default function FarmHubScreen() {
 
                   <View style={[styles.modalActions, { gap: 10 }]}>
                     <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn, { backgroundColor: '#fee2e2' }]} onPress={() => selectedExpense && handleDeleteExpense(selectedExpense)}>
-                      <Text style={[styles.cancelBtnText, { color: '#dc2626' }]}>Delete</Text>
+                      <Text style={[styles.cancelBtnText, { color: '#dc2626' }]}>{t('Delete')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={[styles.modalBtn, styles.saveBtn]} onPress={() => setIsEditingExpense(true)}>
-                      <Text style={styles.saveBtnText}>Edit Details</Text>
+                      <Text style={styles.saveBtnText}>{t('Edit Details')}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>

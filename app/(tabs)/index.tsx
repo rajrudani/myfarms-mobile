@@ -18,12 +18,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../src/hooks/useAuth';
+import { useTranslation } from '../../src/i18n/I18nContext';
 import { dashboardApi } from '../../src/api/dashboard';
 import { DashboardSummary } from '../../src/types';
 import { colors, radius, spacing } from '../../src/theme/tokens';
 
 export default function DashboardScreen() {
   const { user, logout } = useAuth();
+  const { t, locale } = useTranslation();
   const { width } = useWindowDimensions();
 
   // Responsive Breakpoints
@@ -63,12 +65,12 @@ export default function DashboardScreen() {
 
   const handleLogoutPrompt = () => {
     Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out of your account?',
+      t('Sign Out'),
+      t('Are you sure you want to sign out of your account?'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('Cancel'), style: 'cancel' },
         {
-          text: 'Sign Out',
+          text: t('Sign Out'),
           style: 'destructive',
           onPress: async () => {
             setProfileModalVisible(false);
@@ -80,12 +82,17 @@ export default function DashboardScreen() {
   };
 
   const todayDateFormatted = () => {
+    const localeMap: Record<string, string> = { en: 'en-GB', gu: 'gu-IN', hi: 'hi-IN' };
     const options: Intl.DateTimeFormatOptions = {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
     };
-    return new Date().toLocaleDateString('en-GB', options);
+    try {
+      return new Date().toLocaleDateString(localeMap[locale] || 'en-GB', options);
+    } catch {
+      return new Date().toLocaleDateString('en-GB', options);
+    }
   };
 
   const getUserInitials = (name?: string) => {
@@ -142,7 +149,7 @@ export default function DashboardScreen() {
             <TouchableOpacity
               onPress={() => router.push('/')}
               activeOpacity={0.8}
-              accessibilityLabel="Dashboard Home"
+              accessibilityLabel={t('Dashboard Home')}
             >
               <Image
                 source={require('../../assets/images/full-logo.png')}
@@ -156,7 +163,7 @@ export default function DashboardScreen() {
                 style={styles.searchQuick}
                 onPress={() => router.push('/search')}
                 activeOpacity={0.7}
-                accessibilityLabel="Search"
+                accessibilityLabel={t('Search')}
               >
                 <Ionicons name="search-outline" size={22} color="#334155" />
               </TouchableOpacity>
@@ -165,7 +172,7 @@ export default function DashboardScreen() {
                 style={styles.profileQuick}
                 onPress={() => setProfileModalVisible(true)}
                 activeOpacity={0.8}
-                accessibilityLabel="User Profile"
+                accessibilityLabel={t('User Profile')}
               >
                 <Text style={styles.profileQuickText}>{getUserInitials(user?.name)}</Text>
               </TouchableOpacity>
@@ -174,10 +181,10 @@ export default function DashboardScreen() {
 
           {/* Welcome Block: Welcome, Jaymin Patel 🙏 */}
           <View style={[styles.welcomeBlock, { paddingHorizontal: horizontalPadding }]}>
-            <Text style={styles.welcomeGreeting}>Welcome,</Text>
+            <Text style={styles.welcomeGreeting}>{t('Welcome,')}</Text>
             <View style={styles.welcomeNameRow}>
               <Text style={styles.welcomeNameText} numberOfLines={1}>
-                {user?.name || 'Staff'}
+                {user?.name || t('Staff')}
               </Text>
               <Text style={styles.welcomeEmoji}>🙏</Text>
             </View>
@@ -188,16 +195,16 @@ export default function DashboardScreen() {
             <View style={[styles.coachContainer, { paddingHorizontal: horizontalPadding }]}>
               <View style={styles.coachCard}>
                 <View>
-                  <Text style={styles.coachTitle}>Quick setup</Text>
-                  <Text style={styles.coachSubtitle}>Add the basics so your dashboard is ready to use.</Text>
+                  <Text style={styles.coachTitle}>{t('Quick setup')}</Text>
+                  <Text style={styles.coachSubtitle}>{t('Add the basics so your dashboard is ready to use.')}</Text>
                 </View>
 
                 <View style={styles.coachList}>
                   {needsFarm && (
                     <View style={styles.coachItem}>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.coachItemTitle}>Add your first farm</Text>
-                        <Text style={styles.coachItemSub}>Create a farm to start tracking activities and costs.</Text>
+                        <Text style={styles.coachItemTitle}>{t('Add your first farm')}</Text>
+                        <Text style={styles.coachItemSub}>{t('Create a farm to start tracking activities and costs.')}</Text>
                       </View>
                       <TouchableOpacity
                         style={styles.coachBtn}
@@ -205,7 +212,7 @@ export default function DashboardScreen() {
                         activeOpacity={0.8}
                       >
                         <Ionicons name="add-circle" size={16} color="#ffffff" />
-                        <Text style={styles.coachBtnText}>Farm</Text>
+                        <Text style={styles.coachBtnText}>{t('Farm')}</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -213,8 +220,8 @@ export default function DashboardScreen() {
                   {needsStaff && (
                     <View style={styles.coachItem}>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.coachItemTitle}>Add farm staff</Text>
-                        <Text style={styles.coachItemSub}>Invite or create staff to manage daily work.</Text>
+                        <Text style={styles.coachItemTitle}>{t('Add farm staff')}</Text>
+                        <Text style={styles.coachItemSub}>{t('Invite or create staff to manage daily work.')}</Text>
                       </View>
                       <TouchableOpacity
                         style={styles.coachBtn}
@@ -222,7 +229,7 @@ export default function DashboardScreen() {
                         activeOpacity={0.8}
                       >
                         <Ionicons name="add-circle" size={16} color="#ffffff" />
-                        <Text style={styles.coachBtnText}>Staff</Text>
+                        <Text style={styles.coachBtnText}>{t('Staff')}</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -233,7 +240,7 @@ export default function DashboardScreen() {
                   onPress={() => setQuickSetupDismissed(true)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.coachDismissText}>Skip now</Text>
+                  <Text style={styles.coachDismissText}>{t('Skip now')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -248,7 +255,7 @@ export default function DashboardScreen() {
             <View style={{ paddingHorizontal: horizontalPadding, marginBottom: 12 }}>
               <View style={styles.nextDayCard}>
                 <View style={styles.nextHead}>
-                  <Text style={styles.nextTitle}>Today</Text>
+                  <Text style={styles.nextTitle}>{t('Today')}</Text>
                   <Text style={styles.nextDate}>{todayDateFormatted()}</Text>
                 </View>
 
@@ -257,9 +264,9 @@ export default function DashboardScreen() {
                   {tomorrowReminders.length > 0 && (
                     <View style={styles.nextCard}>
                       <View style={styles.nextCardHead}>
-                        <Text style={styles.nextCardTitle}>REMINDERS</Text>
+                        <Text style={styles.nextCardTitle}>{t('REMINDERS')}</Text>
                         <TouchableOpacity onPress={() => router.push('/notes')} activeOpacity={0.7}>
-                          <Text style={styles.nextLink}>View All</Text>
+                          <Text style={styles.nextLink}>{t('View All')}</Text>
                         </TouchableOpacity>
                       </View>
 
@@ -293,9 +300,9 @@ export default function DashboardScreen() {
                   {tomorrowActivities.length > 0 && (
                     <View style={styles.nextCard}>
                       <View style={styles.nextCardHead}>
-                        <Text style={styles.nextCardTitle}>SCHEDULED ACTIVITIES</Text>
+                        <Text style={styles.nextCardTitle}>{t('SCHEDULED ACTIVITIES')}</Text>
                         <TouchableOpacity onPress={() => router.push('/farm-hub')} activeOpacity={0.7}>
-                          <Text style={styles.nextLink}>View All</Text>
+                          <Text style={styles.nextLink}>{t('View All')}</Text>
                         </TouchableOpacity>
                       </View>
 
@@ -340,8 +347,8 @@ export default function DashboardScreen() {
                 <Ionicons name="clipboard-outline" size={22} color="#166534" />
               </View>
               <View style={styles.moduleTextContainer}>
-                <Text style={styles.moduleTitle}>Staff Attendance</Text>
-                <Text style={styles.moduleSub}>Daily staff records</Text>
+                <Text style={styles.moduleTitle}>{t('Staff Attendance')}</Text>
+                <Text style={styles.moduleSub}>{t('Daily staff records')}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#94a3b8" style={styles.moduleArrow} />
             </TouchableOpacity>
@@ -355,8 +362,8 @@ export default function DashboardScreen() {
                 <Ionicons name="people-outline" size={22} color="#9a3412" />
               </View>
               <View style={styles.moduleTextContainer}>
-                <Text style={styles.moduleTitle}>Staff Payments</Text>
-                <Text style={styles.moduleSub}>Track and release payments</Text>
+                <Text style={styles.moduleTitle}>{t('Staff Payments')}</Text>
+                <Text style={styles.moduleSub}>{t('Track and release payments')}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#94a3b8" style={styles.moduleArrow} />
             </TouchableOpacity>
@@ -378,8 +385,8 @@ export default function DashboardScreen() {
               <View style={[styles.moduleTileIcon, styles.iconOrange]}>
                 <Ionicons name="bag-handle-outline" size={20} color="#9a3412" />
               </View>
-              <Text style={styles.moduleTileTitle}>Agro Purchases</Text>
-              <Text style={styles.moduleTileSub}>Supplies & tools</Text>
+              <Text style={styles.moduleTileTitle}>{t('Agro Purchases')}</Text>
+              <Text style={styles.moduleTileSub}>{t('Supplies & tools')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -390,8 +397,8 @@ export default function DashboardScreen() {
               <View style={[styles.moduleTileIcon, styles.iconGreen]}>
                 <Ionicons name="cash-outline" size={20} color="#166534" />
               </View>
-              <Text style={styles.moduleTileTitle}>Sales</Text>
-              <Text style={styles.moduleTileSub}>Track revenue</Text>
+              <Text style={styles.moduleTileTitle}>{t('Sales')}</Text>
+              <Text style={styles.moduleTileSub}>{t('Track revenue')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -402,8 +409,8 @@ export default function DashboardScreen() {
               <View style={[styles.moduleTileIcon, styles.iconBlue]}>
                 <Ionicons name="calendar-outline" size={20} color="#1d4ed8" />
               </View>
-              <Text style={styles.moduleTileTitle}>Farms</Text>
-              <Text style={styles.moduleTileSub}>Manage farms</Text>
+              <Text style={styles.moduleTileTitle}>{t('Farms')}</Text>
+              <Text style={styles.moduleTileSub}>{t('Manage farms')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -414,8 +421,8 @@ export default function DashboardScreen() {
               <View style={[styles.moduleTileIcon, styles.iconPurple]}>
                 <Ionicons name="briefcase-outline" size={20} color="#6d28d9" />
               </View>
-              <Text style={styles.moduleTileTitle}>Consultant Visits</Text>
-              <Text style={styles.moduleTileSub}>Manage Visits</Text>
+              <Text style={styles.moduleTileTitle}>{t('Consultant Visits')}</Text>
+              <Text style={styles.moduleTileSub}>{t('Manage Visits')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -434,8 +441,8 @@ export default function DashboardScreen() {
                   <Ionicons name="bar-chart-outline" size={18} color="#1d4ed8" />
                 </View>
                 <View style={styles.utilityInfo}>
-                  <Text style={styles.utilityTitle}>Reports</Text>
-                  <Text style={styles.utilitySub}>View farm analytics & records</Text>
+                  <Text style={styles.utilityTitle}>{t('Reports')}</Text>
+                  <Text style={styles.utilitySub}>{t('View farm analytics & records')}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
               </TouchableOpacity>
@@ -451,8 +458,8 @@ export default function DashboardScreen() {
                   <Ionicons name="trending-up" size={18} color="#166534" />
                 </View>
                 <View style={styles.utilityInfo}>
-                  <Text style={styles.utilityTitle}>Mandi Prices</Text>
-                  <Text style={styles.utilitySub}>Daily government crop prices</Text>
+                  <Text style={styles.utilityTitle}>{t('Mandi Prices')}</Text>
+                  <Text style={styles.utilitySub}>{t('Daily government crop prices')}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
               </TouchableOpacity>
@@ -479,8 +486,8 @@ export default function DashboardScreen() {
                 <Text style={styles.profileAvatarText}>{getUserInitials(user?.name)}</Text>
               </View>
               <View style={styles.profileSheetInfo}>
-                <Text style={styles.profileSheetName}>{user?.name || 'Staff'}</Text>
-                <Text style={styles.profileSheetEmail}>{user?.email || 'Signed In'}</Text>
+                <Text style={styles.profileSheetName}>{user?.name || t('Staff')}</Text>
+                <Text style={styles.profileSheetEmail}>{user?.email || t('Signed In')}</Text>
                 <View style={styles.roleTag}>
                   <Text style={styles.roleTagText}>{user?.user_type?.toUpperCase() || 'STAFF'}</Text>
                 </View>
@@ -507,8 +514,8 @@ export default function DashboardScreen() {
                   <Ionicons name="grid-outline" size={18} color="#1d4ed8" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.profileActionTitle}>Manage Farms</Text>
-                  <Text style={styles.profileActionSub}>Explore and add parcels</Text>
+                  <Text style={styles.profileActionTitle}>{t('Manage Farms')}</Text>
+                  <Text style={styles.profileActionSub}>{t('Explore and add parcels')}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
               </TouchableOpacity>
@@ -524,8 +531,8 @@ export default function DashboardScreen() {
                   <Ionicons name="ellipsis-horizontal" size={18} color="#475569" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.profileActionTitle}>All Modules & Masters</Text>
-                  <Text style={styles.profileActionSub}>Crops, products, buyers & tools</Text>
+                  <Text style={styles.profileActionTitle}>{t('All Modules & Masters')}</Text>
+                  <Text style={styles.profileActionSub}>{t('Crops, products, buyers & tools')}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
               </TouchableOpacity>
@@ -539,7 +546,7 @@ export default function DashboardScreen() {
               activeOpacity={0.8}
             >
               <Ionicons name="log-out-outline" size={18} color="#dc2626" />
-              <Text style={styles.logoutBtnText}>Sign Out of MyFarms</Text>
+              <Text style={styles.logoutBtnText}>{t('Sign Out of MyFarms')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>

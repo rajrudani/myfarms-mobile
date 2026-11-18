@@ -157,8 +157,8 @@ export default function MoreScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTitleCol}>
-          <Text style={styles.headerKicker}>REGISTRY & SYSTEM</Text>
-          <Text style={styles.headerTitle}>More Options</Text>
+          <Text style={styles.headerKicker}>{t('REGISTRY & SYSTEM')}</Text>
+          <Text style={styles.headerTitle}>{t('More Options')}</Text>
         </View>
       </View>
 
@@ -172,10 +172,10 @@ export default function MoreScreen() {
           </View>
           <View style={styles.profileInfo}>
             <View style={styles.profileNameRow}>
-              <Text style={styles.profileName}>{user?.name || 'Staff Profile'}</Text>
-              <StatusBadge label="VERIFIED" variant="success" />
+              <Text style={styles.profileName}>{user?.name || t('Staff Profile')}</Text>
+              <StatusBadge label={t('VERIFIED')} variant="success" />
             </View>
-            <Text style={styles.profileEmail}>{user?.email || user?.username || 'Farm Staff'}</Text>
+            <Text style={styles.profileEmail}>{user?.email || user?.username || t('Farm Staff')}</Text>
             {user?.farm_group_name ? (
               <View style={styles.farmGroupPill}>
                 <Ionicons name="business-outline" size={12} color={colors.primaryDark} />
@@ -185,7 +185,7 @@ export default function MoreScreen() {
           </View>
           <View style={styles.editProfileBtn}>
             <Ionicons name="create-outline" size={15} color={colors.primary} />
-            <Text style={styles.editProfileBtnText}>Edit</Text>
+            <Text style={styles.editProfileBtnText}>{t('Edit')}</Text>
           </View>
         </BentoCard>
 
@@ -386,8 +386,8 @@ export default function MoreScreen() {
             {/* Header */}
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalKicker}>ACCOUNT SECURITY</Text>
-                <Text style={styles.modalTitle}>Profile & Credentials</Text>
+                <Text style={styles.modalKicker}>{t('ACCOUNT SECURITY')}</Text>
+                <Text style={styles.modalTitle}>{t('Profile & Credentials')}</Text>
               </View>
               <TouchableOpacity
                 onPress={() => setProfileModalVisible(false)}
@@ -410,7 +410,7 @@ export default function MoreScreen() {
                       activeTab === 'profile' && styles.tabItemTextActive,
                     ]}
                   >
-                    Personal Info
+                    {t('Personal Info')}
                   </Text>
                 </TouchableOpacity>
 
@@ -424,7 +424,7 @@ export default function MoreScreen() {
                       activeTab === 'password' && styles.tabItemTextActive,
                     ]}
                   >
-                    Change Password
+                    {t('Change Password')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -433,16 +433,16 @@ export default function MoreScreen() {
             <ScrollView contentContainerStyle={styles.modalScroll} showsVerticalScrollIndicator={false}>
               {activeTab === 'profile' ? (
                 <View style={styles.formContainer}>
-                  <Text style={styles.inputLabel}>Full Name *</Text>
+                  <Text style={styles.inputLabel}>{t('Full Name *')}</Text>
                   <TextInput
                     style={styles.textInput}
                     value={name}
                     onChangeText={setName}
-                    placeholder="Your Full Name"
+                    placeholder={t('Your Full Name')}
                     placeholderTextColor={colors.slate400}
                   />
 
-                  <Text style={styles.inputLabel}>Email Address</Text>
+                  <Text style={styles.inputLabel}>{t('Email Address')}</Text>
                   <TextInput
                     style={styles.textInput}
                     value={email}
@@ -453,7 +453,7 @@ export default function MoreScreen() {
                     autoCapitalize="none"
                   />
 
-                  <Text style={styles.inputLabel}>Username</Text>
+                  <Text style={styles.inputLabel}>{t('Username')}</Text>
                   <TextInput
                     style={styles.textInput}
                     value={username}
@@ -471,38 +471,38 @@ export default function MoreScreen() {
                     {savingProfile ? (
                       <ActivityIndicator size="small" color={colors.white} />
                     ) : (
-                      <Text style={styles.saveBtnText}>Save Profile Details</Text>
+                      <Text style={styles.saveBtnText}>{t('Save Profile Details')}</Text>
                     )}
                   </TouchableOpacity>
                 </View>
               ) : (
                 <View style={styles.formContainer}>
-                  <Text style={styles.inputLabel}>Current Password *</Text>
+                  <Text style={styles.inputLabel}>{t('Current Password *')}</Text>
                   <TextInput
                     style={styles.textInput}
                     value={currentPassword}
                     onChangeText={setCurrentPassword}
-                    placeholder="Enter current password"
+                    placeholder={t('Enter current password')}
                     placeholderTextColor={colors.slate400}
                     secureTextEntry
                   />
 
-                  <Text style={styles.inputLabel}>New Password * (min 8 chars)</Text>
+                  <Text style={styles.inputLabel}>{t('New Password * (min 8 chars)')}</Text>
                   <TextInput
                     style={styles.textInput}
                     value={newPassword}
                     onChangeText={setNewPassword}
-                    placeholder="Enter new password"
+                    placeholder={t('Enter new password')}
                     placeholderTextColor={colors.slate400}
                     secureTextEntry
                   />
 
-                  <Text style={styles.inputLabel}>Confirm New Password *</Text>
+                  <Text style={styles.inputLabel}>{t('Confirm New Password *')}</Text>
                   <TextInput
                     style={styles.textInput}
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
-                    placeholder="Confirm new password"
+                    placeholder={t('Confirm new password')}
                     placeholderTextColor={colors.slate400}
                     secureTextEntry
                   />
@@ -515,7 +515,7 @@ export default function MoreScreen() {
                     {savingPassword ? (
                       <ActivityIndicator size="small" color={colors.white} />
                     ) : (
-                      <Text style={styles.saveBtnText}>Update Password</Text>
+                      <Text style={styles.saveBtnText}>{t('Update Password')}</Text>
                     )}
                   </TouchableOpacity>
                 </View>

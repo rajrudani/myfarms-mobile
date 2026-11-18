@@ -401,12 +401,12 @@ export default function CropsScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.modalScroll}>
-              <Text style={styles.inputLabel}>Crop Image</Text>
+              <Text style={styles.inputLabel}>{t('Crop Image')}</Text>
               <View style={styles.imagePickerCard}>
                 {uploadingImage ? (
                   <View style={styles.imageLoadingBox}>
                     <ActivityIndicator color="#166534" />
-                    <Text style={styles.imageLoadingText}>Uploading photo...</Text>
+                    <Text style={styles.imageLoadingText}>{t('Uploading photo...')}</Text>
                   </View>
                 ) : imageUrl || imagePath ? (
                   <View style={styles.imagePreviewWrap}>
@@ -414,7 +414,7 @@ export default function CropsScreen() {
                     <View style={styles.imageActionBtns}>
                       <TouchableOpacity style={styles.imageActionBtn} onPress={handlePickImage} activeOpacity={0.8}>
                         <Ionicons name="image-outline" size={14} color="#166534" />
-                        <Text style={styles.imageActionBtnText}>Change</Text>
+                        <Text style={styles.imageActionBtnText}>{t('Change')}</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[styles.imageActionBtn, { borderColor: '#ef4444' }]}
@@ -425,22 +425,22 @@ export default function CropsScreen() {
                         activeOpacity={0.8}
                       >
                         <Ionicons name="trash-outline" size={14} color="#ef4444" />
-                        <Text style={[styles.imageActionBtnText, { color: '#ef4444' }]}>Remove</Text>
+                        <Text style={[styles.imageActionBtnText, { color: '#ef4444' }]}>{t('Remove')}</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
                 ) : (
                   <View style={styles.imageUploadPlaceholder}>
                     <Ionicons name="cloud-upload-outline" size={28} color="#94a3b8" />
-                    <Text style={styles.imageUploadHint}>Upload photo to easily identify crop</Text>
+                    <Text style={styles.imageUploadHint}>{t('Upload photo to easily identify crop')}</Text>
                     <View style={styles.imageBtnRow}>
                       <TouchableOpacity style={styles.uploadPickBtn} onPress={handlePickImage} activeOpacity={0.8}>
                         <Ionicons name="images-outline" size={16} color="#166534" />
-                        <Text style={styles.uploadPickBtnText}>Select Photo</Text>
+                        <Text style={styles.uploadPickBtnText}>{t('Select Photo')}</Text>
                       </TouchableOpacity>
                       <TouchableOpacity style={styles.uploadPickBtn} onPress={handleTakePhoto} activeOpacity={0.8}>
                         <Ionicons name="camera-outline" size={16} color="#166534" />
-                        <Text style={styles.uploadPickBtnText}>Take Photo</Text>
+                        <Text style={styles.uploadPickBtnText}>{t('Take Photo')}</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -448,16 +448,16 @@ export default function CropsScreen() {
               </View>
 
               <ModernInput
-                label="Crop Name (English)"
+                label={t('Crop Name (English)')}
                 required
-                placeholder="e.g. Cotton"
+                placeholder={t('e.g. Cotton')}
                 value={name}
                 onChangeText={setName}
                 containerStyle={{ marginTop: 10 }}
               />
 
               <ModernInput
-                label="Crop Name (Gujarati)"
+                label={t('Crop Name (Gujarati)')}
                 placeholder="e.g. કપાસ"
                 value={nameGu}
                 onChangeText={setNameGu}
@@ -465,14 +465,14 @@ export default function CropsScreen() {
               />
 
               <ModernInput
-                label="Crop Name (Hindi)"
+                label={t('Crop Name (Hindi)')}
                 placeholder="e.g. कपास"
                 value={nameHi}
                 onChangeText={setNameHi}
                 containerStyle={{ marginTop: 10 }}
               />
 
-              <Text style={styles.inputLabel}>Category*</Text>
+              <Text style={styles.inputLabel}>{t('Category*')}</Text>
               <View style={styles.pickerContainer}>
                 {['FIELD_CROPS', 'VEGETABLE_CROPS', 'FRUIT_CROPS', 'FLOWERS', 'SPICES'].map((cat) => (
                   <TouchableOpacity
@@ -481,13 +481,13 @@ export default function CropsScreen() {
                     onPress={() => setCategory(cat)}
                   >
                     <Text style={[styles.pickerItemText, category === cat && styles.pickerItemTextActive]}>
-                      {cat.replace('_', ' ')}
+                      {t(cat.replace('_', ' '))}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <Text style={styles.inputLabel}>Default Harvest Unit*</Text>
+              <Text style={styles.inputLabel}>{t('Default Harvest Unit*')}</Text>
               <View style={styles.pickerContainer}>
                 {[
                   { label: 'Kg', value: 'kg' },
@@ -501,17 +501,17 @@ export default function CropsScreen() {
                     onPress={() => setUnit(u.value)}
                   >
                     <Text style={[styles.pickerItemText, unit.toLowerCase() === u.value && styles.pickerItemTextActive]}>
-                      {u.label}
+                      {t(u.label)}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
               <ModernInput
-                label="Default Duration (Days)"
-                placeholder="e.g. 120 (approx days from sowing to harvest)"
+                label={t('Default Duration (Days)')}
+                placeholder={t('e.g. 120 (approx days from sowing to harvest)')}
                 keyboardType="number-pad"
-                suffix="days"
+                suffix={t('days')}
                 value={defaultDurationDays}
                 onChangeText={setDefaultDurationDays}
                 containerStyle={{ marginTop: 10 }}
@@ -519,8 +519,8 @@ export default function CropsScreen() {
 
               <View style={styles.switchRow}>
                 <View>
-                  <Text style={styles.switchLabel}>Perennial Crop</Text>
-                  <Text style={styles.switchSubLabel}>Does this crop grow multi-season?</Text>
+                  <Text style={styles.switchLabel}>{t('Perennial Crop')}</Text>
+                  <Text style={styles.switchSubLabel}>{t('Does this crop grow multi-season?')}</Text>
                 </View>
                 <Switch
                   value={isPerennial}
@@ -532,10 +532,10 @@ export default function CropsScreen() {
 
               <View style={styles.modalActions}>
                 <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setModalVisible(false)}>
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.modalBtn, styles.saveBtn]} onPress={handleSave}>
-                  <Text style={styles.saveBtnText}>Save</Text>
+                  <Text style={styles.saveBtnText}>{t('Save')}</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>

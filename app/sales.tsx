@@ -716,9 +716,9 @@ export default function SalesScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalKicker}>PRODUCE DISPATCH</Text>
+                <Text style={styles.modalKicker}>{t('PRODUCE DISPATCH')}</Text>
                 <Text style={styles.modalTitle}>
-                  {editingSale ? 'Edit Sale Entry' : 'Record Produce Sale'}
+                  {editingSale ? t('Edit Sale Entry') : t('Record Produce Sale')}
                 </Text>
               </View>
               <TouchableOpacity
@@ -830,9 +830,9 @@ export default function SalesScreen() {
               {/* Quality Grades Switch */}
               <View style={styles.switchRowContainer}>
                 <View style={{ flex: 1, paddingRight: spacing.sm }}>
-                  <Text style={styles.switchTitle}>Enable Quality Grades</Text>
+                  <Text style={styles.switchTitle}>{t('Enable Quality Grades')}</Text>
                   <Text style={styles.switchSubtitle}>
-                    Split harvest into grades (A+, A, B, etc.) with specific rates
+                    {t('Split harvest into grades (A+, A, B, etc.) with specific rates')}
                   </Text>
                 </View>
                 <Switch
@@ -910,9 +910,9 @@ export default function SalesScreen() {
                 <View style={styles.gradesCard}>
                   <View style={styles.gradesCardHeader}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.gradesCardTitle}>Grades Breakdown</Text>
+                      <Text style={styles.gradesCardTitle}>{t('Grades Breakdown')}</Text>
                       <Text style={styles.gradesCardSubtitle}>
-                        Total: {gradesTotalQty.toFixed(1)} {quantityUnit} • ₹{gradesGross.toFixed(2)}
+                        {t('Total')}: {gradesTotalQty.toFixed(1)} {quantityUnit} • ₹{gradesGross.toFixed(2)}
                       </Text>
                     </View>
                     <TouchableOpacity
@@ -921,13 +921,13 @@ export default function SalesScreen() {
                       activeOpacity={0.7}
                     >
                       <Ionicons name="add" size={14} color={colors.white} />
-                      <Text style={styles.addGradeBtnText}>Add Grade</Text>
+                      <Text style={styles.addGradeBtnText}>{t('Add Grade')}</Text>
                     </TouchableOpacity>
                   </View>
 
                   {grades.length === 0 ? (
                     <Text style={styles.noGradesText}>
-                      No grades added. Tap "+ Add Grade" to split your harvest by quality.
+                      {t('No grades added. Tap "+ Add Grade" to split your harvest by quality.')}
                     </Text>
                   ) : (
                     grades.map((grade, idx) => (
@@ -1005,9 +1005,9 @@ export default function SalesScreen() {
               <View style={styles.deductionsCard}>
                 <View style={styles.deductionsHeader}>
                   <View>
-                    <Text style={styles.deductionsTitle}>Deductions & Mandi Charges</Text>
+                    <Text style={styles.deductionsTitle}>{t('Deductions & Mandi Charges')}</Text>
                     <Text style={styles.deductionsSubtitle}>
-                      Commission, loading, transport or packaging
+                      {t('Commission, loading, transport or packaging')}
                     </Text>
                   </View>
                   <TouchableOpacity
@@ -1015,27 +1015,27 @@ export default function SalesScreen() {
                     style={styles.addChargeBtn}
                   >
                     <Ionicons name="add" size={14} color={colors.white} />
-                    <Text style={styles.addChargeBtnText}>Add</Text>
+                    <Text style={styles.addChargeBtnText}>{t('Add')}</Text>
                   </TouchableOpacity>
                 </View>
 
                 {charges.length === 0 ? (
                   <Text style={styles.noChargesText}>
-                    No deductions added. Tap "Add" to include Mandi Fee, Freight, Labor, etc.
+                    {t('No deductions added. Tap "Add" to include Mandi Fee, Freight, Labor, etc.')}
                   </Text>
                 ) : (
                   charges.map((charge, idx) => (
                     <View key={idx} style={styles.chargeInputRow}>
                       <TextInput
                         style={[styles.input, styles.chargeNameInput]}
-                        placeholder="Fee name (e.g. Mandi)"
+                        placeholder={t('Fee name (e.g. Mandi)')}
                         placeholderTextColor={colors.slate400}
                         value={charge.charge_name}
                         onChangeText={(val) => handleUpdateChargeField(idx, 'charge_name', val)}
                       />
                       <TextInput
                         style={[styles.input, styles.chargeValInput]}
-                        placeholder="Amount"
+                        placeholder={t('Amount')}
                         placeholderTextColor={colors.slate400}
                         keyboardType="decimal-pad"
                         value={charge.value}
@@ -1073,17 +1073,17 @@ export default function SalesScreen() {
                 {/* Live Realization Calculation Banner */}
                 <View style={styles.calcBanner}>
                   <View style={styles.calcCol}>
-                    <Text style={styles.calcLabel}>Gross Value</Text>
+                    <Text style={styles.calcLabel}>{t('Gross Value')}</Text>
                     <Text style={styles.calcVal}>₹{calcGross.toFixed(2)}</Text>
                   </View>
                   <View style={styles.calcCol}>
-                    <Text style={styles.calcLabel}>Deductions</Text>
+                    <Text style={styles.calcLabel}>{t('Deductions')}</Text>
                     <Text style={[styles.calcVal, { color: colors.danger }]}>
                       -₹{calcCharges.toFixed(2)}
                     </Text>
                   </View>
                   <View style={styles.calcCol}>
-                    <Text style={styles.calcLabel}>Net Payout</Text>
+                    <Text style={styles.calcLabel}>{t('Net Payout')}</Text>
                     <Text style={[styles.calcVal, { color: colors.primary, fontWeight: '800' }]}>
                       ₹{calcFinal.toFixed(2)}
                     </Text>
@@ -1092,8 +1092,8 @@ export default function SalesScreen() {
               </View>
 
               <ModernInput
-                label="Sale Notes"
-                placeholder="Weighment bridge details, vehicle number, trader receipt notes..."
+                label={t('Sale Notes')}
+                placeholder={t('Weighment bridge details, vehicle number, trader receipt notes...')}
                 multiline
                 numberOfLines={3}
                 value={notes}
@@ -1166,8 +1166,8 @@ export default function SalesScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalKicker}>BUYERS MASTER</Text>
-                <Text style={styles.modalTitle}>Add New Buyer</Text>
+                <Text style={styles.modalKicker}>{t('BUYERS MASTER')}</Text>
+                <Text style={styles.modalTitle}>{t('Add New Buyer')}</Text>
               </View>
               <TouchableOpacity
                 style={styles.modalCloseBtn}
@@ -1179,17 +1179,17 @@ export default function SalesScreen() {
 
             <ScrollView contentContainerStyle={styles.modalScroll} showsVerticalScrollIndicator={false}>
               <ModernInput
-                label="Buyer / Trader Name"
+                label={t('Buyer / Trader Name')}
                 required
-                placeholder="e.g. Ramesh Trading Co."
+                placeholder={t('e.g. Ramesh Trading Co.')}
                 value={newBuyerName}
                 onChangeText={setNewBuyerName}
                 containerStyle={{ marginTop: spacing.sm }}
               />
 
               <ModernInput
-                label="Phone Number"
-                placeholder="e.g. 9876543210"
+                label={t('Phone Number')}
+                placeholder={t('e.g. 9876543210')}
                 keyboardType="phone-pad"
                 value={newBuyerPhone}
                 onChangeText={setNewBuyerPhone}
@@ -1197,24 +1197,24 @@ export default function SalesScreen() {
               />
 
               <ModernInput
-                label="Company / Stall Name"
-                placeholder="e.g. APMC Shop #42"
+                label={t('Company / Stall Name')}
+                placeholder={t('e.g. APMC Shop #42')}
                 value={newBuyerCompany}
                 onChangeText={setNewBuyerCompany}
                 containerStyle={{ marginTop: spacing.sm }}
               />
 
               <ModernInput
-                label="Address"
-                placeholder="Mandi address or city"
+                label={t('Address')}
+                placeholder={t('Mandi address or city')}
                 value={newBuyerAddress}
                 onChangeText={setNewBuyerAddress}
                 containerStyle={{ marginTop: spacing.sm }}
               />
 
               <ModernInput
-                label="Notes"
-                placeholder="Payment terms, market agent, etc."
+                label={t('Notes')}
+                placeholder={t('Payment terms, market agent, etc.')}
                 multiline
                 numberOfLines={2}
                 value={newBuyerNotes}
@@ -1227,7 +1227,7 @@ export default function SalesScreen() {
                   style={[styles.modalBtn, styles.cancelBtn]}
                   onPress={() => setAddBuyerModalVisible(false)}
                 >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.modalBtn, styles.saveBtn, savingBuyer && { opacity: 0.7 }]}
@@ -1239,7 +1239,7 @@ export default function SalesScreen() {
                   ) : (
                     <>
                       <Ionicons name="checkmark-circle-outline" size={18} color={colors.white} />
-                      <Text style={styles.saveBtnText}>Save Buyer</Text>
+                      <Text style={styles.saveBtnText}>{t('Save Buyer')}</Text>
                     </>
                   )}
                 </TouchableOpacity>

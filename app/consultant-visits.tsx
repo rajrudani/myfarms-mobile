@@ -529,9 +529,9 @@ export default function ConsultantVisitsScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalKicker}>FIELD INSPECTION</Text>
+                <Text style={styles.modalKicker}>{t('FIELD INSPECTION')}</Text>
                 <Text style={styles.modalTitle}>
-                  {editingVisit ? 'Edit Advisory Visit' : 'Record Consultant Visit'}
+                  {editingVisit ? t('Edit Advisory Visit') : t('Record Consultant Visit')}
                 </Text>
               </View>
               <TouchableOpacity
@@ -548,10 +548,10 @@ export default function ConsultantVisitsScreen() {
             >
               {/* Farm Selector */}
               <SearchableSelect
-                label="Select Farm"
+                label={t('Select Farm')}
                 required
-                placeholder="Select farm"
-                searchPlaceholder="Search farms..."
+                placeholder={t('Select farm')}
+                searchPlaceholder={t('Search farms...')}
                 items={farms.map((f) => ({
                   value: f.id?.toString() || '',
                   label: f.name,
@@ -565,10 +565,10 @@ export default function ConsultantVisitsScreen() {
 
               {/* Consultant Selector */}
               <SearchableSelect
-                label="Select Consultant / Agronomist"
+                label={t('Select Consultant / Agronomist')}
                 required
-                placeholder="Select consultant"
-                searchPlaceholder="Search consultants..."
+                placeholder={t('Select consultant')}
+                searchPlaceholder={t('Search consultants...')}
                 items={consultants.map((c) => ({
                   value: c.id.toString(),
                   label: c.name,
@@ -582,7 +582,7 @@ export default function ConsultantVisitsScreen() {
 
               {/* Visit Date */}
               <ModernDatePicker
-                label="Visit Date"
+                label={t('Visit Date')}
                 required
                 value={visitDate}
                 onChange={setVisitDate}
@@ -590,8 +590,8 @@ export default function ConsultantVisitsScreen() {
               />
 
               <ModernInput
-                label="Prescriptions & Recommendations"
-                placeholder="Write observations, pest diagnosis, dosage recommendations, schedule..."
+                label={t('Prescriptions & Recommendations')}
+                placeholder={t('Write observations, pest diagnosis, dosage recommendations, schedule...')}
                 multiline
                 numberOfLines={4}
                 value={notes}
@@ -602,9 +602,9 @@ export default function ConsultantVisitsScreen() {
               {/* Active Switch */}
               <View style={styles.switchRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.switchLabel}>Active Recommendation Status</Text>
+                  <Text style={styles.switchLabel}>{t('Active Recommendation Status')}</Text>
                   <Text style={styles.switchSubLabel}>
-                    Keep active until agronomist actions are completed
+                    {t('Keep active until agronomist actions are completed')}
                   </Text>
                 </View>
                 <Switch
@@ -618,12 +618,12 @@ export default function ConsultantVisitsScreen() {
               {/* Crop Cycles Selection (Link Cycles) */}
               <SearchableSelect<string | number>
                 multiple
-                label="Link Related Crop Cycles (Optional)"
-                placeholder="Select crop cycles"
-                searchPlaceholder="Search cycles..."
+                label={t('Link Related Crop Cycles (Optional)')}
+                placeholder={t('Select crop cycles')}
+                searchPlaceholder={t('Search cycles...')}
                 items={cropCycles.map((cycle) => ({
                   value: cycle.id || '',
-                  label: `${cycle.season_name ? `${cycle.season_name} • ` : ''}${cycle.crop_name || 'Crop'}`,
+                  label: `${cycle.season_name ? `${cycle.season_name} • ` : ''}${cycle.crop_name || t('Crop')}`,
                   sublabel: cycle.farm?.name,
                   icon: 'leaf-outline',
                 }))}
@@ -634,7 +634,7 @@ export default function ConsultantVisitsScreen() {
 
               <View style={{ marginTop: spacing.md }}>
                 <AttachmentPicker
-                  label="Visit Report Photo / Recommendation Slip"
+                  label={t('Visit Report Photo / Recommendation Slip')}
                   category="consultant-visit-recommendations"
                   currentPath={attachmentFilePath}
                   currentUrl={attachmentFileUrl}
@@ -651,7 +651,7 @@ export default function ConsultantVisitsScreen() {
                   style={[styles.modalBtn, styles.cancelBtn]}
                   onPress={() => setModalVisible(false)}
                 >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity

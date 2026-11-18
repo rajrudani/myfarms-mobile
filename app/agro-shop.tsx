@@ -1284,7 +1284,7 @@ export default function AgroShopScreen() {
         >
           <View style={styles.choiceBox}>
             <View style={styles.choiceHeader}>
-              <Text style={styles.choiceTitle}>Select Shop Action</Text>
+              <Text style={styles.choiceTitle}>{t('Select Shop Action')}</Text>
               <TouchableOpacity onPress={() => setActionChoiceVisible(false)}>
                 <Ionicons name="close" size={20} color={colors.slate400} />
               </TouchableOpacity>
@@ -1309,8 +1309,8 @@ export default function AgroShopScreen() {
                     <Ionicons name="cart-outline" size={20} color={colors.primary} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.choiceText}>Record Purchase</Text>
-                    <Text style={styles.choiceSubtext}>Add itemized purchase with bill photo</Text>
+                    <Text style={styles.choiceText}>{t('Record Purchase')}</Text>
+                    <Text style={styles.choiceSubtext}>{t('Add itemized purchase with bill photo')}</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
                 </TouchableOpacity>
@@ -1333,8 +1333,8 @@ export default function AgroShopScreen() {
                       <Ionicons name="card-outline" size={20} color={colors.successText} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.choiceText}>Record Payment</Text>
-                      <Text style={styles.choiceSubtext}>Log cash, UPI or bank payment against dues</Text>
+                      <Text style={styles.choiceText}>{t('Record Payment')}</Text>
+                      <Text style={styles.choiceSubtext}>{t('Log cash, UPI or bank payment against dues')}</Text>
                     </View>
                     <Ionicons name="chevron-forward" size={16} color={colors.slate400} />
                   </TouchableOpacity>
@@ -1524,13 +1524,13 @@ export default function AgroShopScreen() {
               {/* Items row list */}
               <View style={styles.itemsInputWrapper}>
                 <View style={styles.itemsInputHeader}>
-                  <Text style={styles.itemsSectionTitle}>Line Items</Text>
+                  <Text style={styles.itemsSectionTitle}>{t('Line Items')}</Text>
                   <TouchableOpacity
                     style={styles.headerAddLineBtn}
                     onPress={handleAddPurchaseItemLine}
                   >
                     <Ionicons name="add" size={14} color={colors.primary} />
-                    <Text style={styles.headerAddLineText}>Add Line</Text>
+                    <Text style={styles.headerAddLineText}>{t('Add Line')}</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -1666,7 +1666,7 @@ export default function AgroShopScreen() {
                   onPress={handleAddPurchaseItemLine}
                 >
                   <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
-                  <Text style={styles.addMoreLineBtnText}>Add Another Item</Text>
+                  <Text style={styles.addMoreLineBtnText}>{t('Add Another Item')}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -1786,7 +1786,7 @@ export default function AgroShopScreen() {
               />
 
               {/* Payment Method */}
-              <Text style={styles.inputLabel}>Payment Method</Text>
+              <Text style={styles.inputLabel}>{t('Payment Method')}</Text>
               <View style={{ marginBottom: spacing.md }}>
                 <QuickChipGroup
                   options={PAYMENT_METHODS}
