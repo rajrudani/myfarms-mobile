@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { reportsApi } from '../src/api/reports';
 import { useResponsive } from '../src/utils/responsive';
 import {
@@ -52,10 +52,27 @@ const MONTHS = [
 export default function ReportsScreen() {
   const { t } = useTranslation();
   const { containerMaxWidth, isTablet } = useResponsive();
-  const [activeReport, setActiveReport] = useState<ReportType>(null);
+  const params = useLocalSearchParams();
+  const paramType = (params.type as ReportType) || null;
+  const paramWorkerId = params.worker_id ? String(params.worker_id) : undefined;
+  const paramFarmId = params.farm_id ? String(params.farm_id) : undefined;
+
+  const [activeReport, setActiveReport] = useState<ReportType>(paramType);
   const [filtersData, setFiltersData] = useState<ReportFiltersData | null>(null);
   const [loadingFilters, setLoadingFilters] = useState(true);
   const [reportLoading, setReportLoading] = useState(false);
+
+  useEffect(() => {
+    if (paramType && ['attendance', 'payment', 'activity', 'expense'].includes(paramType)) {
+      setActiveReport(paramType);
+    }
+    if (paramWorkerId) {
+      setSelectedWorker(paramWorkerId);
+    }
+    if (paramFarmId) {
+      setSelectedFarm(paramFarmId);
+    }
+  }, [paramType, paramWorkerId, paramFarmId]);
 
   // Export States
   const [exportLoading, setExportLoading] = useState(false);

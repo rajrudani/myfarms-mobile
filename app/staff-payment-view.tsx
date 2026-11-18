@@ -22,6 +22,7 @@ import { staffApi } from '../src/api/staff';
 import { StaffPayment, StaffMember } from '../src/types';
 import { extractErrorMessage, getAbsoluteImageUrl } from '../src/api/client';
 import { colors, radius, spacing, shadows } from '../src/theme/tokens';
+import { useTranslation } from '../src/i18n/I18nContext';
 import {
   BentoCard,
   StatusBadge,
@@ -41,6 +42,7 @@ const PAYMENT_METHOD_OPTIONS: ChipOption<'cash' | 'google_pay' | 'phonepe' | 'ot
 ];
 
 export default function StaffPaymentViewScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams();
   const paymentIdentifier = id as string;
 
@@ -88,7 +90,7 @@ export default function StaffPaymentViewScreen() {
   const handleUpdatePayment = async () => {
     if (!payment) return;
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-      Alert.alert('Validation Error', 'Please enter a valid amount.');
+      Alert.alert(t('Validation Error'), t('Please enter a valid amount.'));
       return;
     }
 
@@ -104,12 +106,12 @@ export default function StaffPaymentViewScreen() {
 
       const result = await staffPaymentsApi.update(payment.ulid || payment.id, payload);
       setPayment(result);
-      Alert.alert('Success', 'Payment details updated successfully.');
+      Alert.alert(t('Success'), t('Payment details updated successfully.'));
       setEditModalVisible(false);
       fetchPaymentDetails();
     } catch (error: any) {
       console.error('Error updating payment:', error);
-      Alert.alert('Error', extractErrorMessage(error));
+      Alert.alert(t('Error'), extractErrorMessage(error));
     } finally {
       setSavingEdit(false);
     }
@@ -118,22 +120,22 @@ export default function StaffPaymentViewScreen() {
   const handleDeletePayment = () => {
     if (!payment) return;
     Alert.alert(
-      'Delete Payment Record',
-      'Are you sure you want to delete this payment record? This action cannot be undone.',
+      t('Delete Payment Record'),
+      t('Are you sure you want to delete this payment record? This action cannot be undone.'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('Cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('Delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               setLoading(true);
               await staffPaymentsApi.delete(payment.ulid || payment.id);
-              Alert.alert('Success', 'Payment record deleted successfully.');
+              Alert.alert(t('Success'), t('Payment record deleted successfully.'));
               router.back();
             } catch (error) {
               console.error('Error deleting payment:', error);
-              Alert.alert('Error', extractErrorMessage(error));
+              Alert.alert(t('Error'), extractErrorMessage(error));
               setLoading(false);
             }
           },
@@ -194,8 +196,8 @@ export default function StaffPaymentViewScreen() {
           <Ionicons name="chevron-back" size={22} color={colors.slate800} />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={styles.navbarTitle}>Payment Voucher</Text>
-          <Text style={styles.navbarSubtitle}>Ref #{payment.ulid || payment.id}</Text>
+          <Text style={styles.navbarTitle}>{t('Payment Voucher')}</Text>
+          <Text style={styles.navbarSubtitle}>{t('Ref')} #{payment.ulid || payment.id}</Text>
         </View>
 
         {!payment.is_settled && (
@@ -212,14 +214,14 @@ export default function StaffPaymentViewScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Amount Voucher Hero Card */}
         <BentoCard variant="elevated" style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>DISBURSED AMOUNT</Text>
+          <Text style={styles.summaryLabel}>{t('Disbursed Amount').toUpperCase()}</Text>
           <Text style={styles.summaryAmountText}>
             ₹{Number(payment.amount).toLocaleString('en-IN')}
           </Text>
 
           <View style={styles.badgeRow}>
             {payment.is_settled && (
-              <StatusBadge label="Settled" variant="success" dot />
+              <StatusBadge label={t('Settled')} variant="success" dot />
             )}
             <StatusBadge label={cleanMethodLabel} variant="info" dot={false} />
             <View style={styles.dateBadge}>
@@ -272,10 +274,10 @@ export default function StaffPaymentViewScreen() {
 
         {/* Transaction Details Card */}
         <BentoCard variant="elevated" style={styles.detailsCard}>
-          <Text style={styles.cardTitle}>Voucher Information</Text>
+          <Text style={styles.cardTitle}>{t('Voucher Information')}</Text>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Transaction ID</Text>
+            <Text style={styles.detailLabel}>{t('Transaction ID')}</Text>
             <Text style={styles.detailValue} numberOfLines={1}>
               {payment.ulid || payment.id}
             </Text>
@@ -284,14 +286,14 @@ export default function StaffPaymentViewScreen() {
           <View style={styles.detailDivider} />
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Disbursement Mode</Text>
+            <Text style={styles.detailLabel}>{t('Disbursement Mode')}</Text>
             <Text style={styles.detailValue}>{cleanMethodLabel}</Text>
           </View>
 
           <View style={styles.detailDivider} />
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Payment Date</Text>
+            <Text style={styles.detailLabel}>{t('Payment Date')}</Text>
             <Text style={styles.detailValue}>
               {payment.date ? payment.date.split('T')[0] : 'N/A'}
             </Text>
@@ -300,13 +302,13 @@ export default function StaffPaymentViewScreen() {
           <View style={styles.detailDivider} />
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Authorized Given By</Text>
+            <Text style={styles.detailLabel}>{t('Authorized Given By')}</Text>
             <Text style={styles.detailValue}>{payment.given_by?.name || 'Group Owner'}</Text>
           </View>
 
           {payment.notes ? (
             <View style={styles.notesContainer}>
-              <Text style={styles.notesLabel}>Remarks & Notes</Text>
+              <Text style={styles.notesLabel}>{t('Remarks & Notes')}</Text>
               <Text style={styles.notesText}>{payment.notes}</Text>
             </View>
           ) : null}
@@ -321,7 +323,7 @@ export default function StaffPaymentViewScreen() {
               activeOpacity={0.8}
             >
               <Ionicons name="create-outline" size={16} color={colors.white} />
-              <Text style={styles.editBtnText}>Edit Voucher</Text>
+              <Text style={styles.editBtnText}>{t('Edit Voucher')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -330,7 +332,7 @@ export default function StaffPaymentViewScreen() {
               activeOpacity={0.8}
             >
               <Ionicons name="trash-outline" size={16} color={colors.danger} />
-              <Text style={styles.deleteBtnText}>Delete Record</Text>
+              <Text style={styles.deleteBtnText}>{t('Delete Record')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -353,20 +355,20 @@ export default function StaffPaymentViewScreen() {
               contentContainerStyle={{ paddingBottom: 30 }}
             >
               <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>Edit Payment Record</Text>
+                <Text style={styles.modalTitle}>{t('Edit Payment Record')}</Text>
                 <TouchableOpacity onPress={() => setEditModalVisible(false)}>
                   <Ionicons name="close" size={22} color={colors.slate600} />
                 </TouchableOpacity>
               </View>
 
               <ModernInput
-                label="Staff Member"
+                label={t('Staff Member')}
                 value={payment.staff?.name || 'Unknown Staff'}
                 editable={false}
               />
 
               <ModernInput
-                label="Amount Paid"
+                label={t('Amount Paid')}
                 required
                 prefix="₹"
                 placeholder="0.00"
@@ -376,18 +378,21 @@ export default function StaffPaymentViewScreen() {
                 containerStyle={{ marginTop: spacing.md }}
               />
 
-              <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Payment Method</Text>
+              <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>{t('Payment Method')}</Text>
               <QuickChipGroup
-                options={PAYMENT_METHOD_OPTIONS}
+                options={PAYMENT_METHOD_OPTIONS.map((opt) => ({
+                  ...opt,
+                  label: t(opt.label),
+                }))}
                 selectedValue={payMethod}
                 onSelect={(val) => setPayMethod(val)}
                 size="sm"
               />
 
               <SearchableSelect
-                label="Given By"
-                placeholder="Select owner or manager"
-                searchPlaceholder="Search staff..."
+                label={t('Given By')}
+                placeholder={t('Select owner or manager')}
+                searchPlaceholder={t('Search staff...')}
                 items={owners.map((o) => ({
                   value: o.id,
                   label: o.name,
@@ -400,15 +405,15 @@ export default function StaffPaymentViewScreen() {
               />
 
               <ModernDatePicker
-                label="Payment Date"
+                label={t('Payment Date')}
                 value={payDate}
                 onChange={setPayDate}
                 containerStyle={{ marginTop: spacing.md }}
               />
 
               <ModernInput
-                label="Notes (Optional)"
-                placeholder="Reference details, transaction ID..."
+                label={t('Notes (Optional)')}
+                placeholder={t('Reference details, transaction ID...')}
                 value={payNotes}
                 onChangeText={setPayNotes}
                 multiline
@@ -422,7 +427,7 @@ export default function StaffPaymentViewScreen() {
                   onPress={() => setEditModalVisible(false)}
                   disabled={savingEdit}
                 >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -433,7 +438,7 @@ export default function StaffPaymentViewScreen() {
                   {savingEdit ? (
                     <ActivityIndicator color={colors.white} />
                   ) : (
-                    <Text style={styles.saveBtnText}>Save</Text>
+                    <Text style={styles.saveBtnText}>{t('Save')}</Text>
                   )}
                 </TouchableOpacity>
               </View>

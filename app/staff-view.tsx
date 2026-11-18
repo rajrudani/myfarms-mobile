@@ -28,13 +28,23 @@ import { extractErrorMessage, getAbsoluteImageUrl } from '../src/api/client';
 import { permissions } from '../src/utils/permissions';
 import { useResponsive } from '../src/utils/responsive';
 import { formatCurrency } from '../src/utils/formatters';
-import { ModalSheet, ModernInput, SearchableSelect, ModernDatePicker, ConfirmModal } from '../src/components/ui';
+import { ModalSheet, ModernInput, SearchableSelect, ModernDatePicker, ConfirmModal, QuickChipGroup, ChipOption } from '../src/components/ui';
+import { useTranslation } from '../src/i18n/I18nContext';
 import { useToast } from '../src/context/ToastContext';
+
+const PAYMENT_METHOD_OPTIONS: ChipOption<'cash' | 'google_pay' | 'phonepe' | 'other_upi' | 'bank_transfer'>[] = [
+  { label: 'Cash', value: 'cash' },
+  { label: 'GPay', value: 'google_pay' },
+  { label: 'PhonePe', value: 'phonepe' },
+  { label: 'UPI', value: 'other_upi' },
+  { label: 'Bank', value: 'bank_transfer' },
+];
 
 export default function StaffViewScreen() {
   const { id } = useLocalSearchParams();
   const staffIdentifier = id as string;
 
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { showToast } = useToast();
   const { containerMaxWidth, isTablet } = useResponsive();
@@ -416,9 +426,34 @@ export default function StaffViewScreen() {
   const totalPaymentPages = Math.max(1, Math.ceil(payments.length / paymentsPerPage));
   const paginatedPayments = payments.slice((paymentPage - 1) * paymentsPerPage, paymentPage * paymentsPerPage);
 
+  const currentCyclePaid = staff.payment_stats?.current_paid !== undefined
+    ? Number(staff.payment_stats.current_paid)
+    : payments.filter((p) => !p.settlement_id && !p.is_settled).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+  const monthPaid = staff.payment_stats?.month_paid !== undefined
+    ? Number(staff.payment_stats.month_paid)
+    : payments.filter((p) => {
+        if (!p.date) return false;
+        const d = new Date(p.date);
+        const now = new Date();
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      }).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+  const presentCount = staff.attendance_stats?.present_count !== undefined
+    ? staff.attendance_stats.present_count
+    : attendances.filter((a) => a.status === 'present').length;
+
+  const halfDayCount = staff.attendance_stats?.half_day_count !== undefined
+    ? staff.attendance_stats.half_day_count
+    : attendances.filter((a) => a.status === 'half_day').length;
+
+  const absentCount = staff.attendance_stats?.absent_count !== undefined
+    ? staff.attendance_stats.absent_count
+    : attendances.filter((a) => a.status === 'absent').length;
+
   const selectedGivenByName = payGivenBy
-    ? allStaff.find(s => s.id === payGivenBy)?.name || 'Select Owner/Manager'
-    : 'Select Owner/Manager';
+    ? allStaff.find(s => s.id === payGivenBy)?.name || t('Select Owner or Manager')
+    : t('Select Owner or Manager');
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -428,7 +463,7 @@ export default function StaffViewScreen() {
         <TouchableOpacity style={styles.navBackBtn} onPress={() => router.back()} activeOpacity={0.7}>
           <Ionicons name="chevron-back" size={22} color="#475569" />
         </TouchableOpacity>
-        <Text style={styles.navbarTitle}>Staff Overview</Text>
+        <Text style={styles.navbarTitle}>{t('Staff Overview')}</Text>
         {permissions.canManageStaff(user) ? (
           <TouchableOpacity style={styles.navEditBtn} onPress={() => setEditModalVisible(true)} activeOpacity={0.7}>
             <Ionicons name="create-outline" size={20} color="#166534" />
@@ -460,11 +495,10 @@ export default function StaffViewScreen() {
             </View>
             <View style={styles.heroMeta}>
               <Text style={styles.heroName}>{staff.name}</Text>
-              <Text style={styles.heroSubtext}>@{staff.username || 'no_username'}</Text>
               <View style={styles.roleBadgeContainer}>
                 {staff.roles.map((r, i) => (
                   <View key={i} style={[styles.rolePill, { backgroundColor: getRoleColor(r.value) + '15' }]}>
-                    <Text style={[styles.rolePillText, { color: getRoleColor(r.value) }]}>{r.label}</Text>
+                    <Text style={[styles.rolePillText, { color: getRoleColor(r.value) }]}>{t(r.label || r.value)}</Text>
                   </View>
                 ))}
               </View>
@@ -481,40 +515,40 @@ export default function StaffViewScreen() {
           {staff.family_head && (
             <View style={[styles.heroFooter, { marginTop: 4 }]}>
               <Ionicons name="people-outline" size={14} color="#64748b" style={{ marginRight: 6 }} />
-              <Text style={styles.heroFooterText}>Family Head: {staff.family_head.name}</Text>
+              <Text style={styles.heroFooterText}>{t('Family Head')}: {staff.family_head.name}</Text>
             </View>
           )}
         </View>
 
         {/* 3. Quick Action Buttons */}
         <View style={styles.quickActionsRow}>
-          {isWorkerOrConsultant && permissions.canManageStaff(user) && (
+          {permissions.canManageStaff(user) && (
             <TouchableOpacity
-              style={styles.quickActionBtnPayment}
-              onPress={() => setPaymentModalVisible(true)}
+              style={styles.quickActionBtnOutline}
+              onPress={() => setEditModalVisible(true)}
               activeOpacity={0.7}
             >
-              <Ionicons name="card-outline" size={16} color="#d97706" style={{ marginRight: 6 }} />
-              <Text style={styles.quickActionBtnTextPayment}>Payment</Text>
+              <Ionicons name="create-outline" size={16} color="#475569" style={{ marginRight: 6 }} />
+              <Text style={styles.quickActionBtnTextOutline}>{t('Edit Staff')}</Text>
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity
-            style={styles.quickActionBtnAttendance}
-            onPress={() => {
-              const todayStr = new Date().toISOString().split('T')[0];
-              const todayAtt = attendances.find((a) => a.date === todayStr);
-              setSelectedAttendanceDate(todayStr);
-              setAttendanceStatus(todayAtt ? todayAtt.status : 'present');
-              setAttendanceFarmId(todayAtt ? todayAtt.farm?.id || todayAtt.farm_id || null : null);
-              setAttendanceNotes(todayAtt ? todayAtt.notes || '' : '');
-              setAttendanceModalVisible(true);
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="calendar-outline" size={16} color="#2563eb" style={{ marginRight: 6 }} />
-            <Text style={styles.quickActionBtnTextAttendance}>Attendance</Text>
-          </TouchableOpacity>
+          {isWorkerOrConsultant && permissions.canManageStaff(user) && (
+            <TouchableOpacity
+              style={styles.quickActionBtnPayment}
+              onPress={() => {
+                if (!payGivenBy && user?.id) {
+                  const currentStaffUser = allStaff.find(s => s.id === user.id || s.email === user.email);
+                  if (currentStaffUser) setPayGivenBy(currentStaffUser.id);
+                }
+                setPaymentModalVisible(true);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="card-outline" size={16} color="#d97706" style={{ marginRight: 6 }} />
+              <Text style={styles.quickActionBtnTextPayment}>{t('Record Payment')}</Text>
+            </TouchableOpacity>
+          )}
 
           {staff.phone ? (
             <TouchableOpacity
@@ -523,39 +557,39 @@ export default function StaffViewScreen() {
               activeOpacity={0.7}
             >
               <Ionicons name="call-outline" size={16} color="#166534" style={{ marginRight: 6 }} />
-              <Text style={styles.quickActionBtnTextCall}>Call</Text>
+              <Text style={styles.quickActionBtnTextCall}>{t('Call')}</Text>
             </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={styles.quickActionBtnOutline}
-              onPress={() => setEditModalVisible(true)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="create-outline" size={16} color="#475569" style={{ marginRight: 6 }} />
-              <Text style={styles.quickActionBtnTextOutline}>Edit</Text>
-            </TouchableOpacity>
-          )}
+          ) : null}
         </View>
 
         {/* 4. Stats Grid */}
         <View style={styles.statsGrid}>
-          <View style={[styles.statBox, { borderLeftColor: '#22c55e', borderLeftWidth: 4 }]}>
-            <Text style={styles.statLabel}>THIS MONTH PAID</Text>
-            <Text style={[styles.statValue, { color: '#166534' }]}>
-              ₹{Number(staff.payment_stats?.month_paid || 0).toLocaleString('en-IN')}
-            </Text>
-            <Text style={styles.statSublabel}>Current Cycle</Text>
-          </View>
-
-          <View style={[styles.statBox, { borderLeftColor: '#3b82f6', borderLeftWidth: 4 }]}>
-            <Text style={styles.statLabel}>ATTENDANCE</Text>
-            <Text style={styles.statValue}>
-              {staff.attendance_stats?.present_count || 0}
-              <Text style={styles.statUnit}>d</Text>
+          <View style={[styles.statBox, { borderLeftColor: '#d97706', borderLeftWidth: 4 }]}>
+            <Text style={styles.statLabel}>{t('Current Paid').toUpperCase()}</Text>
+            <Text style={[styles.statValue, { color: '#d97706' }]}>
+              ₹{Number(currentCyclePaid).toLocaleString('en-IN')}
             </Text>
             <Text style={styles.statSublabel}>
-              {staff.attendance_stats?.half_day_count || 0} Half Days
+              {t('This Month')}: ₹{Number(monthPaid).toLocaleString('en-IN')}
             </Text>
+          </View>
+
+          <View style={[styles.statBox, { borderLeftColor: '#16a34a', borderLeftWidth: 4 }]}>
+            <Text style={styles.statLabel}>{t('Attendance').toUpperCase()}</Text>
+            <View style={styles.attendanceCountsRow}>
+              <View style={styles.attendanceCountCol}>
+                <Text style={[styles.attendanceCountNum, { color: '#16a34a' }]}>
+                  {presentCount}
+                </Text>
+                <Text style={styles.attendanceCountLabel}>{t('Present')}</Text>
+              </View>
+              <View style={styles.attendanceCountCol}>
+                <Text style={[styles.attendanceCountNum, { color: '#d97706' }]}>
+                  {halfDayCount}
+                </Text>
+                <Text style={styles.attendanceCountLabel}>{t('Half Day')}</Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -563,25 +597,25 @@ export default function StaffViewScreen() {
         <View style={styles.card}>
           <View style={styles.cardSectionHeader}>
             <Ionicons name="map-outline" size={18} color="#0f172a" style={{ marginRight: 8 }} />
-            <Text style={styles.cardSectionTitle}>Assigned Farms</Text>
-            {(!staff.roles.some(r => r.value === 'Owner')) && (
+            <Text style={styles.cardSectionTitle}>{t('Assigned Farms')}</Text>
+            {(!staff.roles.some(r => r.value === 'Owner')) && staff.farms.length === 0 && (
               <TouchableOpacity
                 style={[styles.addInlineBtn, { marginLeft: 'auto' }]}
                 onPress={() => setAssignFarmModalVisible(true)}
               >
-                <Text style={styles.addInlineBtnText}>+ Assign</Text>
+                <Text style={styles.addInlineBtnText}>+ {t('Assign')}</Text>
               </TouchableOpacity>
             )}
           </View>
           {staff.farms.length === 0 ? (
-            <Text style={styles.emptyCardText}>No farms assigned.</Text>
+            <Text style={styles.emptyCardText}>{t('No farm assigned')}</Text>
           ) : (
             staff.farms.map((f, i) => (
               <View key={i} style={[styles.listRow, i > 0 && styles.listRowBorder]}>
                 <View style={[styles.statusDotSmall, { backgroundColor: f.is_active ? '#22c55e' : '#94a3b8' }]} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.rowItemTitle}>{f.name}</Text>
-                  <Text style={styles.rowItemSubtitle}>{f.location || 'Location not set'} {f.area_label ? `• ${f.area_label}` : ''}</Text>
+                  <Text style={styles.rowItemSubtitle}>{f.location || t('Location not set')} {f.area_label ? `• ${f.area_label}` : ''}</Text>
                 </View>
                 {(!staff.roles.some(r => r.value === 'Owner')) && (
                   <TouchableOpacity
@@ -599,8 +633,21 @@ export default function StaffViewScreen() {
         {/* 6. Attendance Log Card */}
         <View style={styles.card}>
           <View style={styles.cardSectionHeader}>
-            <Ionicons name="calendar-outline" size={18} color="#0f172a" style={{ marginRight: 8 }} />
-            <Text style={styles.cardSectionTitle}>Attendance This Month</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <Ionicons name="calendar-outline" size={18} color="#0f172a" style={{ marginRight: 8 }} />
+              <View>
+                <Text style={styles.cardSectionTitle}>{t('Attendance This Month')}</Text>
+                <Text style={styles.cardSectionSubtitle}>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.headerReportBtn}
+              onPress={() => router.push(`/reports?type=attendance&worker_id=${staff.id}`)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="clipboard-outline" size={14} color="#1d4ed8" style={{ marginRight: 4 }} />
+              <Text style={styles.headerReportBtnText}>{t('Report')}</Text>
+            </TouchableOpacity>
           </View>
           
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dayStripContainer}>
@@ -646,21 +693,17 @@ export default function StaffViewScreen() {
           <View style={styles.legendRow}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#dcfce7', borderColor: '#22c55e', borderWidth: 1 }]} />
-              <Text style={styles.legendText}>Present</Text>
+              <Text style={styles.legendText}>{t('Present')} ({presentCount})</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#fef3c7', borderColor: '#f59e0b', borderWidth: 1 }]} />
-              <Text style={styles.legendText}>Half Day</Text>
+              <Text style={styles.legendText}>{t('Half Day')} ({halfDayCount})</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#fee2e2', borderColor: '#ef4444', borderWidth: 1 }]} />
-              <Text style={styles.legendText}>Absent</Text>
+              <Text style={styles.legendText}>{t('Absent')} ({absentCount})</Text>
             </View>
           </View>
-
-          <Text style={styles.statsSummaryText}>
-            Month total: {staff.attendance_stats?.present_count || 0} Present, {staff.attendance_stats?.half_day_count || 0} Half Day, {staff.attendance_stats?.absent_count || 0} Absent
-          </Text>
         </View>
 
         {/* 7. Family Details Card */}
@@ -668,7 +711,7 @@ export default function StaffViewScreen() {
           <View style={styles.card}>
             <View style={styles.cardSectionHeader}>
               <Ionicons name="people-outline" size={18} color="#0f172a" style={{ marginRight: 8 }} />
-              <Text style={styles.cardSectionTitle}>Family Details</Text>
+              <Text style={styles.cardSectionTitle}>{t('Family Details')}</Text>
             </View>
 
             {staff.family_head && (
@@ -683,7 +726,7 @@ export default function StaffViewScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.rowItemTitle}>{staff.family_head.name}</Text>
-                  <Text style={styles.familyBadgeHead}>Family Head</Text>
+                  <Text style={styles.familyBadgeHead}>{t('Family Head')}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color="#64748b" />
               </TouchableOpacity>
@@ -702,7 +745,7 @@ export default function StaffViewScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.rowItemTitle}>{member.name}</Text>
-                  <Text style={styles.rowItemSubtitle}>Family Member</Text>
+                  <Text style={styles.rowItemSubtitle}>{t('Family Member')}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color="#64748b" />
               </TouchableOpacity>
@@ -716,21 +759,27 @@ export default function StaffViewScreen() {
             <View style={styles.cardSectionHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                 <Ionicons name="cash-outline" size={18} color="#0f172a" style={{ marginRight: 8 }} />
-                <Text style={styles.cardSectionTitle}>Payment History</Text>
+                <Text style={styles.cardSectionTitle}>{t('Payment History')}</Text>
               </View>
               {permissions.canManageStaff(user) && (
                 <TouchableOpacity
                   style={styles.addInlineBtn}
-                  onPress={() => setPaymentModalVisible(true)}
+                  onPress={() => {
+                    if (!payGivenBy && user?.id) {
+                      const currentStaffUser = allStaff.find(s => s.id === user.id || s.email === user.email);
+                      if (currentStaffUser) setPayGivenBy(currentStaffUser.id);
+                    }
+                    setPaymentModalVisible(true);
+                  }}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.addInlineBtnText}>+ Record Payment</Text>
+                  <Text style={styles.addInlineBtnText}>+ {t('Record Payment')}</Text>
                 </TouchableOpacity>
               )}
             </View>
 
             {payments.length === 0 ? (
-              <Text style={styles.emptyCardText}>No payments logged.</Text>
+              <Text style={styles.emptyCardText}>{t('No payments logged.')}</Text>
             ) : (
               <>
                 {paginatedPayments.map((pay, i) => (
@@ -742,7 +791,7 @@ export default function StaffViewScreen() {
                   >
                     <View style={{ flex: 1 }}>
                       <Text style={styles.paymentRowDate}>{pay.date ? pay.date.split('T')[0] : 'N/A'}</Text>
-                      <Text style={styles.paymentRowGivenBy}>Given by: {pay.given_by?.name || 'Owner'}</Text>
+                      <Text style={styles.paymentRowGivenBy}>{t('By')} {pay.given_by?.name || t('Owner')}</Text>
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
                       <Text style={styles.paymentRowAmount}>₹{Number(pay.amount).toLocaleString('en-IN')}</Text>
@@ -761,11 +810,11 @@ export default function StaffViewScreen() {
                       activeOpacity={0.7}
                     >
                       <Ionicons name="chevron-back" size={14} color={paymentPage === 1 ? '#cbd5e1' : '#334155'} />
-                      <Text style={[styles.pageBtnText, paymentPage === 1 && styles.pageBtnTextDisabled]}>Prev</Text>
+                      <Text style={[styles.pageBtnText, paymentPage === 1 && styles.pageBtnTextDisabled]}>{t('Prev')}</Text>
                     </TouchableOpacity>
 
                     <Text style={styles.pageInfoText}>
-                      Page {paymentPage} of {totalPaymentPages}
+                      {t('Page %{current} of %{total}', { current: paymentPage, total: totalPaymentPages })}
                     </Text>
 
                     <TouchableOpacity
@@ -774,7 +823,7 @@ export default function StaffViewScreen() {
                       disabled={paymentPage === totalPaymentPages}
                       activeOpacity={0.7}
                     >
-                      <Text style={[styles.pageBtnText, paymentPage === totalPaymentPages && styles.pageBtnTextDisabled]}>Next</Text>
+                      <Text style={[styles.pageBtnText, paymentPage === totalPaymentPages && styles.pageBtnTextDisabled]}>{t('Next')}</Text>
                       <Ionicons name="chevron-forward" size={14} color={paymentPage === totalPaymentPages ? '#cbd5e1' : '#334155'} />
                     </TouchableOpacity>
                   </View>
@@ -788,44 +837,81 @@ export default function StaffViewScreen() {
         {isWorkerOrConsultant && (
           <View style={styles.card}>
             <View style={styles.cardSectionHeader}>
-              <Ionicons name="analytics-outline" size={18} color="#0f172a" style={{ marginRight: 8 }} />
-              <Text style={styles.cardSectionTitle}>Payment Summary</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <Ionicons name="analytics-outline" size={18} color="#0f172a" style={{ marginRight: 8 }} />
+                <Text style={styles.cardSectionTitle}>{t('Payment Summary')}</Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.headerReportBtn, styles.headerPaymentReportBtn]}
+                onPress={() => router.push(`/reports?type=payment&worker_id=${staff.id}`)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="document-text-outline" size={14} color="#b45309" style={{ marginRight: 4 }} />
+                <Text style={[styles.headerReportBtnText, styles.headerPaymentReportBtnText]}>{t('Report')}</Text>
+              </TouchableOpacity>
             </View>
 
-            <View style={styles.summaryStatsRow}>
-              <View style={styles.summaryStatItem}>
-                <Text style={styles.summaryStatLabel}>Unsettled</Text>
-                <Text style={[styles.summaryStatValue, { color: '#dc2626' }]}>
-                  ₹{Number(staff.payment_stats?.current_paid || 0).toLocaleString('en-IN')}
+            <View style={styles.summaryList}>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryRowLabel}>{t('Current cycle paid')}</Text>
+                <Text style={styles.summaryRowValue}>
+                  ₹{Number(currentCyclePaid).toLocaleString('en-IN')}
                 </Text>
               </View>
-              <View style={styles.summaryStatItem}>
-                <Text style={styles.summaryStatLabel}>This Month</Text>
-                <Text style={[styles.summaryStatValue, { color: '#166534' }]}>
-                  ₹{Number(staff.payment_stats?.month_paid || 0).toLocaleString('en-IN')}
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryRowLabel}>{t('Total paid this month')}</Text>
+                <Text style={styles.summaryRowValue}>
+                  ₹{Number(monthPaid).toLocaleString('en-IN')}
                 </Text>
               </View>
-              <View style={styles.summaryStatItem}>
-                <Text style={styles.summaryStatLabel}>Lifetime</Text>
-                <Text style={styles.summaryStatValue}>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryRowLabel}>{t('Lifetime paid')}</Text>
+                <Text style={styles.summaryRowValue}>
                   ₹{Number(staff.payment_stats?.lifetime_paid || 0).toLocaleString('en-IN')}
                 </Text>
               </View>
             </View>
 
+            {/* Last Settlement Information */}
+            {staff.last_settlement ? (
+              <View style={styles.settlementCard}>
+                <View style={styles.settlementCardHeader}>
+                  <Ionicons name="receipt-outline" size={15} color="#475569" style={{ marginRight: 6 }} />
+                  <Text style={styles.settlementTitle}>{t('Last Settlement')}</Text>
+                </View>
+                <View style={styles.settlementGrid}>
+                  <View style={styles.settlementCol}>
+                    <Text style={styles.settlementLabel}>{t('Settlement Date')}</Text>
+                    <Text style={styles.settlementValue}>{staff.last_settlement.date || '-'}</Text>
+                  </View>
+                  <View style={styles.settlementCol}>
+                    <Text style={styles.settlementLabel}>{t('Settlement Amount')}</Text>
+                    <Text style={[styles.settlementValue, { color: '#0f172a' }]}>
+                      ₹{Number(staff.last_settlement.amount || 0).toLocaleString('en-IN')}
+                    </Text>
+                  </View>
+                </View>
+                {staff.last_settlement.notes ? (
+                  <Text style={styles.settlementNotes} numberOfLines={2}>
+                    {staff.last_settlement.notes}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+
             {staff.payment_stats?.last_payment_date && (
               <Text style={styles.lastPaymentText}>
-                Last Payment Date: {staff.payment_stats.last_payment_date}
+                {t('Last Payment Date')}: {staff.payment_stats.last_payment_date}
               </Text>
             )}
 
-            {staff.payment_stats?.current_paid && staff.payment_stats.current_paid > 0 && permissions.canManageStaff(user) ? (
+            {currentCyclePaid > 0 && permissions.canManageStaff(user) ? (
               <TouchableOpacity
                 style={styles.settleBtn}
                 onPress={() => setSettleModalVisible(true)}
               >
                 <Ionicons name="refresh-outline" size={14} color="#d97706" style={{ marginRight: 4 }} />
-                <Text style={styles.settleBtnText}>Settle & Restart</Text>
+                <Text style={styles.settleBtnText}>{t('Settle & Restart Payments')}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -976,24 +1062,25 @@ export default function StaffViewScreen() {
         </ScrollView>
       </ModalSheet>
 
-      {/* Add Payment Modal */}
+      {/* Record Payment Modal */}
       <ModalSheet
         visible={paymentModalVisible}
         onClose={() => setPaymentModalVisible(false)}
-        title="Record Payment"
+        title={t('Record Staff Payment')}
         maxHeight="88%"
       >
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
           <ModernInput
-            label="Staff Member"
+            label={t('Staff Member')}
             value={staff.name}
             editable={false}
             containerStyle={{ marginBottom: 12 }}
           />
 
           <ModernInput
-            label="Amount Paid"
-            placeholder="e.g. 5000"
+            label={t('Amount')}
+            required
+            placeholder="0.00"
             keyboardType="decimal-pad"
             value={amount}
             onChangeText={setAmount}
@@ -1001,49 +1088,44 @@ export default function StaffViewScreen() {
             containerStyle={{ marginBottom: 12 }}
           />
 
-          <SearchableSelect
-            label="Payment Method"
-            placeholder="Select payment method"
-            items={[
-              { value: 'cash', label: 'Cash', icon: 'cash-outline' },
-              { value: 'google_pay', label: 'Google Pay', icon: 'phone-portrait-outline' },
-              { value: 'phonepe', label: 'PhonePe', icon: 'phone-portrait-outline' },
-              { value: 'other_upi', label: 'Other UPI', icon: 'wallet-outline' },
-              { value: 'bank_transfer', label: 'Bank Transfer', icon: 'card-outline' },
-            ]}
-            value={payMethod}
-            onSelect={(val) => setPayMethod(val as any)}
-            containerStyle={{ marginBottom: 12 }}
+          <Text style={[styles.inputLabel, { marginBottom: 8 }]}>
+            {t('Payment Method')} <Text style={{ color: '#dc2626' }}>*</Text>
+          </Text>
+          <QuickChipGroup
+            options={PAYMENT_METHOD_OPTIONS}
+            selectedValue={payMethod}
+            onSelect={(val) => setPayMethod(val)}
+            size="sm"
           />
 
           <SearchableSelect
-            label="Given By"
-            placeholder="Select manager or owner"
-            searchPlaceholder="Search managers..."
+            label={`${t('Authorized Given By')} *`}
+            placeholder={t('Select Owner or Manager')}
+            searchPlaceholder={t('Search managers...')}
             items={allStaff
               .filter((s) => s.roles.some((r) => r.value === 'Owner' || r.value === 'Manager'))
               .map((s) => ({
                 value: s.id,
                 label: s.name,
-                sublabel: s.roles[0]?.label || undefined,
+                sublabel: s.roles.map((r) => r.label || r.value).join(', '),
                 icon: 'person-circle-outline',
               }))}
             value={payGivenBy}
             onSelect={setPayGivenBy}
-            containerStyle={{ marginBottom: 12 }}
-            emptyMessage="No managers found"
+            containerStyle={{ marginTop: 12, marginBottom: 12 }}
+            emptyMessage={t('No managers found')}
           />
 
           <ModernDatePicker
-            label="Payment Date"
+            label={t('Payment Date')}
             value={payDate}
             onChange={setPayDate}
             containerStyle={{ marginBottom: 12 }}
           />
 
           <ModernInput
-            label="Notes"
-            placeholder="Reference details..."
+            label={t('Notes')}
+            placeholder={t('Reference details...')}
             value={payNotes}
             onChangeText={setPayNotes}
             multiline
@@ -1058,7 +1140,7 @@ export default function StaffViewScreen() {
               disabled={savingPayment}
               activeOpacity={0.7}
             >
-              <Text style={styles.cancelBtnText}>Cancel</Text>
+              <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1070,7 +1152,7 @@ export default function StaffViewScreen() {
               {savingPayment ? (
                 <ActivityIndicator color="#ffffff" />
               ) : (
-                <Text style={styles.saveBtnText}>Record Payment</Text>
+                <Text style={styles.saveBtnText}>{t('Record Payment')}</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -1833,6 +1915,120 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#f1f5f9',
     paddingTop: 10,
+  },
+  attendanceCountsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 6,
+  },
+  attendanceCountCol: {
+    alignItems: 'flex-start',
+  },
+  attendanceCountNum: {
+    fontSize: 18,
+    fontWeight: '900',
+    lineHeight: 22,
+  },
+  attendanceCountLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94a3b8',
+    marginTop: 2,
+  },
+  headerReportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: 'rgba(37, 99, 235, 0.2)',
+  },
+  headerReportBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1d4ed8',
+  },
+  headerPaymentReportBtn: {
+    backgroundColor: '#fffbeb',
+    borderColor: 'rgba(217, 119, 6, 0.22)',
+  },
+  headerPaymentReportBtnText: {
+    color: '#b45309',
+  },
+  summaryList: {
+    marginBottom: 8,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  summaryRowLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  summaryRowValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  settlementCard: {
+    marginTop: 10,
+    marginBottom: 10,
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 12,
+  },
+  settlementCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  settlementTitle: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    color: '#64748b',
+  },
+  settlementGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  settlementCol: {
+    flex: 1,
+  },
+  settlementLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  settlementValue: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#0f172a',
+    marginTop: 2,
+  },
+  settlementNotes: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  cardSectionSubtitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748b',
+    marginTop: 2,
   },
   dangerZoneCard: {
     borderColor: '#fee2e2',

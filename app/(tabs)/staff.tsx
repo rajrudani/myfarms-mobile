@@ -631,7 +631,7 @@ export default function StaffScreen() {
               ) : null}
             </View>
             <Text style={[styles.pwaPresentSwitchLabel, isPresent && styles.pwaPresentSwitchLabelOn]}>
-              {isPresent ? 'Present' : 'Absent'}
+              {isPresent ? t('Present') : t('Absent')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -645,7 +645,7 @@ export default function StaffScreen() {
               activeOpacity={0.7}
             >
               <Text style={styles.pwaDetailsToggleText}>
-                {isExpanded ? 'Less (-)' : 'More (+)'}
+                {isExpanded ? t('Less (-)') : t('More (+)')}
               </Text>
             </TouchableOpacity>
 
@@ -660,7 +660,7 @@ export default function StaffScreen() {
                 color={isHalfDay ? '#d97706' : '#94a3b8'}
               />
               <Text style={[styles.pwaHalfDayText, isHalfDay && styles.pwaHalfDayTextActive]}>
-                HALF DAY
+                {t('Half Day').toUpperCase()}
               </Text>
             </TouchableOpacity>
           </View>
@@ -689,7 +689,7 @@ export default function StaffScreen() {
             <View style={styles.pwaAttNotesBox}>
               <TextInput
                 style={styles.pwaAttNotesInput}
-                placeholder="Work notes..."
+                placeholder={t('Work notes...')}
                 placeholderTextColor="#94a3b8"
                 value={notes}
                 onChangeText={setNotes}
@@ -1059,7 +1059,7 @@ export default function StaffScreen() {
               activeOpacity={0.8}
             >
               <Ionicons name="checkmark-done" size={15} color={colors.primaryDark} />
-              <Text style={styles.markAllBtnText}>All Present</Text>
+              <Text style={styles.markAllBtnText}>{t('All Present')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -1067,19 +1067,19 @@ export default function StaffScreen() {
           <View style={styles.musterTicker}>
             <View style={styles.musterTickerItem}>
               <Text style={styles.musterTickerValGreen}>{presentCount}</Text>
-              <Text style={styles.musterTickerLabel}>Present</Text>
+              <Text style={styles.musterTickerLabel}>{t('Present')}</Text>
             </View>
             <View style={styles.musterTickerItem}>
               <Text style={styles.musterTickerValAmber}>{halfDayCount}</Text>
-              <Text style={styles.musterTickerLabel}>Half Day</Text>
+              <Text style={styles.musterTickerLabel}>{t('Half Day')}</Text>
             </View>
             <View style={styles.musterTickerItem}>
               <Text style={styles.musterTickerValRed}>{absentCount}</Text>
-              <Text style={styles.musterTickerLabel}>Absent</Text>
+              <Text style={styles.musterTickerLabel}>{t('Absent')}</Text>
             </View>
             <View style={styles.musterTickerItem}>
               <Text style={styles.musterTickerValBlue}>{staff.length}</Text>
-              <Text style={styles.musterTickerLabel}>Total Staff</Text>
+              <Text style={styles.musterTickerLabel}>{t('Total Staff')}</Text>
             </View>
           </View>
 
@@ -1232,7 +1232,7 @@ export default function StaffScreen() {
               ) : (
                 <>
                   <Ionicons name="save-outline" size={18} color={colors.white} />
-                  <Text style={styles.saveAttendanceBtnText}>Save Attendance</Text>
+                  <Text style={styles.saveAttendanceBtnText}>{t('Save Attendance')}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -1559,48 +1559,32 @@ export default function StaffScreen() {
       <ModalSheet
         visible={addPaymentModalVisible}
         onClose={() => setAddPaymentModalVisible(false)}
-        title="Record Staff Payment"
+        title={t('Record Staff Payment')}
         maxHeight="88%"
       >
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 30 }}
         >
-          <Text style={styles.inputLabel}>
-            Staff Member <Text style={{ color: colors.danger }}>*</Text>
-          </Text>
-          <TouchableOpacity
-            style={styles.dropdownTrigger}
-            onPress={() => setShowPayStaffDropdown(!showPayStaffDropdown)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.dropdownTriggerText}>{selectedStaffName}</Text>
-            <Ionicons
-              name={showPayStaffDropdown ? 'chevron-up' : 'chevron-down'}
-              size={16}
-              color={colors.slate500}
-            />
-          </TouchableOpacity>
-
-          {showPayStaffDropdown && (
-            <View style={styles.dropdownList}>
-              {staff.map((s) => (
-                <TouchableOpacity
-                  key={s.id}
-                  style={styles.dropdownItem}
-                  onPress={() => {
-                    setPayStaffId(s.id);
-                    setShowPayStaffDropdown(false);
-                  }}
-                >
-                  <Text style={styles.dropdownItemText}>{s.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+          <SearchableSelect
+            label={`${t('Staff Member')} *`}
+            placeholder={t('Select Staff Member')}
+            searchPlaceholder={t('Search staff members...')}
+            items={staff
+              .filter((s) => !s.roles.some((r) => r.value === 'Owner'))
+              .map((s) => ({
+                value: s.id,
+                label: s.name,
+                sublabel: s.roles.map((r) => t(r.label || r.value)).join(', '),
+                icon: 'person-outline',
+              }))}
+            value={payStaffId}
+            onSelect={(val) => setPayStaffId(val ? Number(val) : null)}
+            emptyMessage={t('No staff found')}
+          />
 
           <ModernInput
-            label="Payment Amount"
+            label={t('Payment Amount')}
             required
             placeholder="0.00"
             placeholderTextColor={colors.slate400}
@@ -1611,7 +1595,7 @@ export default function StaffScreen() {
             containerStyle={{ marginTop: spacing.md }}
           />
 
-          <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>Payment Method</Text>
+          <Text style={[styles.inputLabel, { marginTop: spacing.md }]}>{t('Payment Method')} *</Text>
           <QuickChipGroup
             options={PAYMENT_METHOD_OPTIONS}
             selectedValue={payMethod}
@@ -1620,35 +1604,35 @@ export default function StaffScreen() {
           />
 
           <ModernDatePicker
-            label="Payment Date"
+            label={t('Payment Date')}
             value={payDate}
             onChange={setPayDate}
             containerStyle={{ marginTop: spacing.md }}
           />
 
           <SearchableSelect
-            label="Given By"
+            label={t('Authorized Given By')}
             allowClear
-            clearLabel="Current User (Self)"
-            placeholder="Current User (Self)"
-            searchPlaceholder="Search owners or managers..."
+            clearLabel={t('Current User (Self)')}
+            placeholder={t('Current User (Self)')}
+            searchPlaceholder={t('Search owners or managers...')}
             items={staff
               .filter((s) => s.roles.some((r) => r.value === 'Owner' || r.value === 'Manager'))
               .map((s) => ({
                 value: s.id,
                 label: s.name,
-                sublabel: s.roles.map((r) => r.value).join(', '),
+                sublabel: s.roles.map((r) => t(r.label || r.value)).join(', '),
                 icon: 'person-circle-outline',
               }))}
             value={payGivenBy}
             onSelect={setPayGivenBy}
             containerStyle={{ marginTop: spacing.md }}
-            emptyMessage="No managers found"
+            emptyMessage={t('No managers found')}
           />
 
           <ModernInput
-            label="Notes"
-            placeholder="e.g. Weekly wages, harvest bonus..."
+            label={t('Notes')}
+            placeholder={t('Weekly wages, harvest bonus...')}
             placeholderTextColor={colors.slate400}
             value={payNotes}
             onChangeText={setPayNotes}
@@ -1664,7 +1648,7 @@ export default function StaffScreen() {
               disabled={savingPayment}
               activeOpacity={0.7}
             >
-              <Text style={styles.cancelBtnText}>Cancel</Text>
+              <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1676,7 +1660,7 @@ export default function StaffScreen() {
               {savingPayment ? (
                 <ActivityIndicator color={colors.white} />
               ) : (
-                <Text style={styles.saveBtnText}>Record Payment</Text>
+                <Text style={styles.saveBtnText}>{t('Record Payment')}</Text>
               )}
             </TouchableOpacity>
           </View>

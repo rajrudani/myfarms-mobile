@@ -169,6 +169,13 @@ export interface StaffMember {
     lifetime_paid: number;
     last_payment_date?: string | null;
   };
+  last_settlement?: {
+    id?: number;
+    date?: string | null;
+    amount: number;
+    payments_count?: number;
+    notes?: string | null;
+  } | null;
   created_at?: string;
   updated_at?: string;
 }
