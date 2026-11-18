@@ -29,7 +29,7 @@ import { Farm, CropCycle, FarmExpense, Crop, FarmActivityMaster, FarmActivity, A
 import { useAuth } from '../src/hooks/useAuth';
 import { getBaseUrl, extractErrorMessage } from '../src/api/client';
 import { farmActivitiesApi } from '../src/api/farmActivities';
-import { SearchableSelect, ModalSheet } from '../src/components/ui';
+import { SearchableSelect, ModalSheet, ModernDatePicker } from '../src/components/ui';
 import { useTranslation } from '../src/i18n/I18nContext';
 
 const sanitizeNumericInput = (text: string, allowDecimal = true) => {
@@ -2311,6 +2311,44 @@ export default function FarmHubScreen() {
         )}
       </ScrollView>
 
+      {/* Floating Action Button (FAB) to Add New for Crops, Activities, and Expenses */}
+      <TouchableOpacity
+        style={[styles.fab, !farm.is_active && { opacity: 0.5 }]}
+        disabled={!farm.is_active}
+        onPress={() => {
+          if (activeTab === 'cycles') {
+            setSelectedCropId('');
+            setCropType('');
+            setAllocatedArea('');
+            setSeasonName('');
+            setExpectedHarvestOn('');
+            setNotes('');
+            setCropError('');
+            setAreaError('');
+            setStartedOnError('');
+            setSeasonNameError('');
+            setCycleModalVisible(true);
+          } else if (activeTab === 'activities') {
+            handleOpenAddActivityModal('');
+          } else if (activeTab === 'expenses') {
+            setSelectedCycleId('');
+            setExpenseOpenedFromCard(false);
+            setExpenseErrors({});
+            setExpenseModalVisible(true);
+          }
+        }}
+        activeOpacity={0.85}
+        accessibilityLabel={
+          activeTab === 'cycles'
+            ? t('Start Cycle')
+            : activeTab === 'activities'
+            ? t('Add Activity')
+            : t('Add Expense')
+        }
+      >
+        <Ionicons name="add" size={30} color="#ffffff" />
+      </TouchableOpacity>
+
       {/* Start Crop Cycle Modal */}
       <Modal
         animationType="slide"
@@ -2333,7 +2371,7 @@ export default function FarmHubScreen() {
             {cropModalVisible && (
               <View style={styles.sheetOverlayContent}>
                 <View style={styles.bottomSheetHeader}>
-                  <Text style={styles.bottomSheetTitle}>Select Crop</Text>
+                  <Text style={styles.bottomSheetTitle}>{t('Select Crop')}</Text>
                   <TouchableOpacity onPress={() => setCropModalVisible(false)} style={styles.closeBtnCircle}>
                     <Ionicons name="close" size={20} color="#475569" />
                   </TouchableOpacity>
@@ -2344,7 +2382,7 @@ export default function FarmHubScreen() {
                   <Ionicons name="search" size={18} color="#64748b" style={styles.sheetSearchIcon} />
                   <TextInput
                     style={styles.sheetSearchInput}
-                    placeholder="Search crops..."
+                    placeholder={t('Search crops...')}
                     placeholderTextColor="#94a3b8"
                     value={cropSearchQuery}
                     onChangeText={setCropSearchQuery}
@@ -2391,14 +2429,14 @@ export default function FarmHubScreen() {
             )}
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>New Crop Cycle</Text>
+                <Text style={styles.modalTitle}>{t('New Crop Cycle')}</Text>
                 <TouchableOpacity onPress={() => setCycleModalVisible(false)}>
                   <Ionicons name="close" size={20} color="#64748b" />
                 </TouchableOpacity>
               </View>
 
               <Text style={styles.inputLabel}>
-                Crop <Text style={{ color: '#ef4444' }}>*</Text>
+                {t('Crop')} <Text style={{ color: '#ef4444' }}>*</Text>
               </Text>
               <TouchableOpacity 
                 style={[styles.selectorRow, cropError ? styles.inputErrorBorder : null]} 
@@ -2409,23 +2447,23 @@ export default function FarmHubScreen() {
                 activeOpacity={0.7}
               >
                 <Text style={[styles.selectorText, selectedCropId ? styles.selectorTextSelected : null]}>
-                  {selectedCropId ? crops.find(c => c.id.toString() === selectedCropId.toString())?.name : 'Select Crop'}
+                  {selectedCropId ? (crops.find(c => c.id.toString() === selectedCropId.toString())?.name || selectedCropId) : t('Select Crop')}
                 </Text>
                 <Ionicons name="chevron-forward" size={18} color="#64748b" />
               </TouchableOpacity>
               {cropError ? <Text style={styles.inputErrorText}>{cropError}</Text> : null}
 
-              <Text style={styles.inputLabel}>Crop Type (Variety)</Text>
+              <Text style={styles.inputLabel}>{t('Crop Type (Variety)')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="e.g. Bhagwa, Kesar (Optional)"
+                placeholder={t('e.g. Bhagwa, Kesar (Optional)')}
                 placeholderTextColor="#94a3b8"
                 value={cropType}
                 onChangeText={setCropType}
               />
 
               <Text style={styles.inputLabel}>
-                Allocated Area <Text style={{ color: '#ef4444' }}>*</Text>
+                {t('Allocated Area')} <Text style={{ color: '#ef4444' }}>*</Text>
               </Text>
               <View style={[styles.areaInputContainer, areaError ? { marginBottom: 4 } : null, areaError ? styles.inputErrorBorder : null]}>
                 <TextInput
@@ -2441,58 +2479,43 @@ export default function FarmHubScreen() {
                 />
                 <View style={styles.areaUnitDivider} />
                 <View style={styles.areaUnitTextContainer}>
-                  <Text style={styles.areaUnitText}>Acre</Text>
+                  <Text style={styles.areaUnitText}>{t(farm?.area_unit || 'Acre')}</Text>
                 </View>
               </View>
               {areaError ? <Text style={styles.inputErrorText}>{areaError}</Text> : null}
 
-              <View style={styles.row}>
+              <View style={[styles.row, { marginBottom: 12 }]}>
                 <View style={[styles.column, { marginRight: 10 }]}>
-                  <Text style={styles.inputLabel}>
-                    Start Date <Text style={{ color: '#ef4444' }}>*</Text>
-                  </Text>
-                  <TouchableOpacity 
-                    style={[styles.selectorRow, startedOnError ? styles.inputErrorBorder : null]} 
-                    onPress={() => {
-                      setCalendarTarget('start');
-                      setCalendarTitle('Select Start Date');
-                      setCalendarVisible(true);
+                  <ModernDatePicker
+                    label={t('Start Date')}
+                    required
+                    value={startedOn}
+                    onChange={(val) => {
+                      setStartedOn(val);
+                      if (startedOnError) setStartedOnError('');
                     }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.selectorText, startedOn ? styles.selectorTextSelected : null]}>
-                      {startedOn ? formatDisplayDate(startedOn) : 'Select Date'}
-                    </Text>
-                    <Ionicons name="calendar-outline" size={18} color="#64748b" />
-                  </TouchableOpacity>
-                  {startedOnError ? <Text style={styles.inputErrorText}>{startedOnError}</Text> : null}
+                    error={startedOnError}
+                    placeholder={t('Select Date')}
+                  />
                 </View>
 
                 <View style={styles.column}>
-                  <Text style={styles.inputLabel}>Expected Harvest Date</Text>
-                  <TouchableOpacity 
-                    style={styles.selectorRow} 
-                    onPress={() => {
-                      setCalendarTarget('expected');
-                      setCalendarTitle('Select Expected Harvest Date');
-                      setCalendarVisible(true);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.selectorText, expectedHarvestOn ? styles.selectorTextSelected : null]}>
-                      {expectedHarvestOn ? formatDisplayDate(expectedHarvestOn) : 'Select Date'}
-                    </Text>
-                    <Ionicons name="calendar-outline" size={18} color="#64748b" />
-                  </TouchableOpacity>
+                  <ModernDatePicker
+                    label={t('Expected Harvest Date')}
+                    value={expectedHarvestOn}
+                    onChange={(val) => setExpectedHarvestOn(val)}
+                    placeholder={t('Select Date')}
+                    minDate={startedOn || undefined}
+                  />
                 </View>
               </View>
 
               <Text style={styles.inputLabel}>
-                Season / Cycle Name <Text style={{ color: '#ef4444' }}>*</Text>
+                {t('Season / Cycle Name')} <Text style={{ color: '#ef4444' }}>*</Text>
               </Text>
               <TextInput
                 style={[styles.input, seasonNameError ? { marginBottom: 4 } : null, seasonNameError ? styles.inputErrorBorder : null]}
-                placeholder="e.g. Rabi 2026"
+                placeholder={t('e.g. Rabi 2026')}
                 placeholderTextColor="#94a3b8"
                 value={seasonName}
                 onChangeText={(text) => {
@@ -2502,10 +2525,10 @@ export default function FarmHubScreen() {
               />
               {seasonNameError ? <Text style={styles.inputErrorText}>{seasonNameError}</Text> : null}
 
-              <Text style={styles.inputLabel}>Notes</Text>
+              <Text style={styles.inputLabel}>{t('Notes')}</Text>
               <TextInput
                 style={[styles.input, styles.multilineInput]}
-                placeholder="Remarks..."
+                placeholder={t('Remarks...')}
                 placeholderTextColor="#94a3b8"
                 value={notes}
                 onChangeText={setNotes}
@@ -2515,10 +2538,10 @@ export default function FarmHubScreen() {
 
               <View style={styles.modalActions}>
                 <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setCycleModalVisible(false)}>
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                  <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.modalBtn, styles.saveBtn]} onPress={handleCreateCycle} disabled={savingCycle}>
-                  {savingCycle ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Start Cycle</Text>}
+                  {savingCycle ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>{t('Start Cycle')}</Text>}
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -3323,7 +3346,7 @@ export default function FarmHubScreen() {
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.modalHeaderRow}>
                 <Text style={styles.modalTitle}>
-                  {isEditingCycle ? 'Manage Crop Cycle' : 'Crop Cycle Details'}
+                  {isEditingCycle ? t('Manage Crop Cycle') : t('Crop Cycle Details')}
                 </Text>
                 <TouchableOpacity onPress={() => setCycleDetailVisible(false)}>
                   <Ionicons name="close" size={20} color="#64748b" />
@@ -3332,7 +3355,7 @@ export default function FarmHubScreen() {
 
               {isEditingCycle ? (
                 <View>
-                  <Text style={styles.inputLabel}>Crop Type / Name</Text>
+                  <Text style={styles.inputLabel}>{t('Crop Type / Name')}</Text>
                   <TextInput
                     style={styles.input}
                     value={editCropType}
@@ -3341,7 +3364,7 @@ export default function FarmHubScreen() {
 
                   <View style={styles.row}>
                     <View style={[styles.column, { marginRight: 10 }]}>
-                      <Text style={styles.inputLabel}>Allocated Area</Text>
+                      <Text style={styles.inputLabel}>{t('Allocated Area')}</Text>
                       <TextInput
                         style={styles.input}
                         keyboardType="decimal-pad"
@@ -3351,7 +3374,7 @@ export default function FarmHubScreen() {
                     </View>
 
                     <View style={styles.column}>
-                      <Text style={styles.inputLabel}>Area Unit</Text>
+                      <Text style={styles.inputLabel}>{t('Area Unit')}</Text>
                       <View style={styles.unitSelector}>
                         {['ACRE', 'HECTARE', 'BIGHAS', 'GUNTHAS'].map((unit) => (
                           <TouchableOpacity
@@ -3376,48 +3399,31 @@ export default function FarmHubScreen() {
                     </View>
                   </View>
 
-                  <Text style={styles.inputLabel}>Season Name</Text>
+                  <Text style={styles.inputLabel}>{t('Season Name')}</Text>
                   <TextInput
                     style={styles.input}
                     value={editSeasonName}
                     onChangeText={setEditSeasonName}
                   />
 
-                  <View style={styles.row}>
+                  <View style={[styles.row, { marginBottom: 12 }]}>
                     <View style={[styles.column, { marginRight: 10 }]}>
-                      <Text style={styles.inputLabel}>Started On Date</Text>
-                      <TouchableOpacity 
-                        style={styles.selectorRow} 
-                        onPress={() => {
-                          setCalendarTarget('editStart');
-                          setCalendarTitle('Select Started On Date');
-                          setCalendarVisible(true);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.selectorText, editStartedOn ? styles.selectorTextSelected : null]}>
-                          {editStartedOn ? formatDisplayDate(editStartedOn) : 'Select Date'}
-                        </Text>
-                        <Ionicons name="calendar-outline" size={18} color="#64748b" />
-                      </TouchableOpacity>
+                      <ModernDatePicker
+                        label={t('Started On Date')}
+                        value={editStartedOn}
+                        onChange={(val) => setEditStartedOn(val)}
+                        placeholder={t('Select Date')}
+                      />
                     </View>
 
                     <View style={styles.column}>
-                      <Text style={styles.inputLabel}>Expected Harvest Date</Text>
-                      <TouchableOpacity 
-                        style={styles.selectorRow} 
-                        onPress={() => {
-                          setCalendarTarget('editExpected');
-                          setCalendarTitle('Select Expected Harvest Date');
-                          setCalendarVisible(true);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.selectorText, editExpectedHarvestOn ? styles.selectorTextSelected : null]}>
-                          {editExpectedHarvestOn ? formatDisplayDate(editExpectedHarvestOn) : 'Select Date'}
-                        </Text>
-                        <Ionicons name="calendar-outline" size={18} color="#64748b" />
-                      </TouchableOpacity>
+                      <ModernDatePicker
+                        label={t('Expected Harvest Date')}
+                        value={editExpectedHarvestOn}
+                        onChange={(val) => setEditExpectedHarvestOn(val)}
+                        placeholder={t('Select Date')}
+                        minDate={editStartedOn || undefined}
+                      />
                     </View>
                   </View>
 
@@ -3454,25 +3460,18 @@ export default function FarmHubScreen() {
                   {/* Harvest Yield */}
                   {editCycleStatus === 'harvested' && (
                     <>
-                      <Text style={styles.inputLabel}>Actual Harvest Date</Text>
-                      <TouchableOpacity 
-                        style={styles.selectorRow} 
-                        onPress={() => {
-                          setCalendarTarget('editActual');
-                          setCalendarTitle('Select Actual Harvest Date');
-                          setCalendarVisible(true);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.selectorText, editActualHarvestOn ? styles.selectorTextSelected : null]}>
-                          {editActualHarvestOn ? formatDisplayDate(editActualHarvestOn) : 'Select Actual Harvest Date'}
-                        </Text>
-                        <Ionicons name="calendar-outline" size={18} color="#64748b" />
-                      </TouchableOpacity>
+                      <View style={{ marginBottom: 12 }}>
+                        <ModernDatePicker
+                          label={t('Actual Harvest Date')}
+                          value={editActualHarvestOn}
+                          onChange={(val) => setEditActualHarvestOn(val)}
+                          placeholder={t('Select Actual Harvest Date')}
+                        />
+                      </View>
 
                       <View style={styles.row}>
                         <View style={[styles.column, { marginRight: 10 }]}>
-                          <Text style={styles.inputLabel}>Harvest Yield Amount</Text>
+                          <Text style={styles.inputLabel}>{t('Harvest Yield Amount')}</Text>
                           <TextInput
                             style={styles.input}
                             placeholder="e.g. 450"
@@ -3483,7 +3482,7 @@ export default function FarmHubScreen() {
                           />
                         </View>
                         <View style={styles.column}>
-                          <Text style={styles.inputLabel}>Harvest Unit</Text>
+                          <Text style={styles.inputLabel}>{t('Harvest Unit')}</Text>
                           <TextInput
                             style={styles.input}
                             placeholder="e.g. KG, TONNES"
@@ -3496,7 +3495,7 @@ export default function FarmHubScreen() {
                     </>
                   )}
 
-                  <Text style={styles.inputLabel}>Notes</Text>
+                  <Text style={styles.inputLabel}>{t('Notes')}</Text>
                   <TextInput
                     style={[styles.input, styles.multilineInput]}
                     value={editCycleNotes}
@@ -3507,10 +3506,10 @@ export default function FarmHubScreen() {
 
                   <View style={styles.modalActions}>
                     <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setIsEditingCycle(false)} disabled={updatingCycle}>
-                      <Text style={styles.cancelBtnText}>Back to View</Text>
+                      <Text style={styles.cancelBtnText}>{t('Back to View')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={[styles.modalBtn, styles.saveBtn]} onPress={handleUpdateCycle} disabled={updatingCycle}>
-                      {updatingCycle ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save</Text>}
+                      {updatingCycle ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>{t('Save')}</Text>}
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -3518,15 +3517,15 @@ export default function FarmHubScreen() {
                 <View style={styles.detailsView}>
                   <View style={styles.detailCard}>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Crop Name:</Text>
+                      <Text style={styles.detailLabel}>{t('Crop Name:')}</Text>
                       <Text style={styles.detailValue}>{selectedCycle?.crop_name || selectedCycle?.crop_type || 'Unknown Crop'}</Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Allocated Area:</Text>
+                      <Text style={styles.detailLabel}>{t('Allocated Area:')}</Text>
                       <Text style={styles.detailValue}>{selectedCycle?.allocated_area} {selectedCycle?.allocated_area_unit}</Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Status:</Text>
+                      <Text style={styles.detailLabel}>{t('Status:')}</Text>
                       <Text style={[styles.detailValue, {
                         color: selectedCycle?.status?.toLowerCase() === 'active' ? '#16a34a' : selectedCycle?.status?.toLowerCase() === 'harvested' ? '#0284c7' : '#dc2626',
                         fontWeight: 'bold',
@@ -3535,26 +3534,26 @@ export default function FarmHubScreen() {
                       </Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Season:</Text>
+                      <Text style={styles.detailLabel}>{t('Season:')}</Text>
                       <Text style={styles.detailValue}>{selectedCycle?.season_name || 'N/A'}</Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Started On:</Text>
+                      <Text style={styles.detailLabel}>{t('Started On:')}</Text>
                       <Text style={styles.detailValue}>{selectedCycle?.started_on ? selectedCycle.started_on.split('T')[0] : 'N/A'}</Text>
                     </View>
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Expected Harvest:</Text>
+                      <Text style={styles.detailLabel}>{t('Expected Harvest:')}</Text>
                       <Text style={styles.detailValue}>{selectedCycle?.expected_harvest_on ? selectedCycle.expected_harvest_on.split('T')[0] : 'N/A'}</Text>
                     </View>
 
                     {selectedCycle?.status?.toLowerCase() === 'harvested' && (
                       <>
                         <View style={styles.detailRow}>
-                          <Text style={styles.detailLabel}>Actual Harvest Date:</Text>
+                          <Text style={styles.detailLabel}>{t('Actual Harvest Date:')}</Text>
                           <Text style={styles.detailValue}>{selectedCycle?.actual_harvest_on ? selectedCycle.actual_harvest_on.split('T')[0] : 'N/A'}</Text>
                         </View>
                         <View style={styles.detailRow}>
-                          <Text style={styles.detailLabel}>Harvest Yield:</Text>
+                          <Text style={styles.detailLabel}>{t('Harvest Yield:')}</Text>
                           <Text style={styles.detailValue}>{selectedCycle?.harvest_amount} {selectedCycle?.harvest_unit || ''}</Text>
                         </View>
                       </>
@@ -3562,7 +3561,7 @@ export default function FarmHubScreen() {
 
                     {selectedCycle?.notes ? (
                       <View style={{ marginTop: 8 }}>
-                        <Text style={[styles.detailLabel, { marginBottom: 4 }]}>Notes:</Text>
+                        <Text style={[styles.detailLabel, { marginBottom: 4 }]}>{t('Notes:')}</Text>
                         <Text style={[styles.detailValue, { fontWeight: 'normal', color: '#475569' }]}>{selectedCycle.notes}</Text>
                       </View>
                     ) : null}
@@ -3570,10 +3569,10 @@ export default function FarmHubScreen() {
 
                   <View style={[styles.modalActions, { gap: 10 }]}>
                     <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn, { backgroundColor: '#fee2e2' }]} onPress={() => selectedCycle && handleDeleteCycle(selectedCycle)}>
-                      <Text style={[styles.cancelBtnText, { color: '#dc2626' }]}>Delete</Text>
+                      <Text style={[styles.cancelBtnText, { color: '#dc2626' }]}>{t('Delete')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={[styles.modalBtn, styles.saveBtn]} onPress={() => setIsEditingCycle(true)}>
-                      <Text style={styles.saveBtnText}>Edit Details</Text>
+                      <Text style={styles.saveBtnText}>{t('Edit Details')}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -4233,6 +4232,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
+    paddingBottom: 96,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -5374,5 +5374,22 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e2e8f0',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#16a34a',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#16a34a',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
+    zIndex: 99,
   },
 });
